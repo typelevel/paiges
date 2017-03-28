@@ -1,7 +1,8 @@
 package com.github.johnynek.paiges
 
-import java.lang.StringBuilder
 import java.io.PrintWriter
+import java.lang.StringBuilder
+import scala.language.implicitConversions // implicit String to Doc
 
 /**
  * implementation of Wadler's classic "A Prettier Printer"
@@ -13,6 +14,7 @@ sealed abstract class Doc extends Serializable {
    * Concatenate with no space
    */
   def ++(that: Doc): Doc = Doc.concat(this, that)
+
   /**
    * synonym for line. Concatenate with a newline between
    */
@@ -30,23 +32,28 @@ sealed abstract class Doc extends Serializable {
    * Concatenate with no space
    */
   def concat(that: Doc): Doc = Doc.concat(this, that)
+
   /**
    * Consider this item as a group where before rendering
    * we can replace newlines with a space if it can fit
    */
   def group: Doc = Doc.group(this)
+
   /**
    * Concatenate with a space
    */
   def space(that: Doc): Doc = this ++ Doc.space ++ that
+
   /**
    * Concatenate with a newline
    */
   def line(that: Doc): Doc = this ++ Doc.line ++ that
+
   /**
    * Use a space if we can fit, else use a newline
    */
   def spaceOrLine(that: Doc): Doc = this ++ (Doc.spaceOrLine) ++ that
+
   /**
    * Convert the Doc to a String with a desired maximum line
    */
@@ -59,6 +66,7 @@ sealed abstract class Doc extends Serializable {
    */
   def renderStream(maxLine: Int): Stream[String] =
     Doc.renderStream(this, maxLine)
+
   /**
    * nest replaces new lines with a newline plus this amount
    * of indentation. If there are no new lines, this is a no-op
@@ -195,6 +203,9 @@ object Doc {
   /**
    * This is the second ADT introduced for efficiency reasons
    */
+  sealed abstract class Doc2 {
+    def str: String
+  }
   private object Doc2 {
     @annotation.tailrec
     def fits(width: Int, d: Stream[Doc2]): Boolean =
@@ -208,18 +219,26 @@ object Doc {
 
     def best(w: Int, d: Doc): Stream[Doc2] = {
 
+      /**
+       * This is not really tail recursive but many branches are, so
+       * we cheat below in non-tail positions
+       */
+      @annotation.tailrec
       def loop(w: Int, k: Int, lst: List[(Int, Doc)]): Stream[Doc2] = lst match {
         case Nil => Stream.empty[Doc2]
         case (i, Empty) :: z => loop(w, k, z)
         case (i, Concat(a, b)) :: z => loop(w, k, (i, a) :: (i, b) :: z)
         case (i, Nest(j, d)) :: z => loop(w, k, ((i + j), d) :: z)
-        case (i, Text(s)) :: z => Text2(s) #:: loop(w, k + s.length, z)
-        case (i, Line) :: z => Line2(i) #:: loop(w, i, z)
+        case (i, Text(s)) :: z => Text2(s) #:: cheat(w, k + s.length, z)
+        case (i, Line) :: z => Line2(i) #:: cheat(w, i, z)
         case (i, Union(x, y)) :: z =>
-          val first = loop(w, k, (i, x) :: z)
+          val first = cheat(w, k, (i, x) :: z)
           if (fits(w - k, first)) first
           else loop(w, k, (i, y) :: z)
       }
+
+      def cheat(w: Int, k: Int, lst: List[(Int, Doc)]): Stream[Doc2] =
+        loop(w, k, lst)
 
       loop(w, 0, (0, d) :: Nil)
     }
@@ -236,9 +255,6 @@ object Doc {
       if (indent <= indentMax) indentTable(indent)
       else makeIndentStr(indent)
 
-    sealed abstract class Doc2 {
-      def str: String
-    }
     case class Text2(str: String) extends Doc2
     case class Line2(indent: Int) extends Doc2 {
       def str: String = lineToStr(indent)
@@ -251,5 +267,4 @@ object Doc {
   private case class Text(str: String) extends Doc
   private case object Line extends Doc
   private case class Union(a: Doc, b: Doc) extends Doc
-
 }

@@ -66,11 +66,14 @@ the spaces""")
 
   test("fillWords can == .map('\\n' => ' ')") {
     forAll { (str: String) =>
-      val newLineToSpace = str.map {
-        case '\n' => ' '
-        case other => other
-      }
-      assert(Doc.fillWords(str).render(str.length) == newLineToSpace)
+      // this test fails if str is all newlines (e.g. "\n")
+      if (str.exists(_ != '\n')) {
+        val newLineToSpace = str.map {
+          case '\n' => ' '
+          case other => other
+        }
+        assert(Doc.fillWords(str).render(str.length) == newLineToSpace)
+      } else succeed
     }
   }
 
