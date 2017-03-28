@@ -36,6 +36,21 @@ c""")
     assert(d2.render(100) == words.mkString("", " ", "\n") ++ ("  love, Oscar"))
   }
 
+
+  test("test paragraph") {
+    val p = Doc.paragraph("This  is      some crazy\n text that should       loook super normal\n\n after we get rid of      the spaces")
+    assert(p.render(10) == """This is
+some crazy
+text that
+should
+loook
+super
+normal
+after we
+get rid of
+the spaces""")
+  }
+
   test("concat is associative") {
     forAll { (a: Doc, b: Doc, c: Doc, width: Int) =>
       assert(((a ++ b) ++ c).render(width) ==
@@ -72,6 +87,27 @@ c""")
         s"$a $b")
     }
   }
+
+  test("test json array example") {
+    val items = (0 to 20).map(Doc(_))
+    val parts = Doc.fill(Doc.comma, items)
+    val ary = Doc("[") ++ ((parts ++ Doc("]")).nest(2))
+    assert(ary.render(1000) == (0 to 20).mkString("[", ", ", "]"))
+    val expect = """[0, 1, 2, 3, 4, 5,
+                   |  6, 7, 8, 9, 10,
+                   |  11, 12, 13, 14,
+                   |  15, 16, 17, 18,
+                   |  19, 20]""".stripMargin
+    assert(ary.render(20) == expect)
+  }
+
+  test("test json map example") {
+    val kvs = (0 to 20).map { i => Doc("\"%s\": %s".format(s"key$i", i)) }
+    val parts = Doc.fill(Doc.comma, kvs)
+    val map = parts.bracketBy("{", "}")
+    assert(map.render(1000) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.mkString("{ ", ", ", " }"))
+    assert(map.render(20) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.map("  " + _).mkString("{\n", ",\n", "\n}"))
+  }
 }
 
 object Generators {
@@ -89,7 +125,8 @@ object Generators {
     (10, asciiString.map(Doc(_))),
     (10, generalString.map(Doc(_))),
     (3, asciiString.map(Doc.fillWords(_))),
-    (3, generalString.map(Doc.fillWords(_)))
+    (3, generalString.map(Doc.fillWords(_))),
+    (3, generalString.map(Doc.paragraph(_)))
     )
 
   val combinators: Gen[(Doc, Doc) => Doc] =
@@ -105,7 +142,7 @@ object Generators {
 
   val folds: Gen[(List[Doc] => Doc)] =
     Gen.oneOf(
-    { ds: List[Doc] => Doc.fill(ds) },
+    { ds: List[Doc] => Doc.fill(Doc.empty, ds) },
     { ds: List[Doc] => Doc.spread(ds) },
     { ds: List[Doc] => Doc.stack(ds) })
 
@@ -114,7 +151,7 @@ object Generators {
     if (depth <= 0) doc0Gen
     else Gen.frequency(
       // bias to simple stuff
-      (10, doc0Gen),
+      (6, doc0Gen),
       (1,
         for {
           u <- unary
@@ -129,7 +166,7 @@ object Generators {
       (1,
         for {
         fold <- folds
-        num <- Gen.choose(0, 10)
+        num <- Gen.choose(0, 20)
         ds <- Gen.listOfN(num, Gen.lzy(genTree(depth - 1)))
       } yield fold(ds)))
 
