@@ -3,16 +3,20 @@ package com.github.johnynek.paiges
 import java.lang.StringBuilder
 import java.io.PrintWriter
 
+import scala.annotation.tailrec
+
 /**
  * implementation of Wadler's classic "A Prettier Printer"
  *
  * http://homepages.inf.ed.ac.uk/wadler/papers/prettier/prettier.pdf
  */
 sealed abstract class Doc {
+
   /**
    * Concatenate with no space
    */
   def ++(that: Doc): Doc = Doc.concat(this, that)
+
   /**
    * synonym for line. Concatenate with a newline between
    */
@@ -133,11 +137,11 @@ object Doc {
    * intercalate with a space
    */
   def spread(ds: Iterable[Doc]): Doc = intercalate(space, ds)
+
   /**
    * intercalate with a newline
    */
   def stack(ds: Iterable[Doc]): Doc = intercalate(line, ds)
-
 
   /**
    * This returns a new doc where we can replace line with space
@@ -146,101 +150,68 @@ object Doc {
   def group(doc: Doc): Doc = Union(flatten(doc), doc)
 
   def render(d: Doc, width: Int): String =
-    Doc2.layout(Doc2.best(width, d))
+    D2.layout(D2.best(width, d), new StringBuilder)(_ append _, _.toString)
 
   def write(d: Doc, width: Int, pw: PrintWriter): Unit =
-    Doc2.write(Doc2.best(width, d), pw)
+    D2.layout(D2.best(width, d), pw)(_ append _, _ => ())
 
-  private def flatten(doc: Doc): Doc = doc match {
-    case Empty => Empty
-    case Concat(a, b) => Concat(flatten(a), flatten(b))
-    case Nest(i, d) => Nest(i, flatten(d))
-    case str@Text(_) => str
-    case Line => space
-    case Union(a, _) => a
-  }
-
-
-  /**
-   * This is the second ADT introduced for efficiency reasons
-   */
-  private sealed abstract class Doc2
-  private object Doc2 {
-    @annotation.tailrec
-    def fits(width: Int, d: Doc2): Boolean = (width, d) match {
-      case (w, _) if w < 0 => false
-      case (w, Empty2) => true
-      case (w, Line2(_, _)) => true
-      case (w, Text2(s, d)) => fits(w - s.length, d)
+  private def flatten(doc: Doc): Doc =
+    doc match {
+      case Empty => Empty
+      case Concat(a, b) => Concat(flatten(a), flatten(b))
+      case Nest(i, d) => Nest(i, flatten(d))
+      case str@Text(_) => str
+      case Line => space
+      case Union(a, _) => a
     }
 
-    def layout(doc: Doc2): String = {
-      val bldr = new StringBuilder
-      @annotation.tailrec
-      def go(d: Doc2): Unit = d match {
-        case Empty2 => ()
-        case Line2(indent, next) =>
-          bldr.append('\n')
-          if (indent > 0) {
-            bldr.append(" " * indent)
-          }
-          go(next)
-        case Text2(s, next) =>
-          bldr.append(s)
-          go(next)
+  private[paiges] sealed abstract class D2
+
+  private[paiges] object D2 {
+
+    case class Line(indent: Int) extends D2
+    case class Text(s: String) extends D2
+
+    @tailrec def fits(width: Int, toks: Stream[D2]): Boolean =
+      toks match {
+        case _ if width < 0 => false
+        case D2.Text(s) #:: rest => fits(width - s.length, rest)
+        case _ => true
       }
-      go(doc)
-      bldr.toString
-    }
 
-    def write(doc: Doc2, pw: PrintWriter): Unit = {
-      @annotation.tailrec
-      def go(d: Doc2): Unit = d match {
-        case Empty2 => ()
-        case Line2(indent, next) =>
-          pw.append('\n')
-          if (indent > 0) {
-            pw.append(" " * indent)
-          }
-          go(next)
-        case Text2(s, next) =>
-          pw.append(s)
-          go(next)
+    @tailrec def layout[C, R](toks: Stream[D2], context: C)(write: (C, String) => Unit, finish: C => R): R =
+      toks match {
+        case D2.Text(s) #:: tail =>
+          write(context, s)
+          layout(tail, context)(write, finish)
+        case D2.Line(indent) #:: tail =>
+          write(context, "\n")
+          if (indent > 0) write(context, " " * indent)
+          layout(tail, context)(write, finish)
+        case _ =>
+          finish(context)
       }
-      go(doc)
+
+    def best(w: Int, d: Doc): Stream[D2] = {
+      def recur(w: Int, k: Int, lst: List[(Int, Doc)]): Stream[D2] =
+        lst match {
+          case Nil =>
+            Stream.empty
+          case (i, doc) :: rest =>
+            doc match {
+              case Doc.Empty => recur(w, k, rest)
+              case Doc.Concat(d1, d2) => recur(w, k, (i, d1) :: (i, d2) :: rest)
+              case Doc.Nest(j, d) => recur(w, k, ((i + j), d) :: rest)
+              case Doc.Text(s) => D2.Text(s) #:: recur(w, k + s.length, rest)
+              case Doc.Line => D2.Line(i) #:: recur(w, i, rest)
+              case Doc.Union(d1, d2) =>
+                val first = recur(w, k, (i, d1) :: rest)
+                if (fits(w - k, first)) first else recur(w, k, (i, d2) :: rest)
+            }
+        }
+
+      recur(w, 0, (0, d) :: Nil)
     }
-
-    def best(w: Int, d: Doc): Doc2 = {
-
-      @annotation.tailrec
-      def loop(w: Int, k: Int, lst: List[(Int, Doc)], stack: List[Doc2 => Doc2]): Doc2 = lst match {
-        case Nil => Empty2
-          @annotation.tailrec
-          def unwind(d: Doc2, s: List[Doc2 => Doc2]): Doc2 = s match {
-            case Nil => d
-            case h :: tail => unwind(h(d), tail)
-          }
-          unwind(Empty2, stack)
-        case (i, Empty) :: z => loop(w, k, z, stack)
-        case (i, Concat(a, b)) :: z => loop(w, k, (i, a) :: (i, b) :: z, stack)
-        case (i, Nest(j, d)) :: z => loop(w, k, ((i + j), d) :: z, stack)
-        case (i, Text(s)) :: z => loop(w, k + s.length, z, { d: Doc2 => Text2(s, d) } :: stack)
-        case (i, Line) :: z => loop(w, i, z, { d: Doc2 => Line2(i, d) } :: stack)
-        case (i, Union(x, y)) :: z =>
-          val first = cheat(w, k, (i, x) :: z, stack)
-          if (fits(w - k, first)) first
-          else loop(w, k, (i, y) :: z, stack)
-      }
-      // This is to cheat on tailrec
-      def cheat(w: Int, k: Int, lst: List[(Int, Doc)], stack: List[Doc2 => Doc2]): Doc2 =
-        loop(w, k, lst, stack)
-
-      loop(w, 0, (0, d) :: Nil, Nil)
-    }
-
-    case object Empty2 extends Doc2
-    case class Line2(indent: Int, next: Doc2) extends Doc2
-    case class Text2(str: String, next: Doc2) extends Doc2
   }
 
   private case object Empty extends Doc
@@ -249,5 +220,4 @@ object Doc {
   private case class Text(str: String) extends Doc
   private case object Line extends Doc
   private case class Union(a: Doc, b: Doc) extends Doc
-
 }
