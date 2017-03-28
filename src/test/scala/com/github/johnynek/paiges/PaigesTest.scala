@@ -140,7 +140,9 @@ object Generators {
     { (a: Doc, b: Doc) => a spaceOrLine b })
 
   val unary: Gen[Doc => Doc] =
-    Gen.oneOf( Gen.const({ d: Doc => d.group }),
+    Gen.oneOf(
+      Gen.const({ d: Doc => d.group }),
+      Gen.const({ d: Doc => Doc.spaceGroup(d) }),
       Gen.choose(0, 40).map { i => { d: Doc => d.nest(i) } })
 
   val folds: Gen[(List[Doc] => Doc)] =
