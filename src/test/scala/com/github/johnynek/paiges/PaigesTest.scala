@@ -50,12 +50,20 @@ c""")
   }
 
   test("fillWords can == .map('\\n' => ' ')") {
+    val AllNewlines = """\n+""".r
     forAll { (str: String) =>
-      val newLineToSpace = str.map {
-        case '\n' => ' '
-        case other => other
+      // this test fails if str is all newlines (e.g. "\n")
+      if (str.exists(_ != '\n')) {
+        val newLineToSpace = str.map {
+          case '\n' => ' '
+          case other => other
+        }
+        val r = Doc.fillWords(str).render(str.length)
+        if (r != newLineToSpace) {
+          println(s"input was: $str (${str.length} chars)")
+        }
+        assert(r == newLineToSpace)
       }
-      assert(Doc.fillWords(str).render(str.length) == newLineToSpace)
     }
   }
 

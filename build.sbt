@@ -8,6 +8,7 @@ lazy val root = (project in file(".")).
       version      := "0.1.0-SNAPSHOT"
     )),
     name := "Paiges",
+    scalacOptions := Seq("-feature", "-language:_"),
     libraryDependencies ++=
       List(scalaTest % Test,
         scalaCheck % Test)
