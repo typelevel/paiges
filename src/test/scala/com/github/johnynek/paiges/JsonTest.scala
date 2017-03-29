@@ -32,7 +32,7 @@ object Json {
   }
   case class JArray(toVector: Vector[Json]) extends Json {
     def toDoc = {
-      val parts = Doc.intercalate(Doc.comma, toVector.map { j => Doc.spaceGroup(j.toDoc) })
+      val parts = Doc.intercalate(Doc.comma, toVector.map { j => (Doc.line ++ j.toDoc).group })
       Doc("[") ++ ((parts ++ Doc(" ]")).nest(2))
     }
   }
