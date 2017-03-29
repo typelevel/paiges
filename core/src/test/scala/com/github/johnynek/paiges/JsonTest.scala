@@ -54,8 +54,27 @@ class JsonTest extends FunSuite {
     val inner = JArray((1 to 20).map { i => JNumber(i.toDouble) }.toVector)
     val outer = JArray(Vector(inner, inner, inner))
 
-    assert(outer.toDoc.render(20) ==
-"""[
+    if (1.0.toString == "1") {
+      assert(outer.toDoc.render(20) == """[
+  [ 1, 2, 3, 4, 5,
+    6, 7, 8, 9, 10,
+    11, 12, 13, 14,
+    15, 16, 17, 18,
+    19, 20 ],
+  [ 1, 2, 3, 4, 5,
+    6, 7, 8, 9, 10,
+    11, 12, 13, 14,
+    15, 16, 17, 18,
+    19, 20 ],
+  [ 1, 2, 3, 4, 5,
+    6, 7, 8, 9, 10,
+    11, 12, 13, 14,
+    15, 16, 17, 18,
+    19, 20 ] ]""")
+
+
+    } else {
+      assert(outer.toDoc.render(20) == """[
   [ 1.0, 2.0, 3.0,
     4.0, 5.0, 6.0,
     7.0, 8.0, 9.0,
@@ -83,5 +102,6 @@ class JsonTest extends FunSuite {
     16.0, 17.0,
     18.0, 19.0,
     20.0 ] ]""")
+    }
   }
 }

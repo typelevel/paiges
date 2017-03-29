@@ -1,14 +1,99 @@
-import Dependencies._
+lazy val noPublish = Seq(
+  publish := {},
+  publishLocal := {},
+  publishArtifact := false)
 
-lazy val root = (project in file(".")).
-  settings(
-    inThisBuild(List(
-      organization := "com.github.johnynek",
-      scalaVersion := "2.12.1",
-      version      := "0.1.0-SNAPSHOT"
-    )),
-    name := "Paiges",
-    libraryDependencies ++=
-      List(scalaTest % Test,
-        scalaCheck % Test)
-  )
+lazy val paigesSettings = Seq(
+  organization := "com.github.johnynek",
+  scalaVersion := "2.12.1",
+  crossScalaVersions := Seq("2.10.6", "2.11.8", "2.12.1"),
+  libraryDependencies ++= Seq(
+    "org.scalatest" %%% "scalatest" % "3.0.1" % Test,
+    "org.scalacheck" %%% "scalacheck" % "1.13.5" % Test),
+  scalacOptions ++= Seq(
+    "-deprecation",
+    "-encoding", "UTF-8",
+    "-feature",
+    "-language:existentials",
+    "-language:higherKinds",
+    "-language:implicitConversions",
+    "-language:experimental.macros",
+    "-unchecked",
+    "-Xfatal-warnings",
+    "-Xlint",
+    "-Yno-adapted-args",
+    "-Ywarn-dead-code",
+    "-Ywarn-numeric-widen",
+    "-Ywarn-value-discard",
+    "-Xfuture"))
+
+lazy val commonJvmSettings = Seq(
+  testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oDF"))
+
+lazy val commonJsSettings = Seq(
+  scalaJSStage in Global := FastOptStage,
+  parallelExecution := false,
+  requiresDOM := false,
+  jsEnv := NodeJSEnv().value,
+  // batch mode decreases the amount of memory needed to compile scala.js code
+  scalaJSOptimizerOptions := scalaJSOptimizerOptions.value.withBatchMode(scala.sys.env.get("TRAVIS").isDefined))
+
+lazy val paiges = project
+  .in(file("."))
+  .settings(name := "root")
+  .settings(paigesSettings: _*)
+  .settings(noPublish: _*)
+  .aggregate(paigesJVM, paigesJS)
+  .dependsOn(paigesJVM, paigesJS)
+
+lazy val paigesJVM = project
+  .in(file(".paigesJVM"))
+  .settings(moduleName := "paiges")
+  .settings(paigesSettings)
+  .settings(commonJvmSettings)
+  .aggregate(coreJVM, algebraJVM, benchmark)
+  .dependsOn(coreJVM, algebraJVM, benchmark)
+
+lazy val paigesJS = project
+  .in(file(".paigesJS"))
+  .settings(moduleName := "paiges")
+  .settings(paigesSettings)
+  .settings(commonJsSettings)
+  .aggregate(coreJS, algebraJS)
+  .dependsOn(coreJS, algebraJS)
+  .enablePlugins(ScalaJSPlugin)
+
+lazy val core = crossProject.crossType(CrossType.Pure)
+  .in(file("core"))
+  .settings(name := "paiges-core")
+  .settings(moduleName := "paiges-core")
+  .settings(paigesSettings: _*)
+  .disablePlugins(JmhPlugin)
+  .jsSettings(commonJsSettings:_*)
+  .jvmSettings(commonJvmSettings:_*)
+
+lazy val coreJVM = core.jvm
+lazy val coreJS = core.js
+
+lazy val algebra = crossProject.crossType(CrossType.Pure)
+  .in(file("algebra"))
+  .dependsOn(core % "compile->compile;test->test")
+  .settings(name := "paiges-algebra")
+  .settings(moduleName := "paiges-algebra")
+  .settings(paigesSettings: _*)
+  .settings(libraryDependencies ++= Seq(
+    "org.typelevel" %%% "algebra" % "0.7.0",
+    "org.typelevel" %%% "algebra-laws" % "0.7.0" % Test))
+  .disablePlugins(JmhPlugin)
+  .jsSettings(commonJsSettings:_*)
+  .jvmSettings(commonJvmSettings:_*)
+
+lazy val algebraJVM = algebra.jvm
+lazy val algebraJS = algebra.js
+
+lazy val benchmark = project.in(file("benchmark"))
+  .dependsOn(coreJVM, algebraJVM)
+  .settings(name := "paiges-benchmark")
+  .settings(paigesSettings: _*)
+  .settings(noPublish: _*)
+  .enablePlugins(JmhPlugin)
