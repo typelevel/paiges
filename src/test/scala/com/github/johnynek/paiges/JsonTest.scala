@@ -10,6 +10,8 @@ sealed abstract class Json {
 }
 
 object Json {
+  import Doc.{text, str}
+
   def escape(str: String): String =
     str.flatMap {
       case '\\' => "\\\\"
@@ -19,30 +21,30 @@ object Json {
     }
 
   case class JString(str: String) extends Json {
-    def toDoc = Doc("\"%s\"".format(escape(str)))
+    def toDoc = text("\"%s\"".format(escape(str)))
   }
   case class JNumber(toDouble: Double) extends Json {
-    def toDoc = Doc(toDouble)
+    def toDoc = str(toDouble)
   }
   case class JBool(toBoolean: Boolean) extends Json {
-    def toDoc = Doc(toBoolean)
+    def toDoc = str(toBoolean)
   }
   case object JNull extends Json {
-    def toDoc = Doc("null")
+    def toDoc = text("null")
   }
   case class JArray(toVector: Vector[Json]) extends Json {
     def toDoc = {
-      val parts = Doc.intercalate(Doc.comma, toVector.map { j => (Doc.line ++ j.toDoc).group })
-      Doc("[") ++ ((parts ++ Doc(" ]")).nest(2))
+      val parts = Doc.intercalate(Doc.comma, toVector.map { j => (Doc.line +: j.toDoc).group })
+      "[" +: ((parts :+ " ]").nest(2))
     }
   }
   case class JObject(toMap: Map[String, Json]) extends Json {
     def toDoc = {
       val kvs = toMap.map { case (s, j) =>
-        JString(s).toDoc ++ Doc(":") ++ ((Doc.spaceOrLine ++ j.toDoc).nest(2))
+        JString(s).toDoc +: text(":") +: ((Doc.spaceOrLine +: j.toDoc).nest(2))
       }
       val parts = Doc.fill(Doc.comma, kvs)
-      parts.bracketBy("{", "}")
+      parts.bracketBy(text("{"), text("}"))
     }
   }
 }

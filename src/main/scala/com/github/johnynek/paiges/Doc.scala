@@ -2,7 +2,6 @@ package com.github.johnynek.paiges
 
 import java.io.PrintWriter
 import java.lang.StringBuilder
-import scala.language.implicitConversions // implicit String to Doc
 
 /**
  * implementation of Wadler's classic "A Prettier Printer"
@@ -12,13 +11,30 @@ import scala.language.implicitConversions // implicit String to Doc
 sealed abstract class Doc extends Serializable {
   /**
    * Concatenate with no space
+   * We use `+:` for right associativity which is more efficient.
    */
-  def ++(that: Doc): Doc = Doc.concat(this, that)
+  def +:(that: Doc): Doc = Doc.concat(that, this)
+
+  /**
+   * Convert the String to a Doc and concat
+   */
+  def :+(text: String): Doc =
+    Doc.concat(this, Doc.text(text))
+
+  /**
+   * Convert the String to a Doc and concat
+   */
+  def +:(init: String): Doc =
+    Doc.concat(Doc.text(init), this)
 
   /**
    * synonym for line. Concatenate with a newline between
    */
   def /(that: Doc): Doc = line(that)
+  /**
+   * synonym for line. Concatenate with a newline between
+   */
+  def /(str: String): Doc = line(Doc.text(str))
 
   /**
    * Try to make this left.space(this).space(right)
@@ -26,7 +42,7 @@ sealed abstract class Doc extends Serializable {
    * use newline
    */
   def bracketBy(left: Doc, right: Doc): Doc =
-    (left ++ ((Doc.line ++ this).nest(2) ++ (Doc.line ++ right))).group
+    (left +: ((Doc.line +: this).nest(2) +: (Doc.line +: right))).group
 
   /**
    * Concatenate with no space
@@ -42,17 +58,32 @@ sealed abstract class Doc extends Serializable {
   /**
    * Concatenate with a space
    */
-  def space(that: Doc): Doc = this ++ Doc.space ++ that
+  def space(that: Doc): Doc = this +: Doc.space +: that
+
+  /**
+   * Concatenate with a space
+   */
+  def space(that: String): Doc = this +: Doc.space +: Doc.text(that)
 
   /**
    * Concatenate with a newline
    */
-  def line(that: Doc): Doc = this ++ Doc.line ++ that
+  def line(that: Doc): Doc = this +: Doc.line +: that
+
+  /**
+   * Concatenate with a newline
+   */
+  def line(str: String): Doc = line(Doc.text(str))
 
   /**
    * Use a space if we can fit, else use a newline
    */
-  def spaceOrLine(that: Doc): Doc = this ++ (Doc.spaceOrLine) ++ that
+  def spaceOrLine(that: Doc): Doc = this +: (Doc.spaceOrLine) +: that
+
+  /**
+   * Use a space if we can fit, else use a newline
+   */
+  def spaceOrLine(that: String): Doc = spaceOrLine(Doc.text(that))
 
   /**
    * Convert the Doc to a String with a desired maximum line
@@ -94,15 +125,16 @@ object Doc {
 
   val space: Doc = spaceArray(0)
 
-  val comma: Doc = Doc(",")
+  val comma: Doc = Doc.text(",")
   val line: Doc = Line
   val spaceOrLine: Doc = Union(space, line)
   val empty: Doc = Empty
 
   /**
-   * An implicit to use strings as Docs in call-sites
+   * Convert a string to text. Note all `\n` are converted
+   * to logical entities that the rendering is aware of.
    */
-  implicit def fromString(str: String): Doc =
+  def text(str: String): Doc =
     if (str == "") empty
     else if (str == " ") space
     else if (str == "\n") line
@@ -120,8 +152,8 @@ object Doc {
    * converted to a Line and is treated specially
    * by this code
    */
-  def apply[T](t: T): Doc =
-    fromString(t.toString)
+  def str[T](t: T): Doc =
+    text(t.toString)
 
   /*
    * A variant of fillwords is fill , which collapses a list of documents into a
@@ -133,7 +165,7 @@ object Doc {
       case Nil => Empty
       case x :: Nil => x
       case x :: y :: tail =>
-        val xsep = x ++ sep
+        val xsep = x +: sep
         val first = flatten(xsep).space(fillRec(flatten(y) :: tail))
         val second = xsep.line(fillRec(y :: tail))
         Union(first, second)
@@ -146,13 +178,13 @@ object Doc {
    * with newline
    */
   def fillWords(s: String): Doc =
-    foldDoc(s.split(" ", -1).map(apply))(_.spaceOrLine(_))
+    foldDoc(s.split(" ", -1).map(text))(_.spaceOrLine(_))
 
   /**
    * split on `\s+` and foldDoc with spaceOrLine
    */
   def paragraph(s: String): Doc =
-    foldDoc(s.split("\\s+", -1).map(apply))(_.spaceOrLine(_))
+    foldDoc(s.split("\\s+", -1).map(text))(_.spaceOrLine(_))
 
   def concat(a: Doc, b: Doc): Doc = Concat(a, b)
 
@@ -160,7 +192,7 @@ object Doc {
     ds.reduceOption(fn).getOrElse(Empty)
 
   def intercalate(d: Doc, ds: Iterable[Doc]): Doc =
-    foldDoc(ds) { (a, b) => a ++ (d ++ b) }
+    foldDoc(ds) { (a, b) => a +: (d +: b) }
 
   /**
    * intercalate with a space
