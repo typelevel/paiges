@@ -2,6 +2,7 @@ package com.github.johnynek.paiges
 
 import java.io.PrintWriter
 import java.lang.StringBuilder
+import scala.annotation.tailrec
 import scala.language.implicitConversions // implicit String to Doc
 
 /**
@@ -98,7 +99,7 @@ sealed abstract class Doc extends Serializable {
       if (s.startsWith(part)) Some(Tok.Text(s.substring(part.length)))
       else None
 
-    def loop(xs: Stream[Tok], ys: Stream[Tok]): Int =
+    @tailrec def loop(xs: Stream[Tok], ys: Stream[Tok]): Int =
       (xs, ys) match {
         case (Stream.Empty, Stream.Empty) => 0
         case (Stream.Empty, _) => -1
@@ -109,18 +110,18 @@ sealed abstract class Doc extends Serializable {
         case (Tok.Line(_) #:: _, _) => -1
         case (_, Tok.Line(_) #:: _) => 1
         case (Tok.Text(s1) #:: xs, Tok.Text(s2) #:: ys) =>
-          lazy val c = s1 compare s2
           if (s1.length == s2.length) {
+            val c = s1 compare s2
             if (c == 0) loop(xs, ys) else c
           } else if (s1.length < s2.length) {
             extract(s2, s1) match {
               case Some(t) => loop(xs, t #:: ys)
-              case None => c
+              case None => s1 compare s2
             }
           } else {
             extract(s1, s2) match {
               case Some(t) => loop(t #:: xs, ys)
-              case None => c
+              case None => s1 compare s2
             }
           }
       }
@@ -270,7 +271,7 @@ object Doc {
   }
 
   private object Doc2 {
-    @annotation.tailrec
+    @tailrec
     def fits(width: Int, d: Stream[Doc2]): Boolean =
       (width >= 0) && {
         if (d.isEmpty) true
@@ -286,7 +287,7 @@ object Doc {
        * This is not really tail recursive but many branches are, so
        * we cheat below in non-tail positions
        */
-      @annotation.tailrec
+      @tailrec
       def loop(w: Int, k: Int, lst: List[(Int, Doc)]): Stream[Doc2] = lst match {
         case Nil => Stream.empty[Doc2]
         case (i, Empty) :: z => loop(w, k, z)
