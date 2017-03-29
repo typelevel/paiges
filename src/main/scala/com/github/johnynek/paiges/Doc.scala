@@ -177,6 +177,13 @@ object Doc {
    */
   def group(doc: Doc): Doc = Union(flatten(doc), doc)
 
+  /**
+   * Either take the current Doc and remove all lines
+   * and prefix with a space, or prefix with a newline.
+   */
+  def spaceGroup(doc: Doc): Doc =
+    Union(Doc.space ++ flatten(doc), Doc.line ++ doc)
+
   def renderStream(d: Doc, width: Int): Stream[String] =
     Doc2.best(width, d).map(_.str)
 
