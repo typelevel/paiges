@@ -7,19 +7,21 @@ import org.scalacheck.{Arbitrary, Gen}
 class PaigesTest extends FunSuite {
   import Generators._
 
+  import Doc.text
+
   test("basic test") {
-     assert((Doc("hello") ++ Doc("world")).render(100) == "helloworld")
+     assert((text("hello") +: text("world")).render(100) == "helloworld")
   }
 
   test("nest test") {
-    assert((Doc("yo") ++ (Doc("yo\nho\nho").nest(2))).render(100) ==
+    assert((text("yo") +: (text("yo\nho\nho").nest(2))).render(100) ==
 """yoyo
   ho
   ho""")
   }
 
   test("paper example") {
-    val g = Doc("hello").line("a").group.line("b").group.line("c").group
+    val g = text("hello").line("a").group.line("b").group.line("c").group
     assert(g.render(5) ==
 """hello
 a
@@ -31,9 +33,9 @@ c""")
   test("nesting with fillWords") {
     val words = List("this", "is", "a", "test", "of", "a", "block", "of", "text")
     val d1 = Doc.fillWords(words.mkString(" "))
-    val d2 = d1 ++ (Doc.line ++ "love, Oscar").nest(2)
-    assert(d2.render(0) == words.mkString("", "\n", "\n") ++ ("  love, Oscar"))
-    assert(d2.render(100) == words.mkString("", " ", "\n") ++ ("  love, Oscar"))
+    val d2 = d1 +: (Doc.line :+ "love, Oscar").nest(2)
+    assert(d2.render(0) == words.mkString("", "\n", "\n  love, Oscar"))
+    assert(d2.render(100) == words.mkString("", " ", "\n  love, Oscar"))
   }
 
 
@@ -53,14 +55,14 @@ the spaces""")
 
   test("concat is associative") {
     forAll { (a: Doc, b: Doc, c: Doc, width: Int) =>
-      assert(((a ++ b) ++ c).render(width) ==
-        (a ++ (b ++ c)).render(width))
+      assert(((a +: b) +: c).render(width) ==
+        (a +: (b +: c)).render(width))
     }
   }
   test("empty does not change things") {
     forAll { (a: Doc, width: Int) =>
-      assert((a ++ Doc.empty).render(width) == a.render(width))
-      assert((Doc.empty ++ a).render(width) == a.render(width))
+      assert((a +: Doc.empty).render(width) == a.render(width))
+      assert((Doc.empty +: a).render(width) == a.render(width))
     }
   }
 
@@ -79,22 +81,22 @@ the spaces""")
 
   test("line works as expected") {
     forAll { (a: String, b: String) =>
-      assert((Doc(a) line Doc(b)).render(0) ==
+      assert((text(a) line b).render(0) ==
         s"$a\n$b")
     }
   }
 
   test("space works as expected") {
     forAll { (a: String, b: String) =>
-      assert((Doc(a) space Doc(b)).render(0) ==
+      assert((text(a) space b).render(0) ==
         s"$a $b")
     }
   }
 
   test("test json array example") {
-    val items = (0 to 20).map(Doc(_))
+    val items = (0 to 20).map(Doc.str(_))
     val parts = Doc.fill(Doc.comma, items)
-    val ary = Doc("[") ++ ((parts ++ Doc("]")).nest(2))
+    val ary = "[" +: ((parts :+ "]").nest(2))
     assert(ary.render(1000) == (0 to 20).mkString("[", ", ", "]"))
     val expect = """[0, 1, 2, 3, 4, 5,
                    |  6, 7, 8, 9, 10,
@@ -105,15 +107,17 @@ the spaces""")
   }
 
   test("test json map example") {
-    val kvs = (0 to 20).map { i => Doc("\"%s\": %s".format(s"key$i", i)) }
+    val kvs = (0 to 20).map { i => text("\"%s\": %s".format(s"key$i", i)) }
     val parts = Doc.fill(Doc.comma, kvs)
-    val map = parts.bracketBy("{", "}")
+    val map = parts.bracketBy(Doc.text("{"), Doc.text("}"))
     assert(map.render(1000) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.mkString("{ ", ", ", " }"))
     assert(map.render(20) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.map("  " + _).mkString("{\n", ",\n", "\n}"))
   }
 }
 
 object Generators {
+  import Doc.{ str, text }
+
   val asciiString: Gen[String] =
     Gen.listOf(Gen.choose(32.toChar, 126.toChar)).map(_.mkString)
 
@@ -125,8 +129,8 @@ object Generators {
     (1, Doc.space),
     (1, Doc.line),
     (1, Doc.spaceOrLine),
-    (10, asciiString.map(Doc(_))),
-    (10, generalString.map(Doc(_))),
+    (10, asciiString.map(text(_))),
+    (10, generalString.map(text(_))),
     (3, asciiString.map(Doc.fillWords(_))),
     (3, generalString.map(Doc.fillWords(_))),
     (3, generalString.map(Doc.paragraph(_)))
