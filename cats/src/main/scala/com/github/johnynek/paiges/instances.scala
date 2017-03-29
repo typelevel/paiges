@@ -1,6 +1,6 @@
 package com.github.johnynek.paiges
 
-import algebra.Monoid
+import cats.kernel.Monoid
 
 package object instances {
   implicit val paigesDocMonoid: Monoid[Doc] =
