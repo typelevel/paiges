@@ -51,6 +51,19 @@ get rid of
 the spaces""")
   }
 
+  test("(x compare y) = (x.render(w) compare y.render(w))") {
+    forAll { (a: Doc, b: Doc, width: Int) =>
+      val sa = a.render(width)
+      val sb = b.render(width)
+
+      // we only care about three possible cases
+      def cmp(c: Int): Int =
+        if (c > 0) 1 else if (c < 0) -1 else 0
+
+      assert(cmp(a compare b) == cmp(sa compare sb))
+    }
+  }
+
   test("concat is associative") {
     forAll { (a: Doc, b: Doc, c: Doc, width: Int) =>
       assert(((a ++ b) ++ c).render(width) ==
