@@ -51,16 +51,16 @@ lazy val paigesJVM = project
   .settings(moduleName := "paiges")
   .settings(paigesSettings)
   .settings(commonJvmSettings)
-  .aggregate(coreJVM, algebraJVM, benchmark)
-  .dependsOn(coreJVM, algebraJVM, benchmark)
+  .aggregate(coreJVM, catsJVM, benchmark)
+  .dependsOn(coreJVM, catsJVM, benchmark)
 
 lazy val paigesJS = project
   .in(file(".paigesJS"))
   .settings(moduleName := "paiges")
   .settings(paigesSettings)
   .settings(commonJsSettings)
-  .aggregate(coreJS, algebraJS)
-  .dependsOn(coreJS, algebraJS)
+  .aggregate(coreJS, catsJS)
+  .dependsOn(coreJS, catsJS)
   .enablePlugins(ScalaJSPlugin)
 
 lazy val core = crossProject.crossType(CrossType.Pure)
@@ -75,24 +75,24 @@ lazy val core = crossProject.crossType(CrossType.Pure)
 lazy val coreJVM = core.jvm
 lazy val coreJS = core.js
 
-lazy val algebra = crossProject.crossType(CrossType.Pure)
-  .in(file("algebra"))
+lazy val cats = crossProject.crossType(CrossType.Pure)
+  .in(file("cats"))
   .dependsOn(core % "compile->compile;test->test")
-  .settings(name := "paiges-algebra")
-  .settings(moduleName := "paiges-algebra")
+  .settings(name := "paiges-cats")
+  .settings(moduleName := "paiges-cats")
   .settings(paigesSettings: _*)
   .settings(libraryDependencies ++= Seq(
-    "org.typelevel" %%% "algebra" % "0.7.0",
-    "org.typelevel" %%% "algebra-laws" % "0.7.0" % Test))
+    "org.typelevel" %%% "cats-kernel" % "0.9.0",
+    "org.typelevel" %%% "cats-kernel-laws" % "0.9.0" % Test))
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings:_*)
   .jvmSettings(commonJvmSettings:_*)
 
-lazy val algebraJVM = algebra.jvm
-lazy val algebraJS = algebra.js
+lazy val catsJVM = cats.jvm
+lazy val catsJS = cats.js
 
 lazy val benchmark = project.in(file("benchmark"))
-  .dependsOn(coreJVM, algebraJVM)
+  .dependsOn(coreJVM, catsJVM)
   .settings(name := "paiges-benchmark")
   .settings(paigesSettings: _*)
   .settings(noPublish: _*)
