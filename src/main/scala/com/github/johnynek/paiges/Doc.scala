@@ -177,13 +177,6 @@ object Doc {
    */
   def group(doc: Doc): Doc = Union(flatten(doc), doc)
 
-  /**
-   * Either take the current Doc and remove all lines
-   * and prefix with a space, or prefix with a newline.
-   */
-  def spaceGroup(doc: Doc): Doc =
-    Union(Doc.space ++ flatten(doc), Doc.line ++ doc)
-
   def renderStream(d: Doc, width: Int): Stream[String] =
     Doc2.best(width, d).map(_.str)
 
@@ -273,5 +266,11 @@ object Doc {
   private case class Nest(indent: Int, doc: Doc) extends Doc
   private case class Text(str: String) extends Doc
   private case object Line extends Doc
+  /**
+   * There is an additional invariant on Union that
+   * a == flatten(b). By construction all have this
+   * property, but this is why we don't expose Union
+   * but only .group
+   */
   private case class Union(a: Doc, b: Doc) extends Doc
 }
