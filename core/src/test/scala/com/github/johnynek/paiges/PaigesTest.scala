@@ -121,6 +121,12 @@ the spaces""")
       }
     }
   }
+  test("isEmpty compare empty == 0") {
+    forAll { (d: Doc) =>
+      if (d.isEmpty) assert(d.compare(Doc.empty) == 0)
+      else succeed
+    }
+  }
 
   test("test json array example") {
     val items = (0 to 20).map(Doc.str(_))
