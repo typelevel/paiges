@@ -111,6 +111,16 @@ the spaces""")
       else succeed
     }
   }
+  test("renders to empty implies isEmpty == true") {
+    forAll { (d: Doc, w0: Int, ws: List[Int]) =>
+      val emptyWidth = (w0 :: ws).find { w =>
+        d.render(w).isEmpty
+      }
+      emptyWidth.foreach { w =>
+        assert(d.isEmpty, s"width $w renders empty, but !d.isEmpty")
+      }
+    }
+  }
 
   test("test json array example") {
     val items = (0 to 20).map(Doc.str(_))

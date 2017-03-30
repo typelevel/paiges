@@ -252,13 +252,20 @@ object Doc {
   def str[T](t: T): Doc =
     text(t.toString)
 
+  /**
+   * A Doc is empty if and only if all renderings are empty
+   */
   def isEmpty(d: Doc): Boolean = {
-    @annotation.tailrec
+    @tailrec
     def loop(doc: Doc, stack: List[Doc]): Boolean = doc match {
       case Empty => stack match {
         case d1 :: tail => loop(d1, tail)
         case Nil => true
       }
+      case Concat(_, Line) => false // minor optimization to short circuit sooner
+      case Concat(a, Text(s)) =>
+        // minor optimization to short circuit sooner
+        s.isEmpty && loop(a, stack)
       case Concat(a, b) => loop(a, b :: stack)
       case Nest(i, d) => loop(d, stack)
       case Text(s) =>
