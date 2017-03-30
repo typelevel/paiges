@@ -9,6 +9,9 @@ class PaigesTest extends FunSuite {
 
   import Doc.text
 
+  // implicit val generatorDrivenConfig =
+  //   PropertyCheckConfiguration(minSuccessful = 100)
+
   test("basic test") {
      assert((text("hello") +: text("world")).render(100) == "helloworld")
   }
@@ -53,16 +56,9 @@ get rid of
 the spaces""")
   }
 
-  test("(x compare y) = (x.render(w) compare y.render(w))") {
-    forAll { (a: Doc, b: Doc, width: Int) =>
-      val sa = a.render(width)
-      val sb = b.render(width)
-
-      // we only care about three possible cases
-      def cmp(c: Int): Int =
-        if (c > 0) 1 else if (c < 0) -1 else 0
-
-      assert(cmp(a compare b) == cmp(sa compare sb))
+  test("(x = y) -> (x.## = y.##)") {
+    forAll { (a: Doc, b: Doc) =>
+      if ((a compare b) == 0) assert(a.## == b.##) else succeed
     }
   }
 
@@ -126,73 +122,4 @@ the spaces""")
     assert(map.render(1000) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.mkString("{ ", ", ", " }"))
     assert(map.render(20) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.map("  " + _).mkString("{\n", ",\n", "\n}"))
   }
-}
-
-object Generators {
-  import Doc.{ str, text }
-
-  val asciiString: Gen[String] =
-    Gen.listOf(Gen.choose(32.toChar, 126.toChar)).map(_.mkString)
-
-  val generalString: Gen[String] =
-    implicitly[Arbitrary[String]].arbitrary
-
-  val doc0Gen: Gen[Doc] = Gen.frequency(
-    (1, Doc.empty),
-    (1, Doc.space),
-    (1, Doc.line),
-    (1, Doc.spaceOrLine),
-    (10, asciiString.map(text(_))),
-    (10, generalString.map(text(_))),
-    (3, asciiString.map(Doc.fillWords(_))),
-    (3, generalString.map(Doc.fillWords(_))),
-    (3, generalString.map(Doc.paragraph(_)))
-    )
-
-  val combinators: Gen[(Doc, Doc) => Doc] =
-    Gen.oneOf(
-    { (a: Doc, b: Doc) => a concat b },
-    { (a: Doc, b: Doc) => a space b },
-    { (a: Doc, b: Doc) => a line b },
-    { (a: Doc, b: Doc) => a spaceOrLine b })
-
-  val unary: Gen[Doc => Doc] =
-    Gen.oneOf(
-      Gen.const({ d: Doc => d.group }),
-      Gen.choose(0, 40).map { i => { d: Doc => d.nest(i) } })
-
-  val folds: Gen[(List[Doc] => Doc)] =
-    Gen.oneOf(
-    { ds: List[Doc] => Doc.fill(Doc.empty, ds) },
-    { ds: List[Doc] => Doc.spread(ds) },
-    { ds: List[Doc] => Doc.stack(ds) })
-
-
-  def genTree(depth: Int): Gen[Doc] =
-    if (depth <= 0) doc0Gen
-    else Gen.frequency(
-      // bias to simple stuff
-      (6, doc0Gen),
-      (1,
-        for {
-          u <- unary
-          d <- genTree(depth - 1)
-        } yield u(d)),
-      (2,
-        for {
-          c <- combinators
-          d0 <- genTree(depth - 1)
-          d1 <- genTree(depth - 1)
-        } yield c(d0, d1)),
-      (1,
-        for {
-        fold <- folds
-        num <- Gen.choose(0, 20)
-        ds <- Gen.listOfN(num, Gen.lzy(genTree(depth - 1)))
-      } yield fold(ds)))
-
-  val genDoc: Gen[Doc] =
-    Gen.choose(0, 7).flatMap(genTree)
-
-  implicit val arbDoc: Arbitrary[Doc] = Arbitrary(genDoc)
 }
