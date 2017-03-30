@@ -58,6 +58,12 @@ sealed abstract class Doc extends Serializable {
   def group: Doc = Doc.group(this)
 
   /**
+   * a Doc is empty if all renderings will be the empty
+   * string
+   */
+  def isEmpty: Boolean = Doc.isEmpty(this)
+
+  /**
    * Concatenate with a space
    */
   def space(that: Doc): Doc = this +: Doc.space +: that
@@ -245,6 +251,31 @@ object Doc {
    */
   def str[T](t: T): Doc =
     text(t.toString)
+
+  /**
+   * A Doc is empty if and only if all renderings are empty
+   */
+  def isEmpty(d: Doc): Boolean = {
+    @tailrec
+    def loop(doc: Doc, stack: List[Doc]): Boolean = doc match {
+      case Empty => stack match {
+        case d1 :: tail => loop(d1, tail)
+        case Nil => true
+      }
+      case Concat(_, Line) => false // minor optimization to short circuit sooner
+      case Concat(a, Text(s)) =>
+        // minor optimization to short circuit sooner
+        s.isEmpty && loop(a, stack)
+      case Concat(a, b) => loop(a, b :: stack)
+      case Nest(i, d) => loop(d, stack)
+      case Text(s) =>
+        // shouldn't be empty by construction, but defensive
+        s.isEmpty && loop(Empty, stack)
+      case Line => false
+      case Union(_, unflatten) => loop(unflatten, stack)
+    }
+    loop(d, Nil)
+  }
 
   /*
    * A variant of fillwords is fill , which collapses a list of documents into a

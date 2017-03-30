@@ -102,6 +102,32 @@ the spaces""")
     }
   }
 
+  test("isEmpty == true means render is empty String") {
+    forAll { (d: Doc, w0: Int, ws: List[Int]) =>
+      if (d.isEmpty) (w0 :: ws).foreach { w =>
+        val str = d.render(w)
+        assert(str.isEmpty, s"width: $w gave str: $str, should be empty")
+      }
+      else succeed
+    }
+  }
+  test("renders to empty implies isEmpty == true") {
+    forAll { (d: Doc, w0: Int, ws: List[Int]) =>
+      val emptyWidth = (w0 :: ws).find { w =>
+        d.render(w).isEmpty
+      }
+      emptyWidth.foreach { w =>
+        assert(d.isEmpty, s"width $w renders empty, but !d.isEmpty")
+      }
+    }
+  }
+  test("isEmpty compare empty == 0") {
+    forAll { (d: Doc) =>
+      if (d.isEmpty) assert(d.compare(Doc.empty) == 0)
+      else succeed
+    }
+  }
+
   test("test json array example") {
     val items = (0 to 20).map(Doc.str(_))
     val parts = Doc.fill(Doc.comma, items)
