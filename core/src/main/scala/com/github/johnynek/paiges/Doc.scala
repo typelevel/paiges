@@ -119,7 +119,7 @@ sealed abstract class Doc extends Serializable {
     @tailrec def shash(n: Int, s: String, i: Int): Int =
       if (i < s.length) shash(hash(n, s.charAt(i)), s, i + 1) else n
     Tok.fromDoc(this).foldLeft(0xdead60d5) {
-      case (n, Tok.Line(i)) => hash(n, '\n') * i
+      case (n, Tok.Line(i)) => hash(n, '\n') + (1500450271 * i)
       case (n, Tok.Text(s)) => shash(n, s, 0)
     }
   }
@@ -388,9 +388,9 @@ object Doc {
   /**
    * Used internally by `Doc#compare`.
    */
-  sealed abstract class Tok
+  private sealed abstract class Tok
 
-  object Tok {
+  private object Tok {
 
     /**
      * Create a stream of Tok values from a Doc.

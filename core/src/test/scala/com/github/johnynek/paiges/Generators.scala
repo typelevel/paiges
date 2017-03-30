@@ -15,7 +15,7 @@ object Generators {
     implicitly[Arbitrary[String]].arbitrary
 
   val doc0Gen: Gen[Doc] = Gen.frequency(
-    //(1, Doc.empty),
+    (1, Doc.empty),
     (1, Doc.space),
     (1, Doc.line),
     (1, Doc.spaceOrLine),
