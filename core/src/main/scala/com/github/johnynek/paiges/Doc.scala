@@ -10,7 +10,7 @@ import scala.annotation.tailrec
  *
  * http://homepages.inf.ed.ac.uk/wadler/papers/prettier/prettier.pdf
  */
-sealed abstract class Doc extends Serializable {
+final class Doc private (private val inner: Doc.DocADT) extends Ordered[Doc] with Serializable {
   /**
    * Concatenate with no space
    * We use `+:` for right associativity which is more efficient.
@@ -30,6 +30,12 @@ sealed abstract class Doc extends Serializable {
     Doc.concat(Doc.text(init), this)
 
   /**
+   * Repeat this item count times
+   */
+  def *(count: Int): Doc =
+    Doc.repeat(this, count)
+
+  /**
    * synonym for line. Concatenate with a newline between
    */
   def /(that: Doc): Doc = line(that)
@@ -37,14 +43,6 @@ sealed abstract class Doc extends Serializable {
    * synonym for line. Concatenate with a newline between
    */
   def /(str: String): Doc = line(Doc.text(str))
-
-  /**
-   * Try to make this left.space(this).space(right)
-   * but grouped with an indentation of 2 on this if we
-   * use newline
-   */
-  def bracketBy(left: Doc, right: Doc): Doc =
-    (left +: ((Doc.line +: this).nest(2) +: (Doc.line +: right))).group
 
   /**
    * Concatenate with no space
@@ -110,7 +108,7 @@ sealed abstract class Doc extends Serializable {
    * nest replaces new lines with a newline plus this amount
    * of indentation. If there are no new lines, this is a no-op
    */
-  def nest(amount: Int): Doc = Doc.Nest(amount, this)
+  def nest(amount: Int): Doc = Doc.nest(this, amount)
 
   /**
    * using a given max-Line write to the print writer
@@ -124,13 +122,42 @@ sealed abstract class Doc extends Serializable {
       curr * 1500450271 + c.toInt
     @tailrec def shash(n: Int, s: String, i: Int): Int =
       if (i < s.length) shash(hash(n, s.charAt(i)), s, i + 1) else n
-    Tok.fromDoc(this).foldLeft(0xdead60d5) {
+    Tok.fromDoc(inner).foldLeft(0xdead60d5) {
       case (n, Tok.Line(i)) => hash(n, '\n') + (1500450271 * i)
       case (n, Tok.Text(s)) => shash(n, s, 0)
     }
   }
 
-  override def toString: String = "Doc(...)"
+  override def toString: String = {
+    var remaining = 40
+    val bldr = new java.lang.StringBuilder
+    val r = renderStream(80)
+      .filter(_.nonEmpty)
+      .takeWhile { str =>
+        if (remaining == 0) {
+          // signal that we have more to write
+          bldr.append("...")
+          remaining = -1
+          false
+        }
+        else {
+          val tooMuch = remaining < str.length
+          val substring = if (tooMuch) str.substring(0, remaining) else str
+          remaining -= substring.length
+          bldr.append(substring)
+          if (tooMuch) { bldr.append("...") }
+          true
+        }
+      }
+      .foreach(_ => ()) // side effect already happened
+
+    s"Doc(${bldr.toString})##$hashCode"
+  }
+
+  override def equals(that: Any): Boolean = that match {
+    case d: Doc => (this eq d) || (inner == d.inner) || (compare(d) == 0)
+    case _ => false
+  }
 
   /**
    * Compare two Doc values; we expect that the comparison result
@@ -176,27 +203,27 @@ sealed abstract class Doc extends Serializable {
           }
       }
 
-    loop(Tok.fromDoc(this), Tok.fromDoc(that))
+    loop(Tok.fromDoc(inner), Tok.fromDoc(that.inner))
   }
 }
 
 object Doc {
-
-  private case object Empty extends Doc
+  private sealed abstract class DocADT
+  private case object Empty extends DocADT
 
   /**
    * Represents a single, literal newline.
    */
-  private case object Line extends Doc
+  private case object Line extends DocADT
 
   /**
    * The string must not be empty, and may not contain newlines.
    */
-  private case class Text(str: String) extends Doc
+  private case class Text(str: String) extends DocADT
 
-  private case class Concat(a: Doc, b: Doc) extends Doc
+  private case class Concat(a: DocADT, b: DocADT) extends DocADT
 
-  private case class Nest(indent: Int, doc: Doc) extends Doc
+  private case class Nest(indent: Int, doc: DocADT) extends DocADT
 
   /**
    * There is an additional invariant on Union that
@@ -204,23 +231,25 @@ object Doc {
    * property, but this is why we don't expose Union
    * but only .group
    */
-  private case class Union(a: Doc, b: Doc) extends Doc
+  private case class Union(a: DocADT, b: DocADT) extends DocADT
+
+  private def doc(d: DocADT): Doc = new Doc(d)
 
   private[this] val maxSpaceTable = 20
-  private[this] val spaceArray: Array[Text] =
-    (1 to maxSpaceTable).map { i => Text(" " * i) }.toArray
+  private[this] val spaceArray: Array[Doc] =
+    (1 to maxSpaceTable).map { i => doc(Text(" " * i)) }.toArray
 
   def spaces(n: Int): Doc =
-    if (n < 1) Empty
+    if (n < 1) empty
     else if (n <= maxSpaceTable) spaceArray(n - 1)
-    else Text(" " * n)
+    else doc(Text(" " * n))
 
   val space: Doc = spaceArray(0)
 
-  val comma: Doc = Doc.text(",")
-  val line: Doc = Line
-  val spaceOrLine: Doc = Union(space, line)
-  val empty: Doc = Empty
+  val comma: Doc = doc(Text(","))
+  val line: Doc = doc(Line)
+  val spaceOrLine: Doc = doc(Union(space.inner, Line))
+  val empty: Doc = doc(Empty)
 
   implicit val docOrdering: Ordering[Doc] =
     new Ordering[Doc] {
@@ -236,12 +265,12 @@ object Doc {
     else if (str == " ") space
     else if (str == "\n") line
     else {
-      str.split("\n", -1)
+      doc(str.split("\n", -1)
         .iterator
-        .map(Text(_): Doc)
+        .map(Text(_): DocADT)
         .reduce { (d, str) =>
           Concat(d, Concat(Line, str))
-        }
+        })
     }
 
   /**
@@ -257,7 +286,7 @@ object Doc {
    */
   def isEmpty(d: Doc): Boolean = {
     @tailrec
-    def loop(doc: Doc, stack: List[Doc]): Boolean = doc match {
+    def loop(doc: DocADT, stack: List[DocADT]): Boolean = doc match {
       case Empty => stack match {
         case d1 :: tail => loop(d1, tail)
         case Nil => true
@@ -274,8 +303,16 @@ object Doc {
       case Line => false
       case Union(_, unflatten) => loop(unflatten, stack)
     }
-    loop(d, Nil)
+    loop(d.inner, Nil)
   }
+
+  /**
+   * Try to make this left.space(middle).space(right)
+   * but grouped with an indentation of 2 on this if we
+   * use newline
+   */
+  def bracket(left: Doc, middle: Doc, right: Doc): Doc =
+    (left +: ((Doc.line +: middle).nest(2) +: (Doc.line +: right))).group
 
   /*
    * A variant of fillwords is fill , which collapses a list of documents into a
@@ -283,16 +320,17 @@ object Doc {
    * reasonable layout, and a newline otherwise
    */
   def fill(sep: Doc, ds: Iterable[Doc]): Doc = {
-    def fillRec(lst: List[Doc]): Doc = lst match {
+    val sepADT = sep.inner
+    def fillRec(lst: List[DocADT]): DocADT = lst match {
       case Nil => Empty
       case x :: Nil => x
       case x :: y :: tail =>
-        val xsep = x +: sep
-        val first = flatten(xsep).space(fillRec(flatten(y) :: tail))
-        val second = xsep.line(fillRec(y :: tail))
+        val xsep = if (sepADT == Empty) x else Concat(x, sepADT)
+        val first = Concat(flatten(xsep), Concat(space.inner, fillRec(flatten(y) :: tail)))
+        val second = Concat(xsep, Concat(Line, fillRec(y :: tail)))
         Union(first, second)
     }
-    fillRec(ds.toList)
+    doc(fillRec(ds.iterator.map(_.inner).toList))
   }
 
   /**
@@ -308,14 +346,37 @@ object Doc {
   def paragraph(s: String): Doc =
     foldDoc(s.split("\\s+", -1).map(text))(_.spaceOrLine(_))
 
-  def concat(a: Doc, b: Doc): Doc = Concat(a, b)
+  def concat(a: Doc, b: Doc): Doc = doc(Concat(a.inner, b.inner))
 
   def foldDoc(ds: Iterable[Doc])(fn: (Doc, Doc) => Doc): Doc =
-    ds.reduceOption(fn).getOrElse(Empty)
+    ds.reduceOption(fn).getOrElse(empty)
 
   def intercalate(d: Doc, ds: Iterable[Doc]): Doc =
     foldDoc(ds) { (a, b) => a +: (d +: b) }
 
+  /**
+   * Repeat the given document a number of times
+   */
+  def repeat(d: Doc, count: Int): Doc = {
+    require(count >= 0, s"count must be >= 0, found $count")
+    /**
+     * only have log depth, so recursion is fine
+     * d * (2n + c) = (dn + dn) + c
+     */
+    def loop(d: DocADT, cnt: Int): DocADT = {
+      val n = cnt / 2
+      val dn2 =
+        if (n > 0) {
+          val dn = loop(d, n)
+          Concat(dn, dn)
+        }
+        else {
+          Empty
+        }
+      if ((cnt & 1) == 1) Concat(dn2, d) else dn2
+    }
+    doc(loop(d.inner, count))
+  }
   /**
    * intercalate with a space
    */
@@ -329,10 +390,17 @@ object Doc {
    * This returns a new doc where we can replace line with space
    * to fit into a line
    */
-  def group(doc: Doc): Doc = Union(flatten(doc), doc)
+  def group(d: Doc): Doc =
+    doc(Union(flatten(d.inner), d.inner))
+
+  /**
+   * replace all newlines in doc with newline plus amount spaces
+   */
+  def nest(d: Doc, amount: Int): Doc =
+    doc(Nest(amount, d.inner))
 
   def renderStream(d: Doc, width: Int): Stream[String] =
-    Doc2.best(width, d).map(_.str)
+    Doc2.best(width, d.inner).map(_.str)
 
   def render(d: Doc, width: Int): String = {
     val bldr = new StringBuilder
@@ -340,24 +408,22 @@ object Doc {
     bldr.toString
   }
 
-  def write(d: Doc, width: Int, pw: PrintWriter): Unit = {
+  def write(d: Doc, width: Int, pw: PrintWriter): Unit =
     renderStream(d, width).foreach(pw.append(_))
-  }
 
-  private def flatten(doc: Doc): Doc = doc match {
+  private def flatten(doc: DocADT): DocADT = doc match {
     case Empty => Empty
     case Concat(a, b) => Concat(flatten(a), flatten(b))
     case Nest(i, d) => Nest(i, flatten(d))
     case str@Text(_) => str
-    case Line => space
+    case Line => space.inner
     case Union(a, _) => a
   }
-
 
   /**
    * This is the second ADT introduced for efficiency reasons
    */
-  sealed abstract class Doc2 {
+  private sealed abstract class Doc2 {
     def str: String
   }
 
@@ -372,14 +438,14 @@ object Doc {
         }
       }
 
-    def best(w: Int, d: Doc): Stream[Doc2] = {
+    def best(w: Int, d: DocADT): Stream[Doc2] = {
 
       /**
        * This is not really tail recursive but many branches are, so
        * we cheat below in non-tail positions
        */
       @tailrec
-      def loop(w: Int, k: Int, lst: List[(Int, Doc)]): Stream[Doc2] = lst match {
+      def loop(w: Int, k: Int, lst: List[(Int, DocADT)]): Stream[Doc2] = lst match {
         case Nil => Stream.empty[Doc2]
         case (i, Empty) :: z => loop(w, k, z)
         case (i, Concat(a, b)) :: z => loop(w, k, (i, a) :: (i, b) :: z)
@@ -392,7 +458,7 @@ object Doc {
           else loop(w, k, (i, y) :: z)
       }
 
-      def cheat(w: Int, k: Int, lst: List[(Int, Doc)]): Stream[Doc2] =
+      def cheat(w: Int, k: Int, lst: List[(Int, DocADT)]): Stream[Doc2] =
         loop(w, k, lst)
 
       loop(w, 0, (0, d) :: Nil)
@@ -433,7 +499,7 @@ object Doc {
      * information in all the newlines that we find in those delimited
      * regions.
      */
-    def fromDoc(d: Doc): Stream[Tok] =
+    def fromDoc(d: DocADT): Stream[Tok] =
       d match {
         case Doc.Empty => Stream.empty
         case Doc.Line => Line(0) #:: Stream.empty

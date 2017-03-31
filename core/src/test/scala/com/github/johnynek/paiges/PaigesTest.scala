@@ -12,6 +12,10 @@ class PaigesTest extends FunSuite {
   // implicit val generatorDrivenConfig =
   //   PropertyCheckConfiguration(minSuccessful = 100)
 
+  test("typeclasses resolve") {
+    assert(implicitly[Equiv[Doc]] == implicitly[Ordering[Doc]])
+  }
+
   test("basic test") {
      assert((text("hello") +: text("world")).render(100) == "helloworld")
   }
@@ -64,14 +68,40 @@ the spaces""")
 
   test("concat is associative") {
     forAll { (a: Doc, b: Doc, c: Doc, width: Int) =>
-      assert(((a +: b) +: c).render(width) ==
-        (a +: (b +: c)).render(width))
+      val left = ((a +: b) +: c)
+      val right = (a +: (b +: c))
+      assert(left.render(width) == right.render(width))
+      assert(left == right)
     }
   }
   test("empty does not change things") {
     forAll { (a: Doc, width: Int) =>
       assert((a +: Doc.empty).render(width) == a.render(width))
       assert((Doc.empty +: a).render(width) == a.render(width))
+      assert(a +: Doc.empty == a)
+      assert(Doc.empty +: a == a)
+    }
+  }
+  test("non empty text is not an identity") {
+    forAll { (a: Doc) =>
+      assert(a +: Doc.text("not empty") != a)
+      assert(!(a +: Doc.text("not empty")).isEmpty)
+    }
+  }
+  test("equals matches compare") {
+    forAll { (a: Doc, b: Doc) =>
+      assert((a == b) == (a.compare(b) == 0))
+    }
+  }
+  test("If two things render differently, they are not equal") {
+    forAll { (a: Doc, b: Doc, w: Int) =>
+      val diff = a.render(w) != b.render(w) || {
+        (0 to 100).exists { w => a.render(w) != b.render(w) }
+      }
+      if (diff) {
+        assert(a != b)
+      }
+      else succeed // may still be different for some other width
     }
   }
 
@@ -127,6 +157,13 @@ the spaces""")
       else succeed
     }
   }
+  test("Doc.repeat matches naive implementation") {
+    forAll { (d: Doc, n: Int) =>
+      def simple(n: Int, acc: Doc): Doc = if(n <= 0) acc else simple(n - 1, acc +: d)
+      val small = n & 0xff
+      assert(simple(small, Doc.empty) == (d * small))
+    }
+  }
 
   test("test json array example") {
     val items = (0 to 20).map(Doc.str(_))
@@ -144,7 +181,7 @@ the spaces""")
   test("test json map example") {
     val kvs = (0 to 20).map { i => text("\"%s\": %s".format(s"key$i", i)) }
     val parts = Doc.fill(Doc.comma, kvs)
-    val map = parts.bracketBy(Doc.text("{"), Doc.text("}"))
+    val map = Doc.bracket(Doc.text("{"), parts, Doc.text("}"))
     assert(map.render(1000) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.mkString("{ ", ", ", " }"))
     assert(map.render(20) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.map("  " + _).mkString("{\n", ",\n", "\n}"))
   }
