@@ -9,8 +9,8 @@ class PaigesTest extends FunSuite {
 
   import Doc.text
 
-  // implicit val generatorDrivenConfig =
-  //   PropertyCheckConfiguration(minSuccessful = 100)
+  implicit val generatorDrivenConfig =
+    PropertyCheckConfiguration(minSuccessful = 500)
 
   test("basic test") {
      assert((text("hello") +: text("world")).render(100) == "helloworld")
@@ -75,16 +75,10 @@ the spaces""")
     }
   }
 
-  test("fillWords can == .map('\\n' => ' ')") {
+  test("fillWords can be identity") {
     forAll { (str: String) =>
       // this test fails if str is all newlines (e.g. "\n")
-      if (str.exists(_ != '\n')) {
-        val newLineToSpace = str.map {
-          case '\n' => ' '
-          case other => other
-        }
-        assert(Doc.fillWords(str).render(str.length) == newLineToSpace)
-      } else succeed
+      assert(Doc.fillWords(str).render(str.length) == str)
     }
   }
 
@@ -125,6 +119,86 @@ the spaces""")
     forAll { (d: Doc) =>
       if (d.isEmpty) assert(d.compare(Doc.empty) == 0)
       else succeed
+    }
+  }
+  // test("renders are constant after maxWidth") {
+  //   forAll { (d: Doc, ws: List[Int]) =>
+  //     val m = Doc.maxWidth(d)
+  //     val maxR = d.render(m)
+  //     val goodW = ws.map { w => (m + w) max m }
+  //     assert(goodW.forall { w =>
+  //       val wrender = d.render(w)
+  //       //if (wrender != maxR) { println(s"$wrender != $maxR\nwidth=$w\nmax=$m"); false }
+  //       (wrender == maxR)
+  //     })
+  //   }
+  // }
+  // test("either all widths render the same or max-1 renders differently") {
+  //   forAll { (d: Doc) =>
+  //     val m = Doc.maxWidth(d)
+  //     if (m == 0) succeed
+  //     else {
+  //       val md = d.render(m)
+  //       val allSame = !((0 to m).sliding(2).exists { v => d.render(v(0)) != d.render(v(1)) })
+  //       assert(allSame || (d.render(m - 1) != md))
+  //     }
+  //   }
+  // }
+  test("if we always render the same, we compare the same") {
+    forAll { (a: Doc, b: Doc) =>
+      if (a.compare(b) != 0) succeed
+      else {
+        //val maxR = Doc.maxWidth(a) max Doc.maxWidth(b)
+        val maxR = 1000
+        assert((0 to maxR).forall { w =>
+          a.render(w) == b.render(w)
+        })
+      }
+    }
+  }
+  test("hard group case") {
+    /**
+     * if s == space, and n == line
+     * we know that:
+     * a * (s|n) * b * (s|n) * c =
+     *
+     * (a * s * ((b * s * c) | (b * n * c)) |
+     *   (a * n * (b * s * c) | (b * n * c))
+     */
+    val first = Doc.fillWords("a b c")
+    val second = Doc.fill(Doc.empty, List("a", "b", "c").map(Doc.text))
+    /*
+     * I think this fails perhaps because of the way fill constructs
+     * Unions. It violates a stronger invariant that Union(a, b)
+     * means a == flatten(b). It has the property that flatten(a) == flatten(b)
+     * but that is weaker. Our current comparison algorithm seems
+     * to leverage this fact
+     */
+    //assert(first.compare(second) == 0)
+  }
+  test("group law") {
+    /**
+     * group(x) = (x' | x) where x' is flatten(x)
+     *
+     * (a | b)*c == (a*c | b*c) so, if flatten(c) == c we have:
+     * c * (a | b) == (a*c | b*c)
+     *
+     * b.group +: flatten(c) == (b +: flatten(c)).group
+     * flatten(c) +: b.group == (flatten(c) +: b).group
+     */
+    forAll { (b: Doc, c: Doc) =>
+      val flatC = Doc.flatten(c)
+      val left = (b.group +: flatC)
+      val right = (b +: flatC).group
+      assert((left).compare(right) == 0)
+      assert((flatC +: b.group).compare((flatC +: b).group) == 0)
+      // since left == right, we could have used those instead of b:
+      assert((left.group +: flatC).compare((right +: flatC).group) == 0)
+    }
+  }
+  test("flatten(group(a)) == flatten(a)") {
+    forAll { (a: Doc) =>
+      assert(Doc.flatten(a.group).compare(Doc.flatten(a)) == 0)
     }
   }
 

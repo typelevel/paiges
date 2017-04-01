@@ -297,7 +297,7 @@ object Doc {
 
   /**
    * Convert assume we can replace space
-   * with newline
+   * with newline, but newlines are preserved
    */
   def fillWords(s: String): Doc =
     foldDoc(s.split(" ", -1).map(text))(_.spaceOrLine(_))
@@ -344,14 +344,51 @@ object Doc {
     renderStream(d, width).foreach(pw.append(_))
   }
 
-  private def flatten(doc: Doc): Doc = doc match {
+  /**
+   * Convert all lines to spaces
+   */
+  def flatten(doc: Doc): Doc = doc match {
     case Empty => Empty
-    case Concat(a, b) => Concat(flatten(a), flatten(b))
-    case Nest(i, d) => Nest(i, flatten(d))
-    case str@Text(_) => str
     case Line => space
-    case Union(a, _) => a
+    case str@Text(_) => str
+    case Nest(i, d) => flatten(d) // no Line, so Nest is irrelevant
+    case Concat(a, b) => Concat(flatten(a), flatten(b))
+    case Union(a, _) => flatten(a)
   }
+
+  /**
+   * What is the largest width that is relevant
+   * for this Doc (for all w greater or equal
+   * to maxWidth the rendering will be the same
+   * )
+   */
+  //def maxWidth(doc: Doc): Int = {
+    // @tailrec
+    // def loop(d: Doc, stack: List[Doc], i: Int, w: Int, currentMax: Int): (Int, Int) = d match {
+    //   case Empty => stack match {
+    //     case h :: t => loop(h, t, i, w, currentMax)
+    //     case Nil => (w, math.max(w, currentMax))
+    //   }
+    //   case Concat(a, b) => loop(a, b :: stack, i, w, currentMax)
+    //   case Text(s) => loop(Empty, stack, i, w + s.length, currentMax)
+    //   case Line =>
+    //     // This is the end of the line
+    //     loop(Empty, stack, i, i, math.max(w, currentMax))
+    //   case Nest(j, d) =>
+    //     val (pos, innerMax) = cheat(d, Nil, i + j, w, currentMax)
+    //     loop(Empty, stack, i, pos, innerMax)
+    //   case Union(a, b) =>
+    //     val ra@(pa, ma) = cheat(a, stack, i, w, currentMax)
+    //     val rb@(pb, mb) = cheat(b, stack, i, w, currentMax)
+    //     if (ma > mb) ra
+    //     else if (mb > ma) rb
+    //     else (pa max pb, ma)
+    // }
+    // def cheat(d: Doc, stack: List[Doc], i: Int, w: Int, currentMax: Int): (Int, Int) =
+    //   loop(d, stack, i, w, currentMax)
+
+    // loop(doc, Nil, 0, 0, 0)._1
+  //}
 
 
   /**
@@ -379,23 +416,23 @@ object Doc {
        * we cheat below in non-tail positions
        */
       @tailrec
-      def loop(w: Int, k: Int, lst: List[(Int, Doc)]): Stream[Doc2] = lst match {
-        case Nil => Stream.empty[Doc2]
-        case (i, Empty) :: z => loop(w, k, z)
-        case (i, Concat(a, b)) :: z => loop(w, k, (i, a) :: (i, b) :: z)
-        case (i, Nest(j, d)) :: z => loop(w, k, ((i + j), d) :: z)
-        case (i, Text(s)) :: z => Text2(s) #:: cheat(w, k + s.length, z)
-        case (i, Line) :: z => Line2(i) #:: cheat(w, i, z)
+      def loop(k: Int, lst: List[(Int, Doc)]): Stream[Doc2] = lst match {
+        case Nil => Stream.empty
+        case (i, Empty) :: z => loop(k, z)
+        case (i, Concat(a, b)) :: z => loop(k, (i, a) :: (i, b) :: z)
+        case (i, Nest(j, d)) :: z => loop(k, ((i + j), d) :: z)
+        case (i, Text(s)) :: z => Text2(s) #:: cheat(k + s.length, z)
+        case (i, Line) :: z => Line2(i) #:: cheat(i, z)
         case (i, Union(x, y)) :: z =>
-          val first = cheat(w, k, (i, x) :: z)
+          val first = cheat(k, (i, x) :: z)
           if (fits(w - k, first)) first
-          else loop(w, k, (i, y) :: z)
+          else loop(k, (i, y) :: z)
       }
 
-      def cheat(w: Int, k: Int, lst: List[(Int, Doc)]): Stream[Doc2] =
-        loop(w, k, lst)
+      def cheat(k: Int, lst: List[(Int, Doc)]): Stream[Doc2] =
+        loop(k, lst)
 
-      loop(w, 0, (0, d) :: Nil)
+      loop(0, (0, d) :: Nil)
     }
 
     private[this] val indentMax = 100
