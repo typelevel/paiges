@@ -40,7 +40,8 @@ object Generators {
 
   val folds: Gen[(List[Doc] => Doc)] =
     Gen.oneOf(
-    { ds: List[Doc] => Doc.fill(Doc.empty, ds) },
+    // fill is exponentially expensive currently
+    { ds: List[Doc] => Doc.fill(Doc.empty, ds.take(6)) },
     { ds: List[Doc] => Doc.spread(ds) },
     { ds: List[Doc] => Doc.stack(ds) })
 

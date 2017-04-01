@@ -1,10 +1,10 @@
 package com.github.johnynek.paiges
 
-import org.scalatest.FunSuite
+import org.scalatest.{ FunSuite, ParallelTestExecution }
 import org.scalatest.prop.PropertyChecks._
 import org.scalacheck.{Arbitrary, Gen}
 
-class PaigesTest extends FunSuite {
+class PaigesTest extends FunSuite with ParallelTestExecution {
   import Generators._
 
   import Doc.text
@@ -121,42 +121,48 @@ the spaces""")
       else succeed
     }
   }
-  // test("renders are constant after maxWidth") {
-  //   forAll { (d: Doc, ws: List[Int]) =>
-  //     val m = Doc.maxWidth(d)
-  //     val maxR = d.render(m)
-  //     val goodW = ws.map { w => (m + w) max m }
-  //     assert(goodW.forall { w =>
-  //       val wrender = d.render(w)
-  //       //if (wrender != maxR) { println(s"$wrender != $maxR\nwidth=$w\nmax=$m"); false }
-  //       (wrender == maxR)
-  //     })
-  //   }
-  // }
-  // test("either all widths render the same or max-1 renders differently") {
-  //   forAll { (d: Doc) =>
-  //     val m = Doc.maxWidth(d)
-  //     if (m == 0) succeed
-  //     else {
-  //       val md = d.render(m)
-  //       val allSame = !((0 to m).sliding(2).exists { v => d.render(v(0)) != d.render(v(1)) })
-  //       assert(allSame || (d.render(m - 1) != md))
-  //     }
-  //   }
-  // }
-  test("if we always render the same, we compare the same") {
-    forAll { (a: Doc, b: Doc) =>
-      if (a.compare(b) != 0) succeed
+  test("renders are constant after maxWidth") {
+    forAll { (d: Doc, ws: List[Int]) =>
+      val m = Doc.maxWidth(d)
+      val maxR = d.render(m)
+      val justAfter = (1 to 20).iterator
+      val goodW = (justAfter ++ ws.iterator).map { w => (m + w) max m }
+      assert(goodW.forall { w =>
+        val wrender = d.render(w)
+        (wrender == maxR)
+      })
+    }
+  }
+  test("either all widths render the same or max-1 renders differently") {
+    forAll { (d: Doc) =>
+      val m = Doc.maxWidth(d)
+      if (m == 0) succeed
       else {
-        //val maxR = Doc.maxWidth(a) max Doc.maxWidth(b)
-        val maxR = 1000
-        assert((0 to maxR).forall { w =>
-          a.render(w) == b.render(w)
-        })
+        val md = d.render(m)
+        val allSame = !((0 to m).sliding(2).exists { v => d.render(v(0)) != d.render(v(1)) })
+        assert(allSame || (d.render(m - 1) != md))
       }
     }
   }
-  test("hard group case") {
+  test("if we always render the same, we compare the same") {
+    forAll { (a: Doc, b: Doc) =>
+      val maxR = Doc.maxWidth(a) max Doc.maxWidth(b)
+      val allSame = (0 to maxR).forall { w =>
+        a.render(w) == b.render(w)
+      }
+      if (allSame) {
+        val good = a.compare(b) == 0
+        if (!good) {
+          println(a.render(maxR))
+          println("-------")
+          println(b.render(maxR))
+        }
+        assert(good)
+      }
+      else succeed
+    }
+  }
+  test("hard union cases") {
     /**
      * if s == space, and n == line
      * we know that:
@@ -175,6 +181,13 @@ the spaces""")
      * to leverage this fact
      */
     //assert(first.compare(second) == 0)
+
+    /**
+     * spaceOrLine == (s | n)
+     * flatten(spaceOrLine) = s
+     * group(spaceOrLine) = (s | (s|n)) == (s | n)
+     */
+    //assert(Doc.spaceOrLine.group.compare(Doc.spaceOrLine) == 0)
   }
   test("group law") {
     /**
