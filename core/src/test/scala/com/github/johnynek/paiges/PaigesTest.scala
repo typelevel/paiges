@@ -135,12 +135,15 @@ the spaces""")
   }
   test("either all widths render the same or max-1 renders differently") {
     forAll { (d: Doc) =>
-      val m = Doc.maxWidth(d)
-      if (m == 0) succeed
+      val maxW = Doc.maxWidth(d)
+      if (maxW == 0) succeed
       else {
-        val md = d.render(m)
-        val allSame = !((0 to m).sliding(2).exists { v => d.render(v(0)) != d.render(v(1)) })
-        assert(allSame || (d.render(m - 1) != md))
+        val maxRender = d.render(maxW)
+        val prev = d.render(maxW - 1)
+        if (maxRender != prev) succeed
+        else {
+          (0 until maxW).forall(d.render(_) == maxRender)
+        }
       }
     }
   }

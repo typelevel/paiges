@@ -391,11 +391,12 @@ object Doc {
 
   /**
    * What is the largest width that is relevant
-   * for this Doc.
+   * for this Doc (all internal branches are
+   * the same at this width and greater)
    *
    * val m = maxWidth(d)
    * render(d, m) == render(d, n)
-   * for all m >= n
+   * for all n >= m
    *
    */
   def maxWidth(doc: Doc): Int = Doc2.maxWidth(doc)
@@ -480,7 +481,7 @@ object Doc {
         case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z, max)
         case (i, Text(s)) :: z => (max, Text2(s)) #:: cheat(pos + s.length, z, max)
         case (i, Line) :: z => (max, Line2(i)) #:: cheat(i, z, max)
-        case (i, Union(x, y)) :: z =>
+        case (i, Union(x, _)) :: z =>
           val first = cheat(pos, (i, x) :: z, max)
           val neededWidth = lineSize(pos, first.map(_._2))
           if (neededWidth <= max) first
