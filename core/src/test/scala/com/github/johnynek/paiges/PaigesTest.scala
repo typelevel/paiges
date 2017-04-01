@@ -142,7 +142,7 @@ the spaces""")
         val prev = d.render(maxW - 1)
         if (maxRender != prev) succeed
         else {
-          (0 until maxW).forall(d.render(_) == maxRender)
+          assert((0 until maxW).forall(d.render(_) == maxRender))
         }
       }
     }

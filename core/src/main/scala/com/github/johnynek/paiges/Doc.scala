@@ -484,6 +484,10 @@ object Doc {
         case (i, Union(x, _)) :: z =>
           val first = cheat(pos, (i, x) :: z, max)
           val neededWidth = lineSize(pos, first.map(_._2))
+          /**
+           * if width >= neededWidth, we would branch left here (to x)
+           * else we go right
+           */
           if (neededWidth <= max) first
           else loop(pos, (i, x) :: z, neededWidth)
       }
