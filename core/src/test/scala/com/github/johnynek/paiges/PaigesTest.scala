@@ -1,10 +1,10 @@
 package com.github.johnynek.paiges
 
-import org.scalatest.{ FunSuite, ParallelTestExecution }
+import org.scalatest.FunSuite
 import org.scalatest.prop.PropertyChecks._
 import org.scalacheck.{Arbitrary, Gen}
 
-class PaigesTest extends FunSuite with ParallelTestExecution {
+class PaigesTest extends FunSuite {
   import Generators._
 
   import Doc.text
