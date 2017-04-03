@@ -133,35 +133,13 @@ the spaces""")
       })
     }
   }
-  test("either all widths render the same or max-1 renders differently") {
-    forAll { (d: Doc) =>
-      val maxW = Doc.maxWidth(d)
-      if (maxW == 0) succeed
-      else {
-        val maxRender = d.render(maxW)
-        val prev = d.render(maxW - 1)
-        if (maxRender != prev) succeed
-        else {
-          assert((0 until maxW).forall(d.render(_) == maxRender))
-        }
-      }
-    }
-  }
   test("if we always render the same, we compare the same") {
     forAll { (a: Doc, b: Doc) =>
       val maxR = Doc.maxWidth(a) max Doc.maxWidth(b)
       val allSame = (0 to maxR).forall { w =>
         a.render(w) == b.render(w)
       }
-      if (allSame) {
-        val good = a.compare(b) == 0
-        if (!good) {
-          println(a.render(maxR))
-          println("-------")
-          println(b.render(maxR))
-        }
-        assert(good)
-      }
+      if (allSame) assert(a.compare(b) == 0)
       else succeed
     }
   }
