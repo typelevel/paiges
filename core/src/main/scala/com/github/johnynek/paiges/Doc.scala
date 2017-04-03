@@ -130,7 +130,7 @@ sealed abstract class Doc extends Serializable {
     }
   }
 
-  override def toString: String = "Doc(...)"
+  //override def toString: String = "Doc(...)"
 
   /**
    * Compare two Doc values; we expect that the comparison result
@@ -272,7 +272,9 @@ object Doc {
         // shouldn't be empty by construction, but defensive
         s.isEmpty && loop(Empty, stack)
       case Line => false
-      case Union(_, unflatten) => loop(unflatten, stack)
+      case Union(flattened, _) =>
+        // flattening cannot change emptiness
+        loop(flattened, stack)
     }
     loop(d, Nil)
   }
@@ -287,10 +289,32 @@ object Doc {
       case Nil => Empty
       case x :: Nil => x
       case x :: y :: tail =>
+        /**
+         * The cost of this algorithm c(n) for list of size n.
+         * note that c(n) = 2 * c(n-1) + k
+         * for some constant.
+         * so, c(n) - c(n-1) = c(n-1) + k
+         * which means that
+         * c(n) = (0 until n).map(c(_)).sum + nk
+         *
+         * which is exponential in n (O(2^n))
+         *
+         * making the second parameter in the union lazy would fix this.
+         * that seems an expensive fix for a single combinator. Maybe
+         * there is an alternative way to express this that is not
+         * exponential.
+         *
+         * On top of this difficulty, this formulation creates
+         * Union nodes that violate the invariant that Union(a, b)
+         * means a == flatten(b). It still has flatten(a) == flatten(b),
+         * however. This fact seems to complicate comparison of Doc
+         * which is valuable.
+         */
         val xsep = x +: sep
         val first = flatten(xsep).space(fillRec(flatten(y) :: tail))
         val second = xsep.line(fillRec(y :: tail))
-        Union(first, second)
+        if (first != second) Union(first, second)
+        else first
     }
     fillRec(ds.toList)
   }
@@ -329,7 +353,16 @@ object Doc {
    * This returns a new doc where we can replace line with space
    * to fit into a line
    */
-  def group(doc: Doc): Doc = Union(flatten(doc), doc)
+  def group(doc: Doc): Doc = {
+    val flattened = flatten(doc)
+    /**
+     * Unions are a little expensive
+     * and flatten already needs to traverse
+     * so make sure not to create trivial Unions
+     */
+    if (flattened != doc) Union(flattened, doc)
+    else doc
+  }
 
   def renderStream(d: Doc, width: Int): Stream[String] =
     Doc2.best(width, d).map(_.str)
@@ -358,38 +391,15 @@ object Doc {
 
   /**
    * What is the largest width that is relevant
-   * for this Doc (for all w greater or equal
-   * to maxWidth the rendering will be the same
-   * )
+   * for this Doc (all internal branches are
+   * the same at this width and greater)
+   *
+   * val m = maxWidth(d)
+   * render(d, m) == render(d, n)
+   * for all n >= m
+   *
    */
-  //def maxWidth(doc: Doc): Int = {
-    // @tailrec
-    // def loop(d: Doc, stack: List[Doc], i: Int, w: Int, currentMax: Int): (Int, Int) = d match {
-    //   case Empty => stack match {
-    //     case h :: t => loop(h, t, i, w, currentMax)
-    //     case Nil => (w, math.max(w, currentMax))
-    //   }
-    //   case Concat(a, b) => loop(a, b :: stack, i, w, currentMax)
-    //   case Text(s) => loop(Empty, stack, i, w + s.length, currentMax)
-    //   case Line =>
-    //     // This is the end of the line
-    //     loop(Empty, stack, i, i, math.max(w, currentMax))
-    //   case Nest(j, d) =>
-    //     val (pos, innerMax) = cheat(d, Nil, i + j, w, currentMax)
-    //     loop(Empty, stack, i, pos, innerMax)
-    //   case Union(a, b) =>
-    //     val ra@(pa, ma) = cheat(a, stack, i, w, currentMax)
-    //     val rb@(pb, mb) = cheat(b, stack, i, w, currentMax)
-    //     if (ma > mb) ra
-    //     else if (mb > ma) rb
-    //     else (pa max pb, ma)
-    // }
-    // def cheat(d: Doc, stack: List[Doc], i: Int, w: Int, currentMax: Int): (Int, Int) =
-    //   loop(d, stack, i, w, currentMax)
-
-    // loop(doc, Nil, 0, 0, 0)._1
-  //}
-
+  def maxWidth(doc: Doc): Int = Doc2.maxWidth(doc)
 
   /**
    * This is the second ADT introduced for efficiency reasons
@@ -399,40 +409,96 @@ object Doc {
   }
 
   private object Doc2 {
-    @tailrec
-    def fits(width: Int, d: Stream[Doc2]): Boolean =
-      (width >= 0) && {
-        if (d.isEmpty) true
-        else d.head match {
-          case Line2(_) => true
-          case Text2(s) => fits(width - s.length, d.tail)
-        }
-      }
 
     def best(w: Int, d: Doc): Stream[Doc2] = {
+      /**
+       * Return the length of this line if it fits
+       */
+      @tailrec
+      def fits(pos: Int, d: Stream[Doc2]): Boolean =
+        (w >= pos) && {
+          if (d.isEmpty) true
+          else d.head match {
+            case Line2(_) => true
+            case Text2(s) => fits(pos + s.length, d.tail)
+          }
+        }
+      /**
+       * This is not really tail recursive but many branches are, so
+       * we cheat below in non-tail positions
+       */
+      @tailrec
+      def loop(pos: Int, lst: List[(Int, Doc)]): Stream[Doc2] = lst match {
+        case Nil => Stream.empty
+        case (i, Empty) :: z => loop(pos, z)
+        case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z)
+        case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
+        case (i, Text(s)) :: z => Text2(s) #:: cheat(pos + s.length, z)
+        case (i, Line) :: z => Line2(i) #:: cheat(i, z)
+        case (i, Union(x, y)) :: z =>
+          /**
+           * If we can fit the next line from x, we take it.
+           * Note, we are not back tracking if somehow later
+           * lines don't fit "well"
+           */
+          val first = cheat(pos, (i, x) :: z)
+          if (fits(pos, first)) first
+          else loop(pos, (i, y) :: z)
+      }
+
+      def cheat(pos: Int, lst: List[(Int, Doc)]): Stream[Doc2] =
+        loop(pos, lst)
+
+      loop(0, (0, d) :: Nil)
+    }
+
+    /**
+     * We follow the same algorithm as best, but only
+     * track what the largest width is that triggers
+     * a branch to the left
+     */
+    def maxWidth(d: Doc): Int = {
+      /**
+       * Return the length of this line
+       */
+      @tailrec
+      def lineSize(pos: Int, d: Stream[Doc2]): Int =
+        if (d.isEmpty) pos
+        else d.head match {
+          case Line2(_) => pos
+          case Text2(s) => lineSize(pos + s.length, d.tail)
+        }
 
       /**
        * This is not really tail recursive but many branches are, so
        * we cheat below in non-tail positions
        */
       @tailrec
-      def loop(k: Int, lst: List[(Int, Doc)]): Stream[Doc2] = lst match {
+      def loop(pos: Int, lst: List[(Int, Doc)], max: Int): Stream[(Int, Doc2)] = lst match {
         case Nil => Stream.empty
-        case (i, Empty) :: z => loop(k, z)
-        case (i, Concat(a, b)) :: z => loop(k, (i, a) :: (i, b) :: z)
-        case (i, Nest(j, d)) :: z => loop(k, ((i + j), d) :: z)
-        case (i, Text(s)) :: z => Text2(s) #:: cheat(k + s.length, z)
-        case (i, Line) :: z => Line2(i) #:: cheat(i, z)
-        case (i, Union(x, y)) :: z =>
-          val first = cheat(k, (i, x) :: z)
-          if (fits(w - k, first)) first
-          else loop(k, (i, y) :: z)
+        case (i, Empty) :: z => loop(pos, z, max)
+        case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z, max)
+        case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z, max)
+        case (i, Text(s)) :: z => (max, Text2(s)) #:: cheat(pos + s.length, z, max)
+        case (i, Line) :: z => (max, Line2(i)) #:: cheat(i, z, max)
+        case (i, Union(x, _)) :: z =>
+          val first = cheat(pos, (i, x) :: z, max)
+          val neededWidth = lineSize(pos, first.map(_._2))
+          /**
+           * if width >= neededWidth, we would branch left here (to x)
+           * else we go right
+           */
+          if (neededWidth <= max) first
+          else loop(pos, (i, x) :: z, neededWidth)
       }
 
-      def cheat(k: Int, lst: List[(Int, Doc)]): Stream[Doc2] =
-        loop(k, lst)
+      def cheat(pos: Int, lst: List[(Int, Doc)], max: Int): Stream[(Int, Doc2)] =
+        loop(pos, lst, max)
 
-      loop(0, (0, d) :: Nil)
+      loop(0, (0, d) :: Nil, 0)
+        .map(_._1)
+        .reduceOption(_ max _)
+        .getOrElse(0)
     }
 
     private[this] val indentMax = 100
