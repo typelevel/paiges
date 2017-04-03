@@ -133,50 +133,11 @@ sealed abstract class Doc extends Serializable {
   //override def toString: String = "Doc(...)"
 
   /**
-   * Compare two Doc values; we expect that the comparison result
-   * should be valid across all possible rendering widths.
-   *
-   * This method *may* be overly conservative -- it assumes that
-   * documents need to have basically the same union structure when it
-   * comes to newlines on the "right-hand side". This may end up being
-   * a bit too cautious (i.e. some equal documents will be deemed
-   * unequal).
+   * Compare two Doc values by finding the first
    */
   def compare(that: Doc): Int = {
-    import Doc.Tok
-
-    def extract(s: String, part: String): Option[Tok.Text] =
-      if (s.startsWith(part)) Some(Tok.Text(s.substring(part.length)))
-      else None
-
-    @tailrec def loop(xs: Stream[Tok], ys: Stream[Tok]): Int =
-      (xs, ys) match {
-        case (Stream.Empty, Stream.Empty) => 0
-        case (Stream.Empty, _) => -1
-        case (_, Stream.Empty) => 1
-        case (Tok.Line(n1) #:: xs, Tok.Line(n2) #:: ys) =>
-          val c = n1 compare n2
-          if (c == 0) loop(xs, ys) else c
-        case (Tok.Line(_) #:: _, _) => -1
-        case (_, Tok.Line(_) #:: _) => 1
-        case (Tok.Text(s1) #:: xs, Tok.Text(s2) #:: ys) =>
-          if (s1.length == s2.length) {
-            val c = s1 compare s2
-            if (c == 0) loop(xs, ys) else c
-          } else if (s1.length < s2.length) {
-            extract(s2, s1) match {
-              case Some(t) => loop(xs, t #:: ys)
-              case None => s1 compare s2
-            }
-          } else {
-            extract(s1, s2) match {
-              case Some(t) => loop(t #:: xs, ys)
-              case None => s1 compare s2
-            }
-          }
-      }
-
-    loop(Tok.fromDoc(this), Tok.fromDoc(that))
+    import Doc._
+    compareTree(toDocTree(this), toDocTree(that))
   }
 }
 
@@ -311,10 +272,31 @@ object Doc {
          * which is valuable.
          */
         val xsep = x +: sep
-        val first = flatten(xsep).space(fillRec(flatten(y) :: tail))
-        val second = xsep.line(fillRec(y :: tail))
-        if (first != second) Union(first, second)
-        else first
+        (flattenOption(xsep), flattenOption(y)) match {
+          case (Some(flatx), Some(flaty)) =>
+            val resty = fillRec(flaty :: tail)
+            val first = flatx.space(resty)
+            val second = xsep.line(fillRec(y :: tail))
+            // note that first != second
+            Union(first, second)
+          case (Some(flatx), None) =>
+            val resty = fillRec(y :: tail)
+            val first = flatx.space(resty)
+            val second = xsep.line(resty)
+            // note that first != second
+            Union(first, second)
+          case (None, Some(flaty)) =>
+            val resty = fillRec(flaty :: tail)
+            val first = xsep.space(resty)
+            val second = xsep.line(fillRec(y :: tail))
+            // note that first != second
+            Union(first, second)
+          case (None, None) =>
+            val resty = fillRec(y :: tail)
+            val first = xsep.space(resty)
+            val second = xsep.line(resty)
+            xsep.spaceOrLine(resty)
+        }
     }
     fillRec(ds.toList)
   }
@@ -353,16 +335,14 @@ object Doc {
    * This returns a new doc where we can replace line with space
    * to fit into a line
    */
-  def group(doc: Doc): Doc = {
-    val flattened = flatten(doc)
-    /**
-     * Unions are a little expensive
-     * and flatten already needs to traverse
-     * so make sure not to create trivial Unions
-     */
-    if (flattened != doc) Union(flattened, doc)
-    else doc
-  }
+  def group(doc: Doc): Doc =
+    flattenOption(doc) match {
+      case Some(flat) =>
+        // todo, flat could already be in the doc
+        // set. This complicates comparisons
+        Union(flat, doc)
+      case None => doc
+    }
 
   def renderStream(d: Doc, width: Int): Stream[String] =
     Doc2.best(width, d).map(_.str)
@@ -378,7 +358,9 @@ object Doc {
   }
 
   /**
-   * Convert all lines to spaces
+   * Convert all lines to spaces and
+   * return a Doc of only Empty, Text, and Concat
+   * nodes
    */
   def flatten(doc: Doc): Doc = doc match {
     case Empty => Empty
@@ -387,6 +369,31 @@ object Doc {
     case Nest(i, d) => flatten(d) // no Line, so Nest is irrelevant
     case Concat(a, b) => Concat(flatten(a), flatten(b))
     case Union(a, _) => flatten(a)
+  }
+
+  /**
+   * If the doc has no Line nodes, return None, else
+   * flatten the document.
+   */
+  def flattenOption(doc: Doc): Option[Doc] = doc match {
+    case Empty | Text(_)=> None
+    case Line => Some(space)
+    case Nest(i, d) =>
+      /*
+       * This is different from flatten which always strips
+       * the Nest node. This will return None if there is
+       * no embedded Line inside
+       */
+      flattenOption(d)
+    case Concat(a, b) =>
+      // stack safety may be an issue here
+      (flattenOption(a), flattenOption(b)) match {
+        case (Some(fa), Some(fb)) => Some(Concat(fa, fb))
+        case (Some(fa), None) => Some(Concat(fa, b))
+        case (None, Some(fb)) => Some(Concat(a, fb))
+        case (None, None) => None
+      }
+    case Union(a, _) => flattenOption(a).orElse(Some(a))
   }
 
   /**
@@ -561,5 +568,177 @@ object Doc {
      * Newline, together with how many levels of unions it contains.
      */
     case class Line(u: Int) extends Tok
+  }
+
+  import Doc2.{ Line2, Text2 }
+
+  case class Fix[F[_]](unfix: F[Fix[F]])
+  type StreamTree[T] = Stream[Either[(T, () => T), Doc2]]
+  type DocTree = Fix[StreamTree]
+
+  def docTree(s: StreamTree[DocTree]): DocTree = Fix[StreamTree](s)
+
+  @tailrec
+  private def loop(pos: Int, lst: List[(Int, Doc)]): DocTree = lst match {
+    case Nil => docTree(Stream.empty)
+    case (i, Empty) :: z => loop(pos, z)
+    case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z)
+    case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
+    case (i, Text(s)) :: z => docTree(Right(Text2(s)) #:: cheat(pos + s.length, z).unfix)
+    case (i, Line) :: z => docTree(Right(Line2(i)) #:: cheat(i, z).unfix)
+    case (i, Union(a, b)) :: z =>
+      val as = cheat(pos, (i, a) :: z)
+      def bs = cheat(pos, (i, b) :: z)
+      docTree(Stream(Left((as, () => bs))))
+  }
+
+  private def cheat(pos: Int, lst: List[(Int, Doc)]) =
+    loop(pos, lst)
+
+  def toDocTree(d: Doc): DocTree =
+    loop(0, (0, d) :: Nil)
+
+  private def push(d: Doc2, t: DocTree): DocTree =
+    docTree(Right(d) #:: t.unfix)
+
+  private def liftUnion(f: DocTree): Either[(DocTree, () => DocTree), DocTree] = f.unfix match {
+    case Stream.Empty => Right(docTree(Stream.empty))
+    case (Right(r) #:: tail) =>
+      liftUnion(docTree(tail)) match {
+        case Right(t) => Right(push(r, t))
+        case Left((a, b)) => Left((push(r, a), () => push(r, b())))
+      }
+    case (Left(left) #:: _) => Left(left)
+  }
+
+  private def space2(n: Int) = Right(Text2(" " * n)) // can memoize this
+
+  private def extract(s: String, part: String): Option[Text2] =
+    if (s.startsWith(part)) Some(Text2(s.substring(part.length)))
+    else None
+
+  /**
+   * does the docTree on the left contain the one on right
+   */
+  def isSubDoc(a: DocTree, b: DocTree): Boolean =
+    (a.unfix, b.unfix) match {
+      case (Left((as, bs)) #:: _, _) =>
+        isSubDoc(as, b) && isSubDoc(bs(), b)
+      case (_, Left((as, bs)) #:: _) =>
+        liftUnion(a) match {
+          case Left((aa, ab)) =>
+            isSubDoc(docTree(Left((aa, ab)) #:: Stream.empty), b)
+          case Right(nounion) =>
+            isSubDoc(nounion, as) || isSubDoc(nounion, bs())
+        }
+      case (Stream.Empty, Stream.Empty) => true
+      case (Stream.Empty, _) => false
+      case (_, Stream.Empty) => false
+      case (Right(Line2(nx)) #:: tailx, Right(Line2(ny)) #:: taily) =>
+        if (nx == ny) isSubDoc(docTree(tailx), docTree(taily))
+        else {
+          val m = nx min ny
+          // pull the space out
+          isSubDoc(docTree(space2(nx - m) #:: tailx), docTree(space2(ny - m) #:: taily))
+        }
+      case (Right(Line2(_)) #:: _, _) => false // line comes after text (different from ascii!)
+      case (_, Right(Line2(_)) #:: _) => false
+      case (Right(Text2(s1)) #:: xtail, Right(Text2(s2)) #:: ytail) =>
+        if (s1.length == s2.length) {
+          (s1 == s2) && isSubDoc(docTree(xtail), docTree(ytail))
+        }
+        else if (s1.length < s2.length) {
+          extract(s2, s1) match {
+            case Some(t) => isSubDoc(docTree(xtail), docTree(Right(t) #:: ytail))
+            case None => false
+          }
+        } else {
+          extract(s1, s2) match {
+            case Some(t) => isSubDoc(docTree(Right(t) #:: xtail), docTree(ytail))
+            case None => false
+          }
+        }
+    }
+
+  /**
+   * The main trick is that Union(a, b) has the property that a is less than or equal to b
+   * in our sort by construction. So, we can first compare on the left,
+   * and if that is equal, go to right.
+   */
+  def compareTree(xs: DocTree, ys: DocTree): Int = {
+    (xs.unfix, ys.unfix) match {
+      case (Left((xa, xb)) #:: _, Left((ya, yb)) #:: _) =>
+        val c1 = compareTree(xa, ya)
+        //println((c1, xa, xb(), ya, yb()))
+        if (c1 == 0) {
+          /*
+           * note that xa < xb and ya < yb
+           * so we can go to the next item
+           */
+          val xbR = xb()
+          if (isSubDoc(xa, xbR)) {
+            //println(s"0: subDoc($xa, $xbR)")
+            //println(s"compareTree($xbR, $ys)")
+            compareTree(xbR, ys)
+          }
+          else {
+            val ybR = yb()
+            if (isSubDoc(ya, ybR)) {
+              //println(s"1: subDoc($ya, $ybR)")
+              compareTree(xs, ybR)
+            }
+            else {
+              //println(s"2: notSubDoc($ya, $ybR)")
+              compareTree(xbR, ybR)
+            }
+          }
+        }
+        else c1
+      case (_, Left((as, bs)) #:: _) =>
+        liftUnion(xs) match {
+          case Right(nonunion) =>
+            val c1 = compareTree(nonunion, as)
+            if (c1 == 0) compareTree(nonunion, bs())
+            else c1
+          case Left(un) => compareTree(docTree(Left(un) #:: Stream.empty), ys)
+        }
+      case (Left((as, bs)) #:: _, _) =>
+        liftUnion(ys) match {
+          case Right(nonunion) =>
+            val c1 = compareTree(as, nonunion)
+            if (c1 == 0) compareTree(bs(), nonunion)
+            else c1
+          case Left(un) => compareTree(xs, docTree(Left(un) #:: Stream.empty))
+        }
+      case (Stream.Empty, Stream.Empty) => 0
+      case (Stream.Empty, _) => -1
+      case (_, Stream.Empty) => 1
+      case (Right(Line2(nx)) #:: tailx, Right(Line2(ny)) #:: taily) =>
+        if (nx == ny) compareTree(docTree(tailx), docTree(taily))
+        else {
+          val m = nx min ny
+          // pull the space out
+          compareTree(docTree(space2(nx - m) #:: tailx), docTree(space2(ny - m) #:: taily))
+        }
+      case (Right(Line2(_)) #:: _, _) => 1 // line comes after text (different from ascii!)
+      case (_, Right(Line2(_)) #:: _) => -1
+      case (Right(Text2(s1)) #:: xtail, Right(Text2(s2)) #:: ytail) =>
+        if (s1.length == s2.length) {
+          val c = s1 compare s2
+          if (c == 0) compareTree(docTree(xtail), docTree(ytail))
+          else c
+        }
+        else if (s1.length < s2.length) {
+          extract(s2, s1) match {
+            case Some(t) => compareTree(docTree(xtail), docTree(Right(t) #:: ytail))
+            case None => s1 compare s2
+          }
+        } else {
+          extract(s1, s2) match {
+            case Some(t) => compareTree(docTree(Right(t) #:: xtail), docTree(ytail))
+            case None => s1 compare s2
+          }
+        }
+    }
   }
 }

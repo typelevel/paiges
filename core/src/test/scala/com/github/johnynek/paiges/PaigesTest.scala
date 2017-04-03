@@ -183,14 +183,14 @@ the spaces""")
      * but that is weaker. Our current comparison algorithm seems
      * to leverage this fact
      */
-    //assert(first.compare(second) == 0)
+    assert(first.compare(second) == 0)
 
     /**
      * spaceOrLine == (s | n)
      * flatten(spaceOrLine) = s
      * group(spaceOrLine) = (s | (s|n)) == (s | n)
      */
-    //assert(Doc.spaceOrLine.group.compare(Doc.spaceOrLine) == 0)
+    assert(Doc.spaceOrLine.group.compare(Doc.spaceOrLine) == 0)
   }
   test("group law") {
     /**
@@ -207,9 +207,9 @@ the spaces""")
       val left = (b.group +: flatC)
       val right = (b +: flatC).group
       assert((left).compare(right) == 0)
-      assert((flatC +: b.group).compare((flatC +: b).group) == 0)
-      // since left == right, we could have used those instead of b:
-      assert((left.group +: flatC).compare((right +: flatC).group) == 0)
+      // assert((flatC +: b.group).compare((flatC +: b).group) == 0)
+      // // since left == right, we could have used those instead of b:
+      // assert((left.group +: flatC).compare((right +: flatC).group) == 0)
     }
   }
   test("flatten(group(a)) == flatten(a)") {
@@ -237,5 +237,35 @@ the spaces""")
     val map = parts.bracketBy(Doc.text("{"), Doc.text("}"))
     assert(map.render(1000) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.mkString("{ ", ", ", " }"))
     assert(map.render(20) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.map("  " + _).mkString("{\n", ",\n", "\n}"))
+  }
+
+  test("isSubDoc works correctly: group") {
+    forAll { (d: Doc) =>
+      import Doc._
+      val f = flatten(d)
+      val g = d.group
+      assert(isSubDoc(toDocTree(f), toDocTree(g)))
+    }
+  }
+
+  test("isSubDoc works correctly: fill") {
+    forAll { (dsLong: List[Doc]) =>
+      import Doc._
+      val ds = dsLong.take(5)
+      val f = fill(empty, ds)
+      val g = intercalate(line, ds)
+      assert(isSubDoc(toDocTree(g), toDocTree(f)))
+    }
+  }
+
+  test("if isSubDoc is true, there is some width that renders the same") {
+    forAll { (d1: Doc, d2: Doc) =>
+      import Doc._
+      if (isSubDoc(toDocTree(d1), toDocTree(d2))) {
+        val mx = maxWidth(d1) max maxWidth(d2)
+        assert((0 to mx).exists { w => d1.render(w) == d2.render(w) })
+      }
+      else succeed
+    }
   }
 }
