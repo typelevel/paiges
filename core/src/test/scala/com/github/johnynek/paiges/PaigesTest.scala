@@ -226,15 +226,15 @@ the spaces""")
     }
   }
 
-  test("isSubDoc works correctly: fill") {
-    forAll { (dsLong: List[Doc]) =>
-      import Doc._
-      val ds = dsLong.take(5)
-      val f = fill(empty, ds)
-      val g = intercalate(line, ds)
-      assert(isSubDoc(toDocTree(g), toDocTree(f)))
-    }
-  }
+  // test("isSubDoc works correctly: fill") {
+  //   forAll { (dsLong: List[Doc]) =>
+  //     import Doc._
+  //     val ds = dsLong.take(5)
+  //     val f = fill(empty, ds)
+  //     val g = intercalate(line, ds)
+  //     assert(isSubDoc(toDocTree(g), toDocTree(f)))
+  //   }
+  // }
 
   test("if isSubDoc is true, there is some width that renders the same") {
     forAll { (d1: Doc, d2: Doc) =>
@@ -244,6 +244,44 @@ the spaces""")
         assert((0 to mx).exists { w => d1.render(w) == d2.render(w) })
       }
       else succeed
+    }
+  }
+  test("setDiff(a, a) == None") {
+    forAll { (a: Doc) =>
+      import Doc._
+      val atree = toDocTree(a)
+      // we should totally empty a tree
+      assert(setDiff(atree, atree).isEmpty)
+    }
+  }
+  test("after setDiff isSubDoc is false") {
+    forAll { (a: Doc, b: Doc) =>
+      import Doc._
+      val atree = toDocTree(a)
+      val btree = toDocTree(b)
+      if (isSubDoc(atree, btree)) {
+        setDiff(btree, atree) match {
+          case None =>
+            // If a is a subset of b, and b - a == empty, then a == b
+            assert(a.compare(b) == 0)
+          case Some(diff) =>
+            assert(!isSubDoc(atree, diff))
+        }
+      }
+      else {
+        /*
+         * We either have disjoint, overlapping, or btree is a strict subset of atree
+         */
+        setDiff(btree, atree) match {
+          case None =>
+            // if we btree is a strict subset of of atree
+            assert(isSubDoc(btree, atree))
+          case Some(bMinusA) =>
+            // disjoint or overlapping, so atree and bMinusA are disjoint
+            assert(!isSubDoc(atree, bMinusA))
+            assert(((deunioned(atree).toSet) & (deunioned(bMinusA).toSet)).isEmpty)
+        }
+      }
     }
   }
 }

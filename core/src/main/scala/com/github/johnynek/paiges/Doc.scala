@@ -165,7 +165,9 @@ object Doc {
    * property, but this is why we don't expose Union
    * but only .group
    */
-  private case class Union(a: Doc, b: Doc) extends Doc
+  private case class Union(a: Doc, b: () => Doc) extends Doc {
+    lazy val bDoc: Doc = b()
+  }
 
   private[this] val maxSpaceTable = 20
   private[this] val spaceArray: Array[Text] =
@@ -180,7 +182,7 @@ object Doc {
 
   val comma: Doc = Doc.text(",")
   val line: Doc = Line
-  val spaceOrLine: Doc = Union(space, line)
+  val spaceOrLine: Doc = Union(space, () => line)
   val empty: Doc = Empty
 
   implicit val docOrdering: Ordering[Doc] =
@@ -276,25 +278,23 @@ object Doc {
           case (Some(flatx), Some(flaty)) =>
             val resty = fillRec(flaty :: tail)
             val first = flatx.space(resty)
-            val second = xsep.line(fillRec(y :: tail))
+            def second = xsep.line(fillRec(y :: tail))
             // note that first != second
-            Union(first, second)
+            Union(first, () => second)
           case (Some(flatx), None) =>
             val resty = fillRec(y :: tail)
             val first = flatx.space(resty)
-            val second = xsep.line(resty)
+            def second = xsep.line(resty)
             // note that first != second
-            Union(first, second)
+            Union(first, () => second)
           case (None, Some(flaty)) =>
             val resty = fillRec(flaty :: tail)
             val first = xsep.space(resty)
-            val second = xsep.line(fillRec(y :: tail))
+            def second = xsep.line(fillRec(y :: tail))
             // note that first != second
-            Union(first, second)
+            Union(first, () => second)
           case (None, None) =>
             val resty = fillRec(y :: tail)
-            val first = xsep.space(resty)
-            val second = xsep.line(resty)
             xsep.spaceOrLine(resty)
         }
     }
@@ -340,7 +340,7 @@ object Doc {
       case Some(flat) =>
         // todo, flat could already be in the doc
         // set. This complicates comparisons
-        Union(flat, doc)
+        Union(flat, () => doc)
       case None => doc
     }
 
@@ -445,12 +445,10 @@ object Doc {
         case (i, Union(x, y)) :: z =>
           /**
            * If we can fit the next line from x, we take it.
-           * Note, we are not back tracking if somehow later
-           * lines don't fit "well"
            */
           val first = cheat(pos, (i, x) :: z)
           if (fits(pos, first)) first
-          else loop(pos, (i, y) :: z)
+          else loop(pos, (i, y()) :: z)
       }
 
       def cheat(pos: Int, lst: List[(Int, Doc)]): Stream[Doc2] =
@@ -553,7 +551,7 @@ object Doc {
           case ln @ Tok.Line(_) => ln :: Tok.Text(" " * i) :: Nil
           case x => x :: Nil
         }
-        case Doc.Union(_, d) => fromDoc(d).map {
+        case Doc.Union(_, d) => fromDoc(d()).map {
           case Tok.Line(n) => Tok.Line(n + 1)
           case x => x
         }
@@ -588,7 +586,7 @@ object Doc {
     case (i, Line) :: z => docTree(Right(Line2(i)) #:: cheat(i, z).unfix)
     case (i, Union(a, b)) :: z =>
       val as = cheat(pos, (i, a) :: z)
-      def bs = cheat(pos, (i, b) :: z)
+      def bs = cheat(pos, (i, b()) :: z)
       docTree(Stream(Left((as, () => bs))))
   }
 
@@ -597,6 +595,37 @@ object Doc {
 
   def toDocTree(d: Doc): DocTree =
     loop(0, (0, d) :: Nil)
+
+  /**
+   * Return all the possible Docs WITHOUT any union
+   * nodes
+   */
+  def deunioned(d: DocTree): Stream[Doc] = {
+
+    def cat(a: Doc, b: Doc) = a match {
+      case Empty => b
+      case other => b match {
+        case Empty => other
+        case oo => Concat(other, oo)
+      }
+    }
+    @tailrec
+    def loop(tree: DocTree, prefix: Doc): Stream[Doc] = tree.unfix match {
+      case Stream.Empty => Stream(prefix)
+      case (Right(Text2(t)) #:: tail) =>
+        loop(docTree(tail), cat(prefix, Text(t)))
+      case (Right(Line2(n)) #:: tail) =>
+        loop(docTree(tail), cat(prefix, cat(Line, spaces(n))))
+      case (Left((a, b)) #:: _) =>
+        cheat(a, prefix) #::: cheat(b(), prefix)
+    }
+    def cheat(tree: DocTree, prefix: Doc): Stream[Doc] = loop(tree, prefix)
+
+    loop(d, Empty)
+  }
+
+  def deunioned(doc: Doc): Stream[Doc] =
+    deunioned(toDocTree(doc))
 
   private def push(d: Doc2, t: DocTree): DocTree =
     docTree(Right(d) #:: t.unfix)
@@ -616,6 +645,72 @@ object Doc {
   private def extract(s: String, part: String): Option[Text2] =
     if (s.startsWith(part)) Some(Text2(s.substring(part.length)))
     else None
+
+  /**
+   * Remove b from a
+   *
+   * consider None to be the empty set, which can't otherwise
+   * be represented
+   */
+  def setDiff(a: DocTree, b: DocTree): Option[DocTree] =
+    (a.unfix, b.unfix) match {
+      case (Left((as, bs)) #:: _, _) =>
+        val adiff = setDiff(as, b)
+        def bdiff = setDiff(bs(), b)
+        adiff match {
+          case Some(ad) =>
+            bdiff match {
+              case Some(bd) => Some(docTree(Left((ad, () => bd)) #:: Stream.empty))
+              case None => adiff
+            }
+          case None => bdiff
+        }
+      case (_, Left((as, bs)) #:: _) =>
+        liftUnion(a) match {
+          case Left(left) =>
+            setDiff(docTree(Left(left) #:: Stream.empty), b)
+          case Right(nounion) =>
+            setDiff(nounion, as) match {
+              case None => // we have already emptied, so we are done:
+                None
+              case Some(remainder) =>
+                setDiff(remainder, bs())
+            }
+        }
+      case (Stream.Empty, Stream.Empty) => None // this is now the empty set
+      case (Stream.Empty, _) => Some(a)
+      case (Right(Line2(nx)) #:: tailx, (right@Right(Line2(ny))) #:: taily) if (nx == ny) =>
+        setDiff(docTree(tailx), docTree(taily)).map { diff =>
+          docTree(right #:: diff.unfix)
+        }
+      case ((left@Right(Text2(s1))) #:: xtail, (right@Right(Text2(s2))) #:: ytail) =>
+        if (s1.length == s2.length) {
+         if (s1 == s2) {
+           setDiff(docTree(xtail), docTree(ytail)).map { diff =>
+             docTree(right #:: diff.unfix)
+           }
+         }
+         else Some(a)
+        }
+        else if (s1.length < s2.length) {
+          extract(s2, s1) match {
+            case Some(t) =>
+              setDiff(docTree(xtail), docTree(Right(t) #:: ytail)).map { diff =>
+                docTree(left #:: diff.unfix)
+              }
+            case None => Some(a)
+          }
+        } else {
+          extract(s1, s2) match {
+            case Some(t) =>
+              setDiff(docTree(Right(t) #:: xtail), docTree(ytail)).map { diff =>
+                docTree(right #:: diff.unfix)
+              }
+            case None => Some(a)
+          }
+        }
+      case (_, _) => Some(a) // they don't match at this point
+    }
 
   /**
    * does the docTree on the left contain the one on right
@@ -671,26 +766,29 @@ object Doc {
         val c1 = compareTree(xa, ya)
         //println((c1, xa, xb(), ya, yb()))
         if (c1 == 0) {
-          /*
-           * note that xa < xb and ya < yb
-           * so we can go to the next item
+          /**
+           * now we should compare(xb - xa, yb - ya)
            */
-          val xbR = xb()
-          if (isSubDoc(xa, xbR)) {
-            //println(s"0: subDoc($xa, $xbR)")
-            //println(s"compareTree($xbR, $ys)")
-            compareTree(xbR, ys)
-          }
-          else {
-            val ybR = yb()
-            if (isSubDoc(ya, ybR)) {
-              //println(s"1: subDoc($ya, $ybR)")
-              compareTree(xs, ybR)
-            }
-            else {
-              //println(s"2: notSubDoc($ya, $ybR)")
-              compareTree(xbR, ybR)
-            }
+          setDiff(xb(), xa) match {
+            case None =>
+              // here xa == xb()
+              setDiff(yb(), ya) match {
+                case None =>
+                  // yb == ya, but xa == yb
+                  0
+                case Some(ydiff) =>
+                  compareTree(xa, ydiff)
+              }
+            case Some(xdiff) =>
+              setDiff(yb(), ya) match {
+                case None =>
+                  // yb == ya
+                  // we know that xa == ya, and yb == ya
+                  // so xdiff != ya, but can we say > ya?
+                  compareTree(xdiff, ya)
+                case Some(ydiff) =>
+                  compareTree(xdiff, ydiff)
+              }
           }
         }
         else c1
