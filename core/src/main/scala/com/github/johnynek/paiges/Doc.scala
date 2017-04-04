@@ -64,6 +64,13 @@ sealed abstract class Doc extends Serializable {
   def isEmpty: Boolean = Doc.isEmpty(this)
 
   /**
+   * Is there a width such that this and that doc
+   * would render the same?
+   */
+  def isSubDocOf(that: Doc): Boolean =
+    Doc.isSubDoc(Doc.toDocTree(this), Doc.toDocTree(that))
+
+  /**
    * Concatenate with a space
    */
   def space(that: Doc): Doc = this +: Doc.space +: that
@@ -119,14 +126,18 @@ sealed abstract class Doc extends Serializable {
     Doc.write(this, maxLine, pw)
 
   override lazy val hashCode: Int = {
-    import Doc.Tok
+    /**
+     * Always go left to avoid triggering
+     * the lazy fill evaluation
+     */
     @inline def hash(curr: Int, c: Char): Int =
       curr * 1500450271 + c.toInt
+
     @tailrec def shash(n: Int, s: String, i: Int): Int =
       if (i < s.length) shash(hash(n, s.charAt(i)), s, i + 1) else n
-    Tok.fromDoc(this).foldLeft(0xdead60d5) {
-      case (n, Tok.Line(i)) => hash(n, '\n') + (1500450271 * i)
-      case (n, Tok.Text(s)) => shash(n, s, 0)
+
+    renderStream(Int.MaxValue).foldLeft(0xdead60d5) {
+      case (n, s) => shash(n, s, 0)
     }
   }
 
@@ -167,6 +178,7 @@ object Doc {
    */
   private case class Union(a: Doc, b: () => Doc) extends Doc {
     lazy val bDoc: Doc = b()
+    override def toString: String = s"Union($a, $bDoc)"
   }
 
   private[this] val maxSpaceTable = 20
@@ -442,13 +454,13 @@ object Doc {
         case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
         case (i, Text(s)) :: z => Text2(s) #:: cheat(pos + s.length, z)
         case (i, Line) :: z => Line2(i) #:: cheat(i, z)
-        case (i, Union(x, y)) :: z =>
+        case (i, u@Union(x, _)) :: z =>
           /**
            * If we can fit the next line from x, we take it.
            */
           val first = cheat(pos, (i, x) :: z)
           if (fits(pos, first)) first
-          else loop(pos, (i, y()) :: z)
+          else loop(pos, (i, u.bDoc) :: z)
       }
 
       def cheat(pos: Int, lst: List[(Int, Doc)]): Stream[Doc2] =
@@ -524,83 +536,79 @@ object Doc {
     }
   }
 
-  /**
-   * Used internally by `Doc#compare`.
-   */
-  private sealed abstract class Tok
-
-  private object Tok {
-
-    /**
-     * Create a stream of Tok values from a Doc.
-     *
-     * Tok resembles Doc2, but with differences. It is designed to
-     * assist in comparisons and equality checks, not in rendering.
-     *
-     * We track how deeply nested unions are, and "save" that
-     * information in all the newlines that we find in those delimited
-     * regions.
-     */
-    def fromDoc(d: Doc): Stream[Tok] =
-      d match {
-        case Doc.Empty => Stream.empty
-        case Doc.Line => Line(0) #:: Stream.empty
-        case Doc.Text(s) => Tok.Text(s) #:: Stream.empty
-        case Doc.Concat(x, y) => fromDoc(x) #::: fromDoc(y)
-        case Doc.Nest(i, d) => fromDoc(d).flatMap {
-          case ln @ Tok.Line(_) => ln :: Tok.Text(" " * i) :: Nil
-          case x => x :: Nil
-        }
-        case Doc.Union(_, d) => fromDoc(d()).map {
-          case Tok.Line(n) => Tok.Line(n + 1)
-          case x => x
-        }
-      }
-
-    /**
-     * Non-newline text, the normal case.
-     */
-    case class Text(s: String) extends Tok
-
-    /**
-     * Newline, together with how many levels of unions it contains.
-     */
-    case class Line(u: Int) extends Tok
-  }
-
   import Doc2.{ Line2, Text2 }
 
-  case class Fix[F[_]](unfix: F[Fix[F]])
-  type StreamTree[T] = Stream[Either[(T, () => T), Doc2]]
-  type DocTree = Fix[StreamTree]
+  private[paiges] case class Fix[F[_]](unfix: F[Fix[F]])
+  private[paiges] type StreamTree[T] = Stream[Either[(T, () => T), Doc2]]
+  private[paiges] type DocTree = Fix[StreamTree]
 
-  def docTree(s: StreamTree[DocTree]): DocTree = Fix[StreamTree](s)
+  private def docTree(s: StreamTree[DocTree]): DocTree = Fix[StreamTree](s)
 
-  @tailrec
-  private def loop(pos: Int, lst: List[(Int, Doc)]): DocTree = lst match {
-    case Nil => docTree(Stream.empty)
-    case (i, Empty) :: z => loop(pos, z)
-    case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z)
-    case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
-    case (i, Text(s)) :: z => docTree(Right(Text2(s)) #:: cheat(pos + s.length, z).unfix)
-    case (i, Line) :: z => docTree(Right(Line2(i)) #:: cheat(i, z).unfix)
-    case (i, Union(a, b)) :: z =>
-      val as = cheat(pos, (i, a) :: z)
-      def bs = cheat(pos, (i, b()) :: z)
-      docTree(Stream(Left((as, () => bs))))
+  private[paiges] def toDocTree(d: Doc): DocTree = {
+    case class Bounds(min: Int, max: Int) {
+      def contains(x: Int): Boolean = (min <= x) && (x < max)
+
+      def split(x: Int): Option[(Option[Bounds], Bounds)] =
+        if (contains(x)) Some((if (x > min) Some(Bounds(min, x)) else None, Bounds(x, max)))
+        else None
+    }
+
+    /**
+     * Return the minimum width needed to go down
+     * the left branch
+     */
+    @tailrec
+    def fits(pos: Int, d: DocTree, minV: Int): Int = d.unfix match {
+      case Stream.Empty => pos min minV// we always can fit by going left
+      case Right(Line2(_)) #:: _ => pos min minV
+      case Right(Text2(s)) #:: tail =>
+        val nextPos = pos + s.length
+        if (nextPos >= minV) minV
+        else fits(nextPos, docTree(tail), minV)
+      case Left((a, b)) #:: _ =>
+        val amin = cheatFits(pos, a, minV)
+        fits(pos, b(), amin)
+    }
+    def cheatFits(pos: Int, d: DocTree, minV: Int): Int = fits(pos, d, minV)
+
+    @tailrec
+    def loop(pos: Int, lst: List[(Int, Doc)], bounds: Bounds): DocTree = lst match {
+      case Nil => docTree(Stream.empty)
+      case (i, Empty) :: z => loop(pos, z, bounds)
+      case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z, bounds)
+      case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z, bounds)
+      case (i, Text(s)) :: z => docTree(Right(Text2(s)) #:: cheat(pos + s.length, z, bounds).unfix)
+      case (i, Line) :: z => docTree(Right(Line2(i)) #:: cheat(i, z, bounds).unfix)
+      case (i, u@Union(a, _)) :: z =>
+        /**
+         * if we can go left, we do, otherwise we go right. So, in the current
+         * bounds, there is a threshold for the current node:
+         * if (w < wmin) go right
+         * else go left
+         */
+        val as = cheat(pos, (i, a) :: z, bounds)
+        val minLeftWidth = fits(pos, as, Int.MaxValue)
+        bounds.split(minLeftWidth) match {
+          case None =>
+            // cannot go left
+            cheat(pos, (i, u.bDoc) :: z, bounds)
+          case Some((None, _)) =>
+            // always go left, because bounds.min == minLeftWidth
+            as
+          case Some((Some(rb), lb)) => // note when the width is smaller we go right
+            val left = cheat(pos, (i, a) :: z, lb)
+            def right = cheat(pos, (i, u.bDoc) :: z, rb)
+            docTree(Stream(Left((left, () => right))))
+        }
+    }
+
+    def cheat(pos: Int, lst: List[(Int, Doc)], bounds: Bounds) =
+      loop(pos, lst, bounds)
+
+    loop(0, (0, d) :: Nil, Bounds(0, Int.MaxValue))
   }
 
-  private def cheat(pos: Int, lst: List[(Int, Doc)]) =
-    loop(pos, lst)
-
-  def toDocTree(d: Doc): DocTree =
-    loop(0, (0, d) :: Nil)
-
-  /**
-   * Return all the possible Docs WITHOUT any union
-   * nodes
-   */
-  def deunioned(d: DocTree): Stream[Doc] = {
+  private[paiges] def deunioned(d: DocTree): Stream[Doc] = {
 
     def cat(a: Doc, b: Doc) = a match {
       case Empty => b
@@ -624,6 +632,10 @@ object Doc {
     loop(d, Empty)
   }
 
+  /**
+   * Return all the possible Docs WITHOUT any union
+   * nodes
+   */
   def deunioned(doc: Doc): Stream[Doc] =
     deunioned(toDocTree(doc))
 
@@ -652,7 +664,7 @@ object Doc {
    * consider None to be the empty set, which can't otherwise
    * be represented
    */
-  def setDiff(a: DocTree, b: DocTree): Option[DocTree] =
+  private[paiges] def setDiff(a: DocTree, b: DocTree): Option[DocTree] =
     (a.unfix, b.unfix) match {
       case (Left((as, bs)) #:: _, _) =>
         val adiff = setDiff(as, b)

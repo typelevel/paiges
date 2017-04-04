@@ -226,15 +226,16 @@ the spaces""")
     }
   }
 
-  // test("isSubDoc works correctly: fill") {
-  //   forAll { (dsLong: List[Doc]) =>
-  //     import Doc._
-  //     val ds = dsLong.take(5)
-  //     val f = fill(empty, ds)
-  //     val g = intercalate(line, ds)
-  //     assert(isSubDoc(toDocTree(g), toDocTree(f)))
-  //   }
-  // }
+  test("isSubDoc works correctly: fill") {
+    forAll { (d0: Doc, d1: Doc, dsLong: List[Doc]) =>
+      import Doc._
+      // we need at least 2 docs for this law
+      val ds = (d0 :: d1 :: dsLong.take(4))
+      val f = fill(empty, ds)
+      val g = intercalate(space, ds.map(flatten(_)))
+      assert(g.isSubDocOf(f))
+    }
+  }
 
   test("if isSubDoc is true, there is some width that renders the same") {
     forAll { (d1: Doc, d2: Doc) =>
@@ -244,6 +245,16 @@ the spaces""")
         assert((0 to mx).exists { w => d1.render(w) == d2.render(w) })
       }
       else succeed
+    }
+  }
+  test("a isSubDocOf b and b isSubDocOf a iff a == b") {
+    forAll { (a: Doc, b: Doc) =>
+      assert(a.isSubDocOf(a))
+      assert(b.isSubDocOf(b))
+      val cmp = a compare b
+      val eq = a.isSubDocOf(b) && b.isSubDocOf(a)
+      if (cmp == 0) assert(eq)
+      else assert(!eq)
     }
   }
   test("setDiff(a, a) == None") {
@@ -282,6 +293,17 @@ the spaces""")
             assert(((deunioned(atree).toSet) & (deunioned(bMinusA).toSet)).isEmpty)
         }
       }
+    }
+  }
+
+  test("if deunioned is a subset, then isSubDocOf") {
+    forAll { (a: Doc, b: Doc) =>
+      import Doc._
+
+      if (deunioned(a).toSet.subsetOf(deunioned(b).toSet)) {
+        assert(a.isSubDocOf(b))
+      }
+      // due to normalization, the other case may tell us nothing
     }
   }
 }
