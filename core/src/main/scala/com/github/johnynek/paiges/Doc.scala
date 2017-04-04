@@ -10,30 +10,32 @@ import scala.annotation.tailrec
  *
  * http://homepages.inf.ed.ac.uk/wadler/papers/prettier/prettier.pdf
  */
-final class Doc private (private val inner: Doc.DocADT) extends Ordered[Doc] with Serializable {
+final class Doc private (private val inner: Node) extends Ordered[Doc] with Serializable {
+  import Doc.doc
+
   /**
    * Concatenate with no space
    * We use `+:` for right associativity which is more efficient.
    */
-  def +:(that: Doc): Doc = Doc.concat(that, this)
+  def +:(that: Doc): Doc = that.concat(this)
 
   /**
    * Convert the String to a Doc and concat
    */
   def :+(text: String): Doc =
-    Doc.concat(this, Doc.text(text))
+    concat(Doc.text(text))
 
   /**
    * Convert the String to a Doc and concat
    */
   def +:(init: String): Doc =
-    Doc.concat(Doc.text(init), this)
+    Doc.text(init).concat(this)
 
   /**
    * Repeat this item count times
    */
   def *(count: Int): Doc =
-    Doc.repeat(this, count)
+    repeat(count)
 
   /**
    * synonym for line. Concatenate with a newline between
@@ -47,84 +49,156 @@ final class Doc private (private val inner: Doc.DocADT) extends Ordered[Doc] wit
   /**
    * Concatenate with no space
    */
-  def concat(that: Doc): Doc = Doc.concat(this, that)
+  def concat(that: Doc): Doc =
+    doc(Node.Concat(inner, that.inner))
+
+  /**
+   * Return all the possible Docs WITHOUT any union
+   * nodes
+   */
+  def deunioned: Stream[Doc] =
+    Tree.deunioned(Tree.toRenderedTree(inner)).map(doc)
+
+  /**
+   * Convert all lines to spaces and
+   * return a Node of only Empty, Text, and Concat
+   * nodes
+   */
+  def flatten: Doc =
+    doc(Node.flatten(inner))
+
+  /**
+   * If the doc has no Line nodes, return None, else
+   * flatten the document.
+   */
+  def flattenOption: Option[Doc] =
+    Node.flattenOption(inner).map(doc)
 
   /**
    * Consider this item as a group where before rendering
    * we can replace newlines with a space if it can fit
    */
-  def group: Doc = Doc.group(this)
+  def group: Doc =
+    Node.flattenOption(inner) match {
+      case Some(flat) =>
+        // todo, flat could already be in the doc
+        // set. This complicates comparisons
+        doc(Node.Union(flat, () => inner))
+      case None => this
+    }
 
   /**
    * a Doc is empty if all renderings will be the empty
    * string
    */
-  def isEmpty: Boolean = Doc.isEmpty(this)
+  def isEmpty: Boolean = Node.isEmpty(inner)
+
+  /**
+   * Is there a width such that this and that doc
+   * would render the same?
+   */
+  def isSubDocOf(that: Doc): Boolean =
+    Tree.isSubNode(Tree.toRenderedTree(inner), Tree.toRenderedTree(that.inner))
+
+  /**
+   * Repeat the given document a number of times
+   *
+   * if (count <= 0) we return empty
+   */
+  def repeat(count: Int): Doc =
+    doc(Node.repeat(inner, count))
 
   /**
    * Concatenate with a space
    */
-  def space(that: Doc): Doc = this +: Doc.space +: that
+  def space(that: Doc): Doc =
+    this +: Doc.space +: that
 
   /**
    * Concatenate with a space
    */
-  def space(that: String): Doc = this +: Doc.space +: Doc.text(that)
+  def space(that: String): Doc =
+    this +: Doc.space +: Doc.text(that)
 
   /**
    * Concatenate with a newline
    */
-  def line(that: Doc): Doc = this +: Doc.line +: that
+  def line(that: Doc): Doc =
+    this +: Doc.line +: that
 
   /**
    * Concatenate with a newline
    */
-  def line(str: String): Doc = line(Doc.text(str))
+  def line(str: String): Doc =
+    line(Doc.text(str))
 
   /**
    * Use a space if we can fit, else use a newline
    */
-  def spaceOrLine(that: Doc): Doc = this +: (Doc.spaceOrLine) +: that
+  def spaceOrLine(that: Doc): Doc =
+    this +: (Doc.spaceOrLine) +: that
 
   /**
    * Use a space if we can fit, else use a newline
    */
-  def spaceOrLine(that: String): Doc = spaceOrLine(Doc.text(that))
+  def spaceOrLine(that: String): Doc =
+    spaceOrLine(Doc.text(that))
+
+  /**
+   * What is the largest width that is relevant
+   * for this Doc (all internal branches are
+   * the same at this width and greater)
+   *
+   * val m = maxWidth(d)
+   * render(d, m) == render(d, n)
+   * for all n >= m
+   *
+   */
+  def maxWidth: Int = Rendered.maxWidth(inner)
 
   /**
    * Convert the Doc to a String with a desired maximum line
    */
-  def render(maxLine: Int): String = Doc.render(this, maxLine)
+  def render(maxLine: Int): String = {
+    val bldr = new StringBuilder
+    renderStream(maxLine).foreach(bldr.append(_))
+    bldr.toString
+  }
 
   /**
    * Render into a stream of strings which should be
    * concatenated all together to form the final
    * document
    */
-  def renderStream(maxLine: Int): Stream[String] =
-    Doc.renderStream(this, maxLine)
+  def renderStream(width: Int): Stream[String] =
+    Rendered.best(width, inner).map(_.str)
 
   /**
    * nest replaces new lines with a newline plus this amount
    * of indentation. If there are no new lines, this is a no-op
    */
-  def nest(amount: Int): Doc = Doc.nest(this, amount)
+  def nest(amount: Int): Doc =
+    doc(Node.Nest(amount, inner))
 
   /**
    * using a given max-Line write to the print writer
    */
   def writeTo(maxLine: Int, pw: PrintWriter): Unit =
-    Doc.write(this, maxLine, pw)
+    renderStream(maxLine).foreach(pw.append(_))
 
   override lazy val hashCode: Int = {
-    import Doc.Tok
+    /**
+     * Always go left to avoid triggering
+     * the lazy fill evaluation
+     */
     @inline def hash(curr: Int, c: Char): Int =
       curr * 1500450271 + c.toInt
+
     @tailrec def shash(n: Int, s: String, i: Int): Int =
       if (i < s.length) shash(hash(n, s.charAt(i)), s, i + 1) else n
-    Tok.fromDoc(inner).foldLeft(0xdead60d5) {
-      case (n, Tok.Line(i)) => hash(n, '\n') + (1500450271 * i)
-      case (n, Tok.Text(s)) => shash(n, s, 0)
+
+    renderStream(Int.MaxValue).foldLeft(0xdead60d5) {
+      case (n, s) => shash(n, s, 0)
     }
   }
 
@@ -155,100 +229,41 @@ final class Doc private (private val inner: Doc.DocADT) extends Ordered[Doc] wit
   }
 
   override def equals(that: Any): Boolean = that match {
-    case d: Doc => (this eq d) || (inner == d.inner) || (compare(d) == 0)
+    case d: Doc => (this eq d) || (compare(d) == 0)
     case _ => false
   }
 
   /**
-   * Compare two Doc values; we expect that the comparison result
-   * should be valid across all possible rendering widths.
-   *
-   * This method *may* be overly conservative -- it assumes that
-   * documents need to have basically the same union structure when it
-   * comes to newlines on the "right-hand side". This may end up being
-   * a bit too cautious (i.e. some equal documents will be deemed
-   * unequal).
+   * Compare two Doc values by finding the first
    */
-  def compare(that: Doc): Int = {
-    import Doc.Tok
+  def compare(that: Doc): Int =
+    Tree.compareTree(toRenderedTree, that.toRenderedTree)
 
-    def extract(s: String, part: String): Option[Tok.Text] =
-      if (s.startsWith(part)) Some(Tok.Text(s.substring(part.length)))
-      else None
-
-    @tailrec def loop(xs: Stream[Tok], ys: Stream[Tok]): Int =
-      (xs, ys) match {
-        case (Stream.Empty, Stream.Empty) => 0
-        case (Stream.Empty, _) => -1
-        case (_, Stream.Empty) => 1
-        case (Tok.Line(n1) #:: xs, Tok.Line(n2) #:: ys) =>
-          val c = n1 compare n2
-          if (c == 0) loop(xs, ys) else c
-        case (Tok.Line(_) #:: _, _) => -1
-        case (_, Tok.Line(_) #:: _) => 1
-        case (Tok.Text(s1) #:: xs, Tok.Text(s2) #:: ys) =>
-          if (s1.length == s2.length) {
-            val c = s1 compare s2
-            if (c == 0) loop(xs, ys) else c
-          } else if (s1.length < s2.length) {
-            extract(s2, s1) match {
-              case Some(t) => loop(xs, t #:: ys)
-              case None => s1 compare s2
-            }
-          } else {
-            extract(s1, s2) match {
-              case Some(t) => loop(t #:: xs, ys)
-              case None => s1 compare s2
-            }
-          }
-      }
-
-    loop(Tok.fromDoc(inner), Tok.fromDoc(that.inner))
-  }
+  private[paiges] def toRenderedTree: Tree.RenderedTree =
+    Tree.toRenderedTree(inner)
 }
 
 object Doc {
-  private sealed abstract class DocADT
-  private case object Empty extends DocADT
+  import Node._
 
-  /**
-   * Represents a single, literal newline.
-   */
-  private case object Line extends DocADT
+  private def doc(d: Node): Doc = new Doc(d)
 
-  /**
-   * The string must not be empty, and may not contain newlines.
-   */
-  private case class Text(str: String) extends DocADT
-
-  private case class Concat(a: DocADT, b: DocADT) extends DocADT
-
-  private case class Nest(indent: Int, doc: DocADT) extends DocADT
-
-  /**
-   * There is an additional invariant on Union that
-   * a == flatten(b). By construction all have this
-   * property, but this is why we don't expose Union
-   * but only .group
-   */
-  private case class Union(a: DocADT, b: DocADT) extends DocADT
-
-  private def doc(d: DocADT): Doc = new Doc(d)
-
-  private[this] val maxSpaceTable = 20
+  private[this] val maxSpaceTable = 100
   private[this] val spaceArray: Array[Doc] =
-    (1 to maxSpaceTable).map { i => doc(Text(" " * i)) }.toArray
+    (1 to maxSpaceTable)
+      .map { s => doc(Node.spaces(s)) }
+      .toArray
 
   def spaces(n: Int): Doc =
-    if (n < 1) empty
+    if (n == 0) empty
     else if (n <= maxSpaceTable) spaceArray(n - 1)
-    else doc(Text(" " * n))
+    else doc(Node.spaces(n))
 
   val space: Doc = spaceArray(0)
 
   val comma: Doc = doc(Text(","))
   val line: Doc = doc(Line)
-  val spaceOrLine: Doc = doc(Union(space.inner, Line))
+  val spaceOrLine: Doc = doc(Union(space.inner, () => Line))
   val empty: Doc = doc(Empty)
 
   implicit val docOrdering: Ordering[Doc] =
@@ -260,17 +275,22 @@ object Doc {
    * Convert a string to text. Note all `\n` are converted
    * to logical entities that the rendering is aware of.
    */
-  def text(str: String): Doc =
-    if (str == "") empty
-    else if (str == " ") space
-    else if (str == "\n") line
+  def text(str: String): Doc = {
+    if (str == "\n") line
     else {
+      def node(s: String): Node =
+        if (str == "") Empty
+        else if (str == " ") space.inner
+        else if (str == "  ") spaces(2).inner
+        else Text(s)
+
       doc(str.split("\n", -1)
         .iterator
-        .map(Text(_): DocADT)
+        .map(node)
         .reduce { (d, str) =>
           Concat(d, Concat(Line, str))
         })
+      }
     }
 
   /**
@@ -280,31 +300,6 @@ object Doc {
    */
   def str[T](t: T): Doc =
     text(t.toString)
-
-  /**
-   * A Doc is empty if and only if all renderings are empty
-   */
-  def isEmpty(d: Doc): Boolean = {
-    @tailrec
-    def loop(doc: DocADT, stack: List[DocADT]): Boolean = doc match {
-      case Empty => stack match {
-        case d1 :: tail => loop(d1, tail)
-        case Nil => true
-      }
-      case Concat(_, Line) => false // minor optimization to short circuit sooner
-      case Concat(a, Text(s)) =>
-        // minor optimization to short circuit sooner
-        s.isEmpty && loop(a, stack)
-      case Concat(a, b) => loop(a, b :: stack)
-      case Nest(i, d) => loop(d, stack)
-      case Text(s) =>
-        // shouldn't be empty by construction, but defensive
-        s.isEmpty && loop(Empty, stack)
-      case Line => false
-      case Union(_, unflatten) => loop(unflatten, stack)
-    }
-    loop(d.inner, Nil)
-  }
 
   /**
    * Try to make this left.space(middle).space(right)
@@ -320,22 +315,73 @@ object Doc {
    * reasonable layout, and a newline otherwise
    */
   def fill(sep: Doc, ds: Iterable[Doc]): Doc = {
-    val sepADT = sep.inner
-    def fillRec(lst: List[DocADT]): DocADT = lst match {
+    val sepNode = sep.inner
+
+    def space(n1: Node, n2: Node): Node =
+      Concat(n1, Concat(Node.space, n2))
+
+    def line(n1: Node, n2: Node): Node =
+      Concat(n1, Concat(Node.Line, n2))
+
+    def spaceOrLine(n1: Node, n2: Node): Node =
+      Concat(n1, Concat(Doc.spaceOrLine.inner, n2))
+
+    def fillRec(lst: List[Node]): Node = lst match {
       case Nil => Empty
       case x :: Nil => x
       case x :: y :: tail =>
-        val xsep = if (sepADT == Empty) x else Concat(x, sepADT)
-        val first = Concat(flatten(xsep), Concat(space.inner, fillRec(flatten(y) :: tail)))
-        val second = Concat(xsep, Concat(Line, fillRec(y :: tail)))
-        Union(first, second)
+        /**
+         * The cost of this algorithm c(n) for list of size n.
+         * note that c(n) = 2 * c(n-1) + k
+         * for some constant.
+         * so, c(n) - c(n-1) = c(n-1) + k
+         * which means that
+         * c(n) = (0 until n).map(c(_)).sum + nk
+         *
+         * which is exponential in n (O(2^n))
+         *
+         * making the second parameter in the union lazy would fix this.
+         * that seems an expensive fix for a single combinator. Maybe
+         * there is an alternative way to express this that is not
+         * exponential.
+         *
+         * On top of this difficulty, this formulation creates
+         * Union nodes that violate the invariant that Union(a, b)
+         * means a == flatten(b). It still has flatten(a) == flatten(b),
+         * however. This fact seems to complicate comparison of Doc
+         * which is valuable.
+         */
+        val xsep = if (sepNode != Empty) Node.Concat(x, sepNode) else x
+        (Node.flattenOption(xsep), Node.flattenOption(y)) match {
+          case (Some(flatx), Some(flaty)) =>
+            val resty = fillRec(flaty :: tail)
+            val first = space(flatx, resty)
+            def second = line(xsep, fillRec(y :: tail))
+            // note that first != second
+            Union(first, () => second)
+          case (Some(flatx), None) =>
+            val resty = fillRec(y :: tail)
+            val first = space(flatx, resty)
+            def second = line(xsep, resty)
+            // note that first != second
+            Union(first, () => second)
+          case (None, Some(flaty)) =>
+            val resty = fillRec(flaty :: tail)
+            val first = space(xsep, resty)
+            def second = line(xsep, fillRec(y :: tail))
+            // note that first != second
+            Union(first, () => second)
+          case (None, None) =>
+            val resty = fillRec(y :: tail)
+            spaceOrLine(xsep, resty)
+        }
     }
     doc(fillRec(ds.iterator.map(_.inner).toList))
   }
 
   /**
    * Convert assume we can replace space
-   * with newline
+   * with newline, but newlines are preserved
    */
   def fillWords(s: String): Doc =
     foldDoc(s.split(" ", -1).map(text))(_.spaceOrLine(_))
@@ -346,7 +392,6 @@ object Doc {
   def paragraph(s: String): Doc =
     foldDoc(s.split("\\s+", -1).map(text))(_.spaceOrLine(_))
 
-  def concat(a: Doc, b: Doc): Doc = doc(Concat(a.inner, b.inner))
 
   def foldDoc(ds: Iterable[Doc])(fn: (Doc, Doc) => Doc): Doc =
     ds.reduceOption(fn).getOrElse(empty)
@@ -354,29 +399,6 @@ object Doc {
   def intercalate(d: Doc, ds: Iterable[Doc]): Doc =
     foldDoc(ds) { (a, b) => a +: (d +: b) }
 
-  /**
-   * Repeat the given document a number of times
-   */
-  def repeat(d: Doc, count: Int): Doc = {
-    require(count >= 0, s"count must be >= 0, found $count")
-    /**
-     * only have log depth, so recursion is fine
-     * d * (2n + c) = (dn + dn) + c
-     */
-    def loop(d: DocADT, cnt: Int): DocADT = {
-      val n = cnt / 2
-      val dn2 =
-        if (n > 0) {
-          val dn = loop(d, n)
-          Concat(dn, dn)
-        }
-        else {
-          Empty
-        }
-      if ((cnt & 1) == 1) Concat(dn2, d) else dn2
-    }
-    doc(loop(d.inner, count))
-  }
   /**
    * intercalate with a space
    */
@@ -386,143 +408,4 @@ object Doc {
    */
   def stack(ds: Iterable[Doc]): Doc = intercalate(line, ds)
 
-  /**
-   * This returns a new doc where we can replace line with space
-   * to fit into a line
-   */
-  def group(d: Doc): Doc =
-    doc(Union(flatten(d.inner), d.inner))
-
-  /**
-   * replace all newlines in doc with newline plus amount spaces
-   */
-  def nest(d: Doc, amount: Int): Doc =
-    doc(Nest(amount, d.inner))
-
-  def renderStream(d: Doc, width: Int): Stream[String] =
-    Doc2.best(width, d.inner).map(_.str)
-
-  def render(d: Doc, width: Int): String = {
-    val bldr = new StringBuilder
-    renderStream(d, width).foreach(bldr.append(_))
-    bldr.toString
-  }
-
-  def write(d: Doc, width: Int, pw: PrintWriter): Unit =
-    renderStream(d, width).foreach(pw.append(_))
-
-  private def flatten(doc: DocADT): DocADT = doc match {
-    case Empty => Empty
-    case Concat(a, b) => Concat(flatten(a), flatten(b))
-    case Nest(i, d) => Nest(i, flatten(d))
-    case str@Text(_) => str
-    case Line => space.inner
-    case Union(a, _) => a
-  }
-
-  /**
-   * This is the second ADT introduced for efficiency reasons
-   */
-  private sealed abstract class Doc2 {
-    def str: String
-  }
-
-  private object Doc2 {
-    @tailrec
-    def fits(width: Int, d: Stream[Doc2]): Boolean =
-      (width >= 0) && {
-        if (d.isEmpty) true
-        else d.head match {
-          case Line2(_) => true
-          case Text2(s) => fits(width - s.length, d.tail)
-        }
-      }
-
-    def best(w: Int, d: DocADT): Stream[Doc2] = {
-
-      /**
-       * This is not really tail recursive but many branches are, so
-       * we cheat below in non-tail positions
-       */
-      @tailrec
-      def loop(w: Int, k: Int, lst: List[(Int, DocADT)]): Stream[Doc2] = lst match {
-        case Nil => Stream.empty[Doc2]
-        case (i, Empty) :: z => loop(w, k, z)
-        case (i, Concat(a, b)) :: z => loop(w, k, (i, a) :: (i, b) :: z)
-        case (i, Nest(j, d)) :: z => loop(w, k, ((i + j), d) :: z)
-        case (i, Text(s)) :: z => Text2(s) #:: cheat(w, k + s.length, z)
-        case (i, Line) :: z => Line2(i) #:: cheat(w, i, z)
-        case (i, Union(x, y)) :: z =>
-          val first = cheat(w, k, (i, x) :: z)
-          if (fits(w - k, first)) first
-          else loop(w, k, (i, y) :: z)
-      }
-
-      def cheat(w: Int, k: Int, lst: List[(Int, DocADT)]): Stream[Doc2] =
-        loop(w, k, lst)
-
-      loop(w, 0, (0, d) :: Nil)
-    }
-
-    private[this] val indentMax = 100
-    private[this] val indentTable: Array[String] =
-      (0 to indentMax).iterator
-        .map(makeIndentStr)
-        .toArray
-
-    def makeIndentStr(i: Int): String = "\n" + (" " * i)
-
-    def lineToStr(indent: Int): String =
-      if (indent <= indentMax) indentTable(indent)
-      else makeIndentStr(indent)
-
-    case class Text2(str: String) extends Doc2
-    case class Line2(indent: Int) extends Doc2 {
-      def str: String = lineToStr(indent)
-    }
-  }
-
-  /**
-   * Used internally by `Doc#compare`.
-   */
-  private sealed abstract class Tok
-
-  private object Tok {
-
-    /**
-     * Create a stream of Tok values from a Doc.
-     *
-     * Tok resembles Doc2, but with differences. It is designed to
-     * assist in comparisons and equality checks, not in rendering.
-     *
-     * We track how deeply nested unions are, and "save" that
-     * information in all the newlines that we find in those delimited
-     * regions.
-     */
-    def fromDoc(d: DocADT): Stream[Tok] =
-      d match {
-        case Doc.Empty => Stream.empty
-        case Doc.Line => Line(0) #:: Stream.empty
-        case Doc.Text(s) => Tok.Text(s) #:: Stream.empty
-        case Doc.Concat(x, y) => fromDoc(x) #::: fromDoc(y)
-        case Doc.Nest(i, d) => fromDoc(d).flatMap {
-          case ln @ Tok.Line(_) => ln :: Tok.Text(" " * i) :: Nil
-          case x => x :: Nil
-        }
-        case Doc.Union(_, d) => fromDoc(d).map {
-          case Tok.Line(n) => Tok.Line(n + 1)
-          case x => x
-        }
-      }
-
-    /**
-     * Non-newline text, the normal case.
-     */
-    case class Text(s: String) extends Tok
-
-    /**
-     * Newline, together with how many levels of unions it contains.
-     */
-    case class Line(u: Int) extends Tok
-  }
 }

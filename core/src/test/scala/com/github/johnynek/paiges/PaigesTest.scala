@@ -9,8 +9,8 @@ class PaigesTest extends FunSuite {
 
   import Doc.text
 
-  // implicit val generatorDrivenConfig =
-  //   PropertyCheckConfiguration(minSuccessful = 100)
+  implicit val generatorDrivenConfig =
+    PropertyCheckConfiguration(minSuccessful = 500)
 
   test("typeclasses resolve") {
     assert(implicitly[Equiv[Doc]] == implicitly[Ordering[Doc]])
@@ -105,16 +105,10 @@ the spaces""")
     }
   }
 
-  test("fillWords can == .map('\\n' => ' ')") {
+  test("fillWords can be identity") {
     forAll { (str: String) =>
       // this test fails if str is all newlines (e.g. "\n")
-      if (str.exists(_ != '\n')) {
-        val newLineToSpace = str.map {
-          case '\n' => ' '
-          case other => other
-        }
-        assert(Doc.fillWords(str).render(str.length) == newLineToSpace)
-      } else succeed
+      assert(Doc.fillWords(str).render(str.length) == str)
     }
   }
 
@@ -165,6 +159,81 @@ the spaces""")
     }
   }
 
+  test("renders are constant after maxWidth") {
+    forAll { (d: Doc, ws: List[Int]) =>
+      val m = d.maxWidth
+      val maxR = d.render(m)
+      val justAfter = (1 to 20).iterator
+      val goodW = (justAfter ++ ws.iterator).map { w => (m + w) max m }
+      assert(goodW.forall { w =>
+        val wrender = d.render(w)
+        (wrender == maxR)
+      })
+    }
+  }
+  test("if we always render the same, we compare the same") {
+    forAll { (a: Doc, b: Doc) =>
+      val maxR = a.maxWidth max b.maxWidth
+      val allSame = (0 to maxR).forall { w =>
+        a.render(w) == b.render(w)
+      }
+      if (allSame) assert(a == b)
+      else succeed
+    }
+  }
+  test("hard union cases") {
+    /**
+     * if s == space, and n == line
+     * we know that:
+     * a * (s|n) * b * (s|n) * c =
+     *
+     * (a * s * ((b * s * c) | (b * n * c)) |
+     *   (a * n * (b * s * c) | (b * n * c))
+     */
+    val first = Doc.fillWords("a b c")
+    val second = Doc.fill(Doc.empty, List("a", "b", "c").map(Doc.text))
+    /*
+     * I think this fails perhaps because of the way fill constructs
+     * Unions. It violates a stronger invariant that Union(a, b)
+     * means a == flatten(b). It has the property that flatten(a) == flatten(b)
+     * but that is weaker. Our current comparison algorithm seems
+     * to leverage this fact
+     */
+    assert(first.compare(second) == 0)
+
+    /**
+     * spaceOrLine == (s | n)
+     * flatten(spaceOrLine) = s
+     * group(spaceOrLine) = (s | (s|n)) == (s | n)
+     */
+    assert(Doc.spaceOrLine.group.compare(Doc.spaceOrLine) == 0)
+  }
+  test("group law") {
+    /**
+     * group(x) = (x' | x) where x' is flatten(x)
+     *
+     * (a | b)*c == (a*c | b*c) so, if flatten(c) == c we have:
+     * c * (a | b) == (a*c | b*c)
+     *
+     * b.group +: flatten(c) == (b +: flatten(c)).group
+     * flatten(c) +: b.group == (flatten(c) +: b).group
+     */
+    forAll { (b: Doc, c: Doc) =>
+      val flatC = c.flatten
+      val left = (b.group +: flatC)
+      val right = (b +: flatC).group
+      assert(left == right)
+      assert((flatC +: b.group) == ((flatC +: b).group))
+      // since left == right, we could have used those instead of b:
+      assert((left.group +: flatC) == ((right +: flatC).group))
+    }
+  }
+  test("flatten(group(a)) == flatten(a)") {
+    forAll { (a: Doc) =>
+      assert(a.group.flatten == a.flatten)
+    }
+  }
+
   test("test json array example") {
     val items = (0 to 20).map(Doc.str(_))
     val parts = Doc.fill(Doc.comma, items)
@@ -184,5 +253,94 @@ the spaces""")
     val map = Doc.bracket(Doc.text("{"), parts, Doc.text("}"))
     assert(map.render(1000) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.mkString("{ ", ", ", " }"))
     assert(map.render(20) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.map("  " + _).mkString("{\n", ",\n", "\n}"))
+  }
+
+  test("isSubDoc works correctly: group") {
+    forAll { (d: Doc) =>
+      import Doc._
+      val f = d.flatten
+      val g = d.group
+      assert(f.isSubDocOf(g))
+    }
+  }
+
+  test("isSubDoc works correctly: fill") {
+    forAll { (d0: Doc, d1: Doc, dsLong: List[Doc]) =>
+      import Doc._
+      // we need at least 2 docs for this law
+      val ds = (d0 :: d1 :: dsLong.take(4))
+      val f = fill(empty, ds)
+      val g = intercalate(space, ds.map(_.flatten))
+      assert(g.isSubDocOf(f))
+    }
+  }
+
+  test("if isSubDoc is true, there is some width that renders the same") {
+    forAll { (d1: Doc, d2: Doc) =>
+      if (d1.isSubDocOf(d2)) {
+        val mx = d1.maxWidth max d2.maxWidth
+        assert((0 to mx).exists { w => d1.render(w) == d2.render(w) })
+      }
+      else succeed
+    }
+  }
+  test("a isSubDocOf b and b isSubDocOf a iff a == b") {
+    forAll { (a: Doc, b: Doc) =>
+      assert(a.isSubDocOf(a))
+      assert(b.isSubDocOf(b))
+      val cmp = a compare b
+      val eq = a.isSubDocOf(b) && b.isSubDocOf(a)
+      if (cmp == 0) assert(eq)
+      else assert(!eq)
+    }
+  }
+  test("setDiff(a, a) == None") {
+    forAll { (a: Doc) =>
+      import Tree._
+      val atree = a.toRenderedTree
+      // we should totally empty a tree
+      assert(setDiff(atree, atree).isEmpty)
+    }
+  }
+  test("after setDiff isSubDoc is false") {
+    forAll { (a: Doc, b: Doc) =>
+      import Tree._
+      val atree = a.toRenderedTree
+      val btree = b.toRenderedTree
+      if (isSubNode(atree, btree)) {
+        setDiff(btree, atree) match {
+          case None =>
+            // If a is a subset of b, and b - a == empty, then a == b
+            assert(a.compare(b) == 0)
+          case Some(diff) =>
+            assert(!isSubNode(atree, diff))
+        }
+      }
+      else {
+        /*
+         * We either have disjoint, overlapping, or btree is a strict subset of atree
+         */
+        setDiff(btree, atree) match {
+          case None =>
+            // if we btree is a strict subset of of atree
+            assert(isSubNode(btree, atree))
+          case Some(bMinusA) =>
+            // disjoint or overlapping, so atree and bMinusA are disjoint
+            assert(!isSubNode(atree, bMinusA))
+            assert(((deunioned(atree).toSet) & (deunioned(bMinusA).toSet)).isEmpty)
+        }
+      }
+    }
+  }
+
+  test("if deunioned is a subset, then isSubDocOf") {
+    forAll { (a: Doc, b: Doc) =>
+      import Doc._
+
+      if (a.deunioned.toSet.subsetOf(b.deunioned.toSet)) {
+        assert(a.isSubDocOf(b))
+      }
+      // due to normalization, the other case may tell us nothing
+    }
   }
 }
