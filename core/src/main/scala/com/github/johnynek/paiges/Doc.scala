@@ -11,6 +11,7 @@ import scala.annotation.tailrec
  * http://homepages.inf.ed.ac.uk/wadler/papers/prettier/prettier.pdf
  */
 sealed abstract class Doc extends Serializable {
+
   /**
    * Concatenate with no space
    * We use `+:` for right associativity which is more efficient.
@@ -126,16 +127,14 @@ sealed abstract class Doc extends Serializable {
     Doc.write(this, maxLine, pw)
 
   override lazy val hashCode: Int = {
-    /**
-     * Always go left to avoid triggering
-     * the lazy fill evaluation
-     */
+
     @inline def hash(curr: Int, c: Char): Int =
       curr * 1500450271 + c.toInt
 
     @tailrec def shash(n: Int, s: String, i: Int): Int =
       if (i < s.length) shash(hash(n, s.charAt(i)), s, i + 1) else n
 
+    // Always go left to avoid triggering the lazy fill evaluation.
     renderStream(Int.MaxValue).foldLeft(0xdead60d5) {
       case (n, s) => shash(n, s, 0)
     }
@@ -146,10 +145,8 @@ sealed abstract class Doc extends Serializable {
   /**
    * Compare two Doc values by finding the first
    */
-  def compare(that: Doc): Int = {
-    import Doc._
-    compareTree(toDocTree(this), toDocTree(that))
-  }
+  def compare(that: Doc): Int =
+    Doc.compareTree(Doc.toDocTree(this), Doc.toDocTree(that))
 }
 
 object Doc {
@@ -206,18 +203,24 @@ object Doc {
    * Convert a string to text. Note all `\n` are converted
    * to logical entities that the rendering is aware of.
    */
-  def text(str: String): Doc =
-    if (str == "") empty
+  def text(str: String): Doc = {
+    def tx(i: Int, j: Int): Doc =
+      if (i == j) Empty else Text(str.substring(i, j))
+
+    // parse the string right-to-left, splitting at newlines.
+    // this ensures that our concatenations are right-associated.
+    @tailrec def parse(i: Int, limit: Int, doc: Doc): Doc =
+      if (i < 0) tx(0, limit) +: doc
+      else str.charAt(i) match {
+        case '\n' => parse(i - 1, i, Line +: tx(i + 1, limit) +: doc)
+        case _ => parse(i - 1, limit, doc)
+      }
+
+    if (str == "") Empty
     else if (str == " ") space
-    else if (str == "\n") line
-    else {
-      str.split("\n", -1)
-        .iterator
-        .map(Text(_): Doc)
-        .reduce { (d, str) =>
-          Concat(d, Concat(Line, str))
-        }
-    }
+    else if (str.indexOf('\n') < 0) Text(str)
+    else parse(str.length - 1, str.length, Empty)
+  }
 
   /**
    * Convert a T to a Doc using toString. Note that "\n" is
