@@ -12,6 +12,10 @@ class PaigesTest extends FunSuite {
   implicit val generatorDrivenConfig =
     PropertyCheckConfiguration(minSuccessful = 500)
 
+  test("typeclasses resolve") {
+    assert(implicitly[Equiv[Doc]] == implicitly[Ordering[Doc]])
+  }
+
   test("basic test") {
      assert((text("hello") +: text("world")).render(100) == "helloworld")
   }
@@ -64,14 +68,40 @@ the spaces""")
 
   test("concat is associative") {
     forAll { (a: Doc, b: Doc, c: Doc, width: Int) =>
-      assert(((a +: b) +: c).render(width) ==
-        (a +: (b +: c)).render(width))
+      val left = ((a +: b) +: c)
+      val right = (a +: (b +: c))
+      assert(left.render(width) == right.render(width))
+      assert(left == right)
     }
   }
   test("empty does not change things") {
     forAll { (a: Doc, width: Int) =>
       assert((a +: Doc.empty).render(width) == a.render(width))
       assert((Doc.empty +: a).render(width) == a.render(width))
+      assert(a +: Doc.empty == a)
+      assert(Doc.empty +: a == a)
+    }
+  }
+  test("non empty text is not an identity") {
+    forAll { (a: Doc) =>
+      assert(a +: Doc.text("not empty") != a)
+      assert(!(a +: Doc.text("not empty")).isEmpty)
+    }
+  }
+  test("equals matches compare") {
+    forAll { (a: Doc, b: Doc) =>
+      assert((a == b) == (a.compare(b) == 0))
+    }
+  }
+  test("If two things render differently, they are not equal") {
+    forAll { (a: Doc, b: Doc, w: Int) =>
+      val diff = a.render(w) != b.render(w) || {
+        (0 to 100).exists { w => a.render(w) != b.render(w) }
+      }
+      if (diff) {
+        assert(a != b)
+      }
+      else succeed // may still be different for some other width
     }
   }
 
@@ -121,9 +151,17 @@ the spaces""")
       else succeed
     }
   }
+  test("Doc.repeat matches naive implementation") {
+    forAll { (d: Doc, n: Int) =>
+      def simple(n: Int, acc: Doc): Doc = if(n <= 0) acc else simple(n - 1, acc +: d)
+      val small = n & 0xff
+      assert(simple(small, Doc.empty) == (d * small))
+    }
+  }
+
   test("renders are constant after maxWidth") {
     forAll { (d: Doc, ws: List[Int]) =>
-      val m = Doc.maxWidth(d)
+      val m = d.maxWidth
       val maxR = d.render(m)
       val justAfter = (1 to 20).iterator
       val goodW = (justAfter ++ ws.iterator).map { w => (m + w) max m }
@@ -135,11 +173,11 @@ the spaces""")
   }
   test("if we always render the same, we compare the same") {
     forAll { (a: Doc, b: Doc) =>
-      val maxR = Doc.maxWidth(a) max Doc.maxWidth(b)
+      val maxR = a.maxWidth max b.maxWidth
       val allSame = (0 to maxR).forall { w =>
         a.render(w) == b.render(w)
       }
-      if (allSame) assert(a.compare(b) == 0)
+      if (allSame) assert(a == b)
       else succeed
     }
   }
@@ -181,18 +219,18 @@ the spaces""")
      * flatten(c) +: b.group == (flatten(c) +: b).group
      */
     forAll { (b: Doc, c: Doc) =>
-      val flatC = Doc.flatten(c)
+      val flatC = c.flatten
       val left = (b.group +: flatC)
       val right = (b +: flatC).group
-      assert((left).compare(right) == 0)
-      assert((flatC +: b.group).compare((flatC +: b).group) == 0)
+      assert(left == right)
+      assert((flatC +: b.group) == ((flatC +: b).group))
       // since left == right, we could have used those instead of b:
-      assert((left.group +: flatC).compare((right +: flatC).group) == 0)
+      assert((left.group +: flatC) == ((right +: flatC).group))
     }
   }
   test("flatten(group(a)) == flatten(a)") {
     forAll { (a: Doc) =>
-      assert(Doc.flatten(a.group).compare(Doc.flatten(a)) == 0)
+      assert(a.group.flatten == a.flatten)
     }
   }
 
@@ -212,7 +250,7 @@ the spaces""")
   test("test json map example") {
     val kvs = (0 to 20).map { i => text("\"%s\": %s".format(s"key$i", i)) }
     val parts = Doc.fill(Doc.comma, kvs)
-    val map = parts.bracketBy(Doc.text("{"), Doc.text("}"))
+    val map = Doc.bracket(Doc.text("{"), parts, Doc.text("}"))
     assert(map.render(1000) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.mkString("{ ", ", ", " }"))
     assert(map.render(20) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.map("  " + _).mkString("{\n", ",\n", "\n}"))
   }
@@ -220,9 +258,9 @@ the spaces""")
   test("isSubDoc works correctly: group") {
     forAll { (d: Doc) =>
       import Doc._
-      val f = flatten(d)
+      val f = d.flatten
       val g = d.group
-      assert(isSubDoc(toDocTree(f), toDocTree(g)))
+      assert(f.isSubDocOf(g))
     }
   }
 
@@ -232,16 +270,15 @@ the spaces""")
       // we need at least 2 docs for this law
       val ds = (d0 :: d1 :: dsLong.take(4))
       val f = fill(empty, ds)
-      val g = intercalate(space, ds.map(flatten(_)))
+      val g = intercalate(space, ds.map(_.flatten))
       assert(g.isSubDocOf(f))
     }
   }
 
   test("if isSubDoc is true, there is some width that renders the same") {
     forAll { (d1: Doc, d2: Doc) =>
-      import Doc._
-      if (isSubDoc(toDocTree(d1), toDocTree(d2))) {
-        val mx = maxWidth(d1) max maxWidth(d2)
+      if (d1.isSubDocOf(d2)) {
+        val mx = d1.maxWidth max d2.maxWidth
         assert((0 to mx).exists { w => d1.render(w) == d2.render(w) })
       }
       else succeed
@@ -259,24 +296,24 @@ the spaces""")
   }
   test("setDiff(a, a) == None") {
     forAll { (a: Doc) =>
-      import Doc._
-      val atree = toDocTree(a)
+      import Tree._
+      val atree = a.toRenderedTree
       // we should totally empty a tree
       assert(setDiff(atree, atree).isEmpty)
     }
   }
   test("after setDiff isSubDoc is false") {
     forAll { (a: Doc, b: Doc) =>
-      import Doc._
-      val atree = toDocTree(a)
-      val btree = toDocTree(b)
-      if (isSubDoc(atree, btree)) {
+      import Tree._
+      val atree = a.toRenderedTree
+      val btree = b.toRenderedTree
+      if (isSubNode(atree, btree)) {
         setDiff(btree, atree) match {
           case None =>
             // If a is a subset of b, and b - a == empty, then a == b
             assert(a.compare(b) == 0)
           case Some(diff) =>
-            assert(!isSubDoc(atree, diff))
+            assert(!isSubNode(atree, diff))
         }
       }
       else {
@@ -286,10 +323,10 @@ the spaces""")
         setDiff(btree, atree) match {
           case None =>
             // if we btree is a strict subset of of atree
-            assert(isSubDoc(btree, atree))
+            assert(isSubNode(btree, atree))
           case Some(bMinusA) =>
             // disjoint or overlapping, so atree and bMinusA are disjoint
-            assert(!isSubDoc(atree, bMinusA))
+            assert(!isSubNode(atree, bMinusA))
             assert(((deunioned(atree).toSet) & (deunioned(bMinusA).toSet)).isEmpty)
         }
       }
@@ -300,7 +337,7 @@ the spaces""")
     forAll { (a: Doc, b: Doc) =>
       import Doc._
 
-      if (deunioned(a).toSet.subsetOf(deunioned(b).toSet)) {
+      if (a.deunioned.toSet.subsetOf(b.deunioned.toSet)) {
         assert(a.isSubDocOf(b))
       }
       // due to normalization, the other case may tell us nothing

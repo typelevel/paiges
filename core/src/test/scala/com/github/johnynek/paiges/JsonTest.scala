@@ -44,7 +44,7 @@ object Json {
         JString(s).toDoc +: text(":") +: ((Doc.spaceOrLine +: j.toDoc).nest(2))
       }
       val parts = Doc.fill(Doc.comma, kvs)
-      parts.bracketBy(text("{"), text("}"))
+      Doc.bracket(text("{"), parts, text("}"))
     }
   }
 }
