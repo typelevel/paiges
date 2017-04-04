@@ -185,9 +185,9 @@ the spaces""")
       val left = (b.group +: flatC)
       val right = (b +: flatC).group
       assert((left).compare(right) == 0)
-      // assert((flatC +: b.group).compare((flatC +: b).group) == 0)
-      // // since left == right, we could have used those instead of b:
-      // assert((left.group +: flatC).compare((right +: flatC).group) == 0)
+      assert((flatC +: b.group).compare((flatC +: b).group) == 0)
+      // since left == right, we could have used those instead of b:
+      assert((left.group +: flatC).compare((right +: flatC).group) == 0)
     }
   }
   test("flatten(group(a)) == flatten(a)") {

@@ -555,7 +555,10 @@ object Doc {
 
     /**
      * Return the minimum width needed to go down
-     * the left branch
+     * the left branch.
+     *
+     * Note we carry the current minimum (minV) in
+     * order to stop early.
      */
     @tailrec
     def fits(pos: Int, d: DocTree, minV: Int): Int = d.unfix match {
@@ -591,7 +594,7 @@ object Doc {
         bounds.split(minLeftWidth) match {
           case None =>
             // cannot go left
-            cheat(pos, (i, u.bDoc) :: z, bounds)
+            loop(pos, (i, u.bDoc) :: z, bounds)
           case Some((None, _)) =>
             // always go left, because bounds.min == minLeftWidth
             as
@@ -776,7 +779,6 @@ object Doc {
     (xs.unfix, ys.unfix) match {
       case (Left((xa, xb)) #:: _, Left((ya, yb)) #:: _) =>
         val c1 = compareTree(xa, ya)
-        //println((c1, xa, xb(), ya, yb()))
         if (c1 == 0) {
           /**
            * now we should compare(xb - xa, yb - ya)
