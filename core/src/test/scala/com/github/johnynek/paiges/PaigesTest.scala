@@ -161,14 +161,14 @@ the spaces""")
      * but that is weaker. Our current comparison algorithm seems
      * to leverage this fact
      */
-    //assert(first.compare(second) == 0)
+    assert(first.compare(second) == 0)
 
     /**
      * spaceOrLine == (s | n)
      * flatten(spaceOrLine) = s
      * group(spaceOrLine) = (s | (s|n)) == (s | n)
      */
-    //assert(Doc.spaceOrLine.group.compare(Doc.spaceOrLine) == 0)
+    assert(Doc.spaceOrLine.group.compare(Doc.spaceOrLine) == 0)
   }
   test("group law") {
     /**
@@ -215,5 +215,95 @@ the spaces""")
     val map = parts.bracketBy(Doc.text("{"), Doc.text("}"))
     assert(map.render(1000) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.mkString("{ ", ", ", " }"))
     assert(map.render(20) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.map("  " + _).mkString("{\n", ",\n", "\n}"))
+  }
+
+  test("isSubDoc works correctly: group") {
+    forAll { (d: Doc) =>
+      import Doc._
+      val f = flatten(d)
+      val g = d.group
+      assert(isSubDoc(toDocTree(f), toDocTree(g)))
+    }
+  }
+
+  test("isSubDoc works correctly: fill") {
+    forAll { (d0: Doc, d1: Doc, dsLong: List[Doc]) =>
+      import Doc._
+      // we need at least 2 docs for this law
+      val ds = (d0 :: d1 :: dsLong.take(4))
+      val f = fill(empty, ds)
+      val g = intercalate(space, ds.map(flatten(_)))
+      assert(g.isSubDocOf(f))
+    }
+  }
+
+  test("if isSubDoc is true, there is some width that renders the same") {
+    forAll { (d1: Doc, d2: Doc) =>
+      import Doc._
+      if (isSubDoc(toDocTree(d1), toDocTree(d2))) {
+        val mx = maxWidth(d1) max maxWidth(d2)
+        assert((0 to mx).exists { w => d1.render(w) == d2.render(w) })
+      }
+      else succeed
+    }
+  }
+  test("a isSubDocOf b and b isSubDocOf a iff a == b") {
+    forAll { (a: Doc, b: Doc) =>
+      assert(a.isSubDocOf(a))
+      assert(b.isSubDocOf(b))
+      val cmp = a compare b
+      val eq = a.isSubDocOf(b) && b.isSubDocOf(a)
+      if (cmp == 0) assert(eq)
+      else assert(!eq)
+    }
+  }
+  test("setDiff(a, a) == None") {
+    forAll { (a: Doc) =>
+      import Doc._
+      val atree = toDocTree(a)
+      // we should totally empty a tree
+      assert(setDiff(atree, atree).isEmpty)
+    }
+  }
+  test("after setDiff isSubDoc is false") {
+    forAll { (a: Doc, b: Doc) =>
+      import Doc._
+      val atree = toDocTree(a)
+      val btree = toDocTree(b)
+      if (isSubDoc(atree, btree)) {
+        setDiff(btree, atree) match {
+          case None =>
+            // If a is a subset of b, and b - a == empty, then a == b
+            assert(a.compare(b) == 0)
+          case Some(diff) =>
+            assert(!isSubDoc(atree, diff))
+        }
+      }
+      else {
+        /*
+         * We either have disjoint, overlapping, or btree is a strict subset of atree
+         */
+        setDiff(btree, atree) match {
+          case None =>
+            // if we btree is a strict subset of of atree
+            assert(isSubDoc(btree, atree))
+          case Some(bMinusA) =>
+            // disjoint or overlapping, so atree and bMinusA are disjoint
+            assert(!isSubDoc(atree, bMinusA))
+            assert(((deunioned(atree).toSet) & (deunioned(bMinusA).toSet)).isEmpty)
+        }
+      }
+    }
+  }
+
+  test("if deunioned is a subset, then isSubDocOf") {
+    forAll { (a: Doc, b: Doc) =>
+      import Doc._
+
+      if (deunioned(a).toSet.subsetOf(deunioned(b).toSet)) {
+        assert(a.isSubDocOf(b))
+      }
+      // due to normalization, the other case may tell us nothing
+    }
   }
 }
