@@ -209,6 +209,12 @@ the spaces""")
     assert(ary.render(20) == expect)
   }
 
+  test("test Doc.text") {
+    forAll { (s: String) =>
+      assert(Doc.text(s).render(0) == s)
+    }
+  }
+
   test("test json map example") {
     val kvs = (0 to 20).map { i => text("\"%s\": %s".format(s"key$i", i)) }
     val parts = Doc.fill(Doc.comma, kvs)
