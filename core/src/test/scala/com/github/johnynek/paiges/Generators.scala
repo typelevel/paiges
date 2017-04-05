@@ -28,14 +28,14 @@ object Generators {
 
   val combinators: Gen[(Doc, Doc) => Doc] =
     Gen.oneOf(
-    { (a: Doc, b: Doc) => a concat b },
+    { (a: Doc, b: Doc) => a + b },
     { (a: Doc, b: Doc) => a space b },
-    { (a: Doc, b: Doc) => a line b },
+    { (a: Doc, b: Doc) => a / b },
     { (a: Doc, b: Doc) => a spaceOrLine b })
 
   val unary: Gen[Doc => Doc] =
     Gen.oneOf(
-      Gen.const({ d: Doc => d.group }),
+      Gen.const({ d: Doc => d.grouped }),
       Gen.choose(0, 40).map { i => { d: Doc => d.nest(i) } })
 
   val folds: Gen[(List[Doc] => Doc)] =

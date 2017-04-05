@@ -10,122 +10,174 @@ import scala.annotation.tailrec
  *
  * http://homepages.inf.ed.ac.uk/wadler/papers/prettier/prettier.pdf
  */
-sealed abstract class Doc extends Serializable {
+sealed abstract class Doc extends Product with Serializable {
 
   /**
-   * Concatenate with no space
-   * We use `+:` for right associativity which is more efficient.
+   * Append the given Doc to this one.
+   *
+   * This method will automatically right-associate; that is, the
+   * expression `(x + y) + z` is equivalent to `x + (y + z)`.
    */
-  def +:(that: Doc): Doc = Doc.concat(that, this)
+  def +(that: Doc): Doc =
+    this match {
+      case Doc.Concat(x, y) => Doc.Concat(x, y + that)
+      case _ => Doc.Concat(this, that)
+    }
 
   /**
-   * Convert the String to a Doc and concat
+   * Prepend the given String to this Doc.
+   *
+   * The expression `str +: d` is equivalent to `Doc.text(str) + d`.
    */
-  def :+(text: String): Doc =
-    Doc.concat(this, Doc.text(text))
+  def +:(str: String): Doc =
+    Doc.text(str) + this
 
   /**
-   * Convert the String to a Doc and concat
+   * Append the given String to this Doc.
+   *
+   * The expression `d :+ str` is equivalent to `d + Doc.text(str)`.
    */
-  def +:(init: String): Doc =
-    Doc.concat(Doc.text(init), this)
+  def :+(str: String): Doc =
+    this + Doc.text(str)
 
   /**
-   * synonym for line. Concatenate with a newline between
+   * Append the given Doc to this one, separated by a newline.
    */
-  def /(that: Doc): Doc = line(that)
-  /**
-   * synonym for line. Concatenate with a newline between
-   */
-  def /(str: String): Doc = line(Doc.text(str))
+  def /(that: Doc): Doc =
+    this + Doc.Concat(Doc.line, that)
 
   /**
-   * Try to make this left.space(this).space(right)
-   * but grouped with an indentation of 2 on this if we
-   * use newline
+   * Append the given Doc to this one, separated by a newline.
    */
-  def bracketBy(left: Doc, right: Doc): Doc =
-    (left +: ((Doc.line +: this).nest(2) +: (Doc.line +: right))).group
+  def line(that: Doc): Doc =
+    this / that
 
   /**
-   * Concatenate with no space
+   * Prepend the given String to this Doc, separated by a newline.
+   *
+   * The expression `str /: d` is equivalent to `Doc.text(str) / d`.
    */
-  def concat(that: Doc): Doc = Doc.concat(this, that)
+  def /:(str: String): Doc =
+    Doc.text(str) + Doc.Concat(Doc.line, this)
 
   /**
-   * Consider this item as a group where before rendering
-   * we can replace newlines with a space if it can fit
+   * Append the given String to this Doc, separated by a newline.
+   *
+   * The expression `d :/ str` is equivalent to `d / Doc.text(str)`.
    */
-  def group: Doc = Doc.group(this)
+  def :/(str: String): Doc =
+    this / Doc.text(str)
 
   /**
-   * a Doc is empty if all renderings will be the empty
-   * string
+   * Append the given String to this one, separated by a newline.
    */
-  def isEmpty: Boolean = Doc.isEmpty(this)
+  def line(str: String): Doc =
+    this :/ str
 
   /**
-   * Is there a width such that this and that doc
-   * would render the same?
+   * Append the given Doc to this one, separated by a space.
+   */
+  def space(that: Doc): Doc =
+    this + (Doc.space + that)
+
+  /**
+   * Append the given String to this Doc, separated by a space.
+   */
+  def space(that: String): Doc =
+    this.space(Doc.text(that))
+
+  /**
+   * Append the given Doc to this one, using a space (if there is
+   * enough room), or a newline otherwise.
+   */
+  def spaceOrLine(that: Doc): Doc =
+    this + (Doc.spaceOrLine + that)
+
+  /**
+   * Append the given String to this Doc, using a space (if there is
+   * enough room), or a newline otherwise.
+   */
+  def spaceOrLine(that: String): Doc =
+    spaceOrLine(Doc.text(that))
+
+  /**
+   * Bookend this Doc between the given Docs, separated by newlines
+   * and indentation (if space permits) or spaces otherwise.
+   *
+   * By default, the indentation is two spaces.
+   */
+  def bracketBy(left: Doc, right: Doc, indent: Int = 2): Doc =
+    (left + ((Doc.line + this).nest(indent) + (Doc.line + right))).grouped
+
+  /**
+   * Treat this Doc as a group that can be compressed.
+   *
+   * The effect of this is to replace newlines with spaces, if there
+   * is enough room. Otherwise, the Doc will be rendered as-is.
+   */
+  def grouped: Doc =
+    Doc.group(this)
+
+  /**
+   * Returns true if every call to .render will return the empty
+   * string (no matter what width is used); otherwise, returns false.
+   */
+  def isEmpty: Boolean =
+    Doc.isEmpty(this)
+
+  /**
+   * Returns true if there is a width where these Docs render the same
+   * String; otherwise, returns false.
    */
   def isSubDocOf(that: Doc): Boolean =
     Doc.isSubDoc(Doc.toDocTree(this), Doc.toDocTree(that))
 
   /**
-   * Concatenate with a space
+   * Render this Doc as a String, limiting line lengths to `width` or
+   * shorter when possible.
+   *
+   * Note that this method does not guarantee there are no lines
+   * longer than `width` -- it just attempts to keep lines within this
+   * length when possible.
    */
-  def space(that: Doc): Doc = this +: Doc.space +: that
+  def render(width: Int): String =
+    Doc.render(this, width)
 
   /**
-   * Concatenate with a space
+   * Render this Doc as a stream of strings, treating `width` in the
+   * same way as `render` does.
+   *
+   * The expression `d.renderStream(w).mkString` is equivalent to
+   * `d.render(w)`.
    */
-  def space(that: String): Doc = this +: Doc.space +: Doc.text(that)
+  def renderStream(width: Int): Stream[String] =
+    Doc.renderStream(this, width)
 
   /**
-   * Concatenate with a newline
+   * Nest appends spaces to any newlines ocurring within this Doc.
+   *
+   * The effect of this is cumulative. For example, the expression
+   * `x.nest(1).nest(2)` is equivalent to `x.nest(3)`.
    */
-  def line(that: Doc): Doc = this +: Doc.line +: that
+  def nest(amount: Int): Doc =
+    Doc.Nest(amount, this)
 
   /**
-   * Concatenate with a newline
+   * Render this Doc at the given `width`, and write it to the given
+   * PrintWriter.
+   *
+   * The expression `x.writeTo(w, pw)` is equivalent to
+   * `pw.print(x.render(w))`, but will usually be much more efficient.
+   *
+   * This method does not close `pw` or have any side-effects other
+   * than the actual writing.
    */
-  def line(str: String): Doc = line(Doc.text(str))
+  def writeTo(width: Int, pw: PrintWriter): Unit =
+    Doc.write(this, width, pw)
 
   /**
-   * Use a space if we can fit, else use a newline
+   * Compute a hash code for this Doc.
    */
-  def spaceOrLine(that: Doc): Doc = this +: (Doc.spaceOrLine) +: that
-
-  /**
-   * Use a space if we can fit, else use a newline
-   */
-  def spaceOrLine(that: String): Doc = spaceOrLine(Doc.text(that))
-
-  /**
-   * Convert the Doc to a String with a desired maximum line
-   */
-  def render(maxLine: Int): String = Doc.render(this, maxLine)
-
-  /**
-   * Render into a stream of strings which should be
-   * concatenated all together to form the final
-   * document
-   */
-  def renderStream(maxLine: Int): Stream[String] =
-    Doc.renderStream(this, maxLine)
-
-  /**
-   * nest replaces new lines with a newline plus this amount
-   * of indentation. If there are no new lines, this is a no-op
-   */
-  def nest(amount: Int): Doc = Doc.Nest(amount, this)
-
-  /**
-   * using a given max-Line write to the print writer
-   */
-  def writeTo(maxLine: Int, pw: PrintWriter): Unit =
-    Doc.write(this, maxLine, pw)
-
   override lazy val hashCode: Int = {
 
     @inline def hash(curr: Int, c: Char): Int =
@@ -140,10 +192,72 @@ sealed abstract class Doc extends Serializable {
     }
   }
 
-  //override def toString: String = "Doc(...)"
+  /**
+   * Return a very terse string for this Doc.
+   *
+   * To get a full representation of the document's internal
+   * structure, see `verboseString`.
+   */
+  override def toString: String =
+    "Doc(...)"
 
   /**
-   * Compare two Doc values by finding the first
+   * Produce a verbose string representation of this Doc.
+   *
+   * Unlike `render`, this method will reveal the internal tree
+   * structure of the Doc (i.e. how concatenation and union nodes are
+   * constructed), as well as the contents of every text node.
+   *
+   * By default, only the left side of union nodes is displayed. If
+   * `forceUnions = true` is passed, then both sides of the union are
+   * rendered (making this potentially-expensive method even more
+   * expensive).
+   */
+  def representation(forceUnions: Boolean = false): Doc = {
+    @tailrec def loop(stack: List[Either[Doc, String]], suffix: Doc): Doc =
+      stack match {
+        case head :: tail =>
+          head match {
+            case Right(s) =>
+              loop(tail, s +: suffix)
+            case Left(d) =>
+              d match {
+                case Doc.Empty =>
+                  loop(tail, "Empty" +: suffix)
+                case Doc.Line =>
+                  loop(tail, "Line" +: suffix)
+                case Doc.Text(s) =>
+                  loop(tail, "Text(" +: s +: ")" +: suffix)
+                case Doc.Nest(i, d) =>
+                  loop(Left(d) :: Right(", ") :: Right(i.toString) :: Right("Nest(") :: tail, ")" +: suffix)
+                case Doc.Concat(x, y) =>
+                  loop(Left(y) :: Right(", ") :: Left(x) :: Right("Concat(") :: tail, ")" +: suffix)
+                case Doc.Union(x, y) =>
+                  if (forceUnions) {
+                    loop(Left(y()) :: Right(", ") :: Left(x) :: Right("Union(") :: tail, ")" +: suffix)
+                  } else {
+                    loop(Left(x) :: Right("Union(") :: tail, ", ...)" +: suffix)
+                  }
+              }
+          }
+        case Nil =>
+          suffix
+      }
+    loop(Left(this) :: Nil, Doc.empty)
+  }
+
+  /**
+   * Compare two Docs by finding the first rendering where the strings
+   * produced differ (if any).
+   *
+   * Note that `==` on Docs uses structural equality, whereas this
+   * method will return 0 in cases where Docs are not structurally
+   * equal but are semantically-equal (they will always render to the
+   * same string for any width).
+   *
+   * This method can be very expensive in some cases, especially the
+   * above-mentioned case where Docs are not structurally equal but
+   * are equivalent.
    */
   def compare(that: Doc): Int =
     Doc.compareTree(Doc.toDocTree(this), Doc.toDocTree(that))
@@ -171,7 +285,7 @@ object Doc {
    * There is an additional invariant on Union that
    * a == flatten(b). By construction all have this
    * property, but this is why we don't expose Union
-   * but only .group
+   * but only .grouped
    */
   private case class Union(a: Doc, b: () => Doc) extends Doc {
     lazy val bDoc: Doc = b()
@@ -210,9 +324,9 @@ object Doc {
     // parse the string right-to-left, splitting at newlines.
     // this ensures that our concatenations are right-associated.
     @tailrec def parse(i: Int, limit: Int, doc: Doc): Doc =
-      if (i < 0) tx(0, limit) +: doc
+      if (i < 0) tx(0, limit) + doc
       else str.charAt(i) match {
-        case '\n' => parse(i - 1, i, Line +: tx(i + 1, limit) +: doc)
+        case '\n' => parse(i - 1, i, Line + tx(i + 1, limit) + doc)
         case _ => parse(i - 1, limit, doc)
       }
 
@@ -288,24 +402,24 @@ object Doc {
          * however. This fact seems to complicate comparison of Doc
          * which is valuable.
          */
-        val xsep = x +: sep
+        val xsep = x + sep
         (flattenOption(xsep), flattenOption(y)) match {
           case (Some(flatx), Some(flaty)) =>
             val resty = fillRec(flaty :: tail)
             val first = flatx.space(resty)
-            def second = xsep.line(fillRec(y :: tail))
+            def second = xsep / fillRec(y :: tail)
             // note that first != second
             Union(first, () => second)
           case (Some(flatx), None) =>
             val resty = fillRec(y :: tail)
             val first = flatx.space(resty)
-            def second = xsep.line(resty)
+            def second = xsep / resty
             // note that first != second
             Union(first, () => second)
           case (None, Some(flaty)) =>
             val resty = fillRec(flaty :: tail)
             val first = xsep.space(resty)
-            def second = xsep.line(fillRec(y :: tail))
+            def second = xsep / fillRec(y :: tail)
             // note that first != second
             Union(first, () => second)
           case (None, None) =>
@@ -329,13 +443,11 @@ object Doc {
   def paragraph(s: String): Doc =
     foldDoc(s.split("\\s+", -1).map(text))(_.spaceOrLine(_))
 
-  def concat(a: Doc, b: Doc): Doc = Concat(a, b)
-
   def foldDoc(ds: Iterable[Doc])(fn: (Doc, Doc) => Doc): Doc =
     ds.reduceOption(fn).getOrElse(Empty)
 
   def intercalate(d: Doc, ds: Iterable[Doc]): Doc =
-    foldDoc(ds) { (a, b) => a +: (d +: b) }
+    foldDoc(ds) { (a, b) => a + (d + b) }
 
   /**
    * intercalate with a space
@@ -350,7 +462,7 @@ object Doc {
    * This returns a new doc where we can replace line with space
    * to fit into a line
    */
-  def group(doc: Doc): Doc =
+  private def group(doc: Doc): Doc =
     flattenOption(doc) match {
       case Some(flat) =>
         // todo, flat could already be in the doc
@@ -359,16 +471,16 @@ object Doc {
       case None => doc
     }
 
-  def renderStream(d: Doc, width: Int): Stream[String] =
+  private def renderStream(d: Doc, width: Int): Stream[String] =
     Doc2.best(width, d).map(_.str)
 
-  def render(d: Doc, width: Int): String = {
+  private def render(d: Doc, width: Int): String = {
     val bldr = new StringBuilder
     renderStream(d, width).foreach(bldr.append(_))
     bldr.toString
   }
 
-  def write(d: Doc, width: Int, pw: PrintWriter): Unit = {
+  private def write(d: Doc, width: Int, pw: PrintWriter): Unit = {
     renderStream(d, width).foreach(pw.append(_))
   }
 
