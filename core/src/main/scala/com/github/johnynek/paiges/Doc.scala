@@ -213,42 +213,37 @@ sealed abstract class Doc extends Product with Serializable {
    * rendered (making this potentially-expensive method even more
    * expensive).
    */
-  def verboseString(forceUnions: Boolean = false): String = {
-    val sb = new StringBuilder
-    @tailrec def loop(stack: List[Either[Doc, String]]): String =
+  def representation(forceUnions: Boolean = false): Doc = {
+    @tailrec def loop(stack: List[Either[Doc, String]], suffix: Doc): Doc =
       stack match {
         case head :: tail =>
           head match {
             case Right(s) =>
-              sb.append(s)
-              loop(tail)
+              loop(tail, s +: suffix)
             case Left(d) =>
               d match {
                 case Doc.Empty =>
-                  sb.append("Empty")
-                  loop(tail)
+                  loop(tail, "Empty" +: suffix)
                 case Doc.Line =>
-                  sb.append("Line")
-                  loop(tail)
+                  loop(tail, "Line" +: suffix)
                 case Doc.Text(s) =>
-                  sb.append("Text("); sb.append(s); sb.append(")")
-                  loop(tail)
+                  loop(tail, "Text(" +: s +: ")" +: suffix)
                 case Doc.Nest(i, d) =>
-                  sb.append("Nest("); sb.append(i.toString); sb.append(", ")
-                  loop(Left(d) :: Right(")") :: tail)
+                  loop(Left(d) :: Right(", ") :: Right(i.toString) :: Right("Nest(") :: tail, ")" +: suffix)
                 case Doc.Concat(x, y) =>
-                  sb.append("Concat(")
-                  loop(Left(x) :: Right(", ") :: Left(y) :: Right(")") :: tail)
+                  loop(Left(y) :: Right(", ") :: Left(x) :: Right("Concat(") :: tail, ")" +: suffix)
                 case Doc.Union(x, y) =>
-                  sb.append("Union(")
-                  if (forceUnions) loop(Left(x) :: Right(", ") :: Left(y()) :: Right(")") :: tail)
-                  else loop(Left(x) :: Right(", ...)") :: tail)
+                  if (forceUnions) {
+                    loop(Left(y()) :: Right(", ") :: Left(x) :: Right("Union(") :: tail, ")" +: suffix)
+                  } else {
+                    loop(Left(x) :: Right("Union(") :: tail, ", ...)" +: suffix)
+                  }
               }
           }
         case Nil =>
-          sb.toString
+          suffix
       }
-    loop(Left(this) :: Nil)
+    loop(Left(this) :: Nil, Doc.empty)
   }
 
   /**
