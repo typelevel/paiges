@@ -33,9 +33,9 @@ c""")
     assert(g.render(11) == "hello a b c")
   }
 
-  test("nesting with fillWords") {
+  test("nesting with paragraph") {
     val words = List("this", "is", "a", "test", "of", "a", "block", "of", "text")
-    val d1 = Doc.fillWords(words.mkString(" "))
+    val d1 = Doc.paragraph(words.mkString(" "))
     val d2 = d1 + (Doc.line :+ "love, Oscar").nest(2)
     assert(d2.render(0) == words.mkString("", "\n", "\n  love, Oscar"))
     assert(d2.render(100) == words.mkString("", " ", "\n  love, Oscar"))
@@ -139,6 +139,7 @@ the spaces""")
       else succeed
     }
   }
+
   test("hard union cases") {
     /**
      * if s == space, and n == line
@@ -148,7 +149,7 @@ the spaces""")
      * (a * s * ((b * s * c) | (b * n * c)) |
      *   (a * n * (b * s * c) | (b * n * c))
      */
-    val first = Doc.fillWords("a b c")
+    val first = Doc.paragraph("a b c")
     val second = Doc.fill(Doc.empty, List("a", "b", "c").map(Doc.text))
     /*
      * I think this fails perhaps because of the way fill constructs
@@ -221,7 +222,6 @@ the spaces""")
 
   test("isSubDoc works correctly: group") {
     forAll { (d: Doc) =>
-      import Doc._
       val f = d.flatten
       val g = d.grouped
       assert(f.isSubDocOf(g))
@@ -230,19 +230,17 @@ the spaces""")
 
   test("isSubDoc works correctly: fill") {
     forAll { (d0: Doc, d1: Doc, dsLong: List[Doc]) =>
-      import Doc._
       // we need at least 2 docs for this law
       val ds = (d0 :: d1 :: dsLong.take(4))
-      val f = fill(empty, ds)
-      val g = intercalate(space, ds.map(_.flatten))
+      val f = Doc.fill(Doc.empty, ds)
+      val g = Doc.intercalate(Doc.space, ds.map(_.flatten))
       assert(g.isSubDocOf(f))
     }
   }
 
   test("if isSubDoc is true, there is some width that renders the same") {
     forAll { (d1: Doc, d2: Doc) =>
-      import Doc._
-      if (DocTree.isSubDoc(DocTree.toDocTree(d1), DocTree.toDocTree(d2))) {
+      if (d1.isSubDocOf(d2)) {
         val mx = d1.maxWidth max d2.maxWidth
         assert((0 to mx).exists { w => d1.render(w) == d2.render(w) })
       }
@@ -261,7 +259,6 @@ the spaces""")
   }
   test("setDiff(a, a) == None") {
     forAll { (a: Doc) =>
-      import Doc._
       val atree = DocTree.toDocTree(a)
       // we should totally empty a tree
       assert(DocTree.setDiff(atree, atree).isEmpty)
@@ -269,7 +266,6 @@ the spaces""")
   }
   test("after setDiff isSubDoc is false") {
     forAll { (a: Doc, b: Doc) =>
-      import Doc._
       val atree = DocTree.toDocTree(a)
       val btree = DocTree.toDocTree(b)
       if (DocTree.isSubDoc(atree, btree)) {
@@ -298,10 +294,14 @@ the spaces""")
     }
   }
 
+  test("deunioning removes all unions") {
+    forAll { (d: Doc) =>
+      assert(d.deunioned.forall(_.deunioned.length == 1))
+    }
+  }
+
   test("if deunioned is a subset, then isSubDocOf") {
     forAll { (a: Doc, b: Doc) =>
-      import Doc._
-
       if (a.deunioned.toSet.subsetOf(b.deunioned.toSet)) {
         assert(a.isSubDocOf(b))
       }

@@ -187,7 +187,10 @@ sealed abstract class Doc extends Product with Serializable {
    * `x.nest(1).nest(2)` is equivalent to `x.nest(3)`.
    */
   def nest(amount: Int): Doc =
-    Nest(amount, this)
+    this match {
+      case Nest(i, d) => Nest(i + amount, d)
+      case _ => Nest(amount, this)
+    }
 
   /**
    * Render this Doc at the given `width`, and write it to the given
@@ -359,6 +362,25 @@ sealed abstract class Doc extends Product with Serializable {
   def deunioned: Stream[Doc] =
     DocTree.deunioned(DocTree.toDocTree(this))
 
+  /**
+   * Split the document's text based on pattern, replacing occurences
+   * with the given separator.
+   *
+   * This method only affects individual Text(_) nodes directly -- the
+   * pattern replacement does not span concatenations or unions.
+   *
+   * For example:
+   *
+   *    val d0 = text("a") + text("b")
+   *    val d1 = text("ab")
+   *    val c = text("c")
+   *
+   *    d0.split("ab", c).render(0)   // "ab"
+   *    d1.split("ab", c).render(0)   // "c"
+   *
+   * If this is a concern, it probably makes sense to perform this
+   * substitution after rendering the document as a string.
+   */
   def split(pattern: String, sep: Doc): Doc =
     this match {
       case Empty => Empty
@@ -475,14 +497,14 @@ object Doc {
   def str[T](t: T): Doc =
     text(t.toString)
 
-  /**
-   * Convert the given string into a document of words.
-   *
-   * Unlike `Doc.text`, this method assumes it can use spaces or
-   * newlines in place of any whitespace between words.
-   */
-  def fillWords(s: String): Doc =
-    foldDoc(s.split(" ", -1).map(text))(_.spaceOrLine(_))
+  // /**
+  //  * Convert the given string into a document of words.
+  //  *
+  //  * Unlike `Doc.text`, this method assumes it can use spaces or
+  //  * newlines in place of any whitespace between words.
+  //  */
+  // def fillWords(s: String): Doc =
+  //   foldDoc(s.split(" ", -1).map(text))(_.spaceOrLine(_))
 
   /**
    * Collapse a collection of documents into one document, delimited
