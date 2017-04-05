@@ -290,9 +290,11 @@ sealed abstract class Doc extends Product with Serializable {
     DocTree.compareTree(DocTree.toDocTree(this), DocTree.toDocTree(that))
 
   /**
-   * Convert all lines to spaces and
-   * return a Doc of only Empty, Text, and Concat
-   * nodes
+   * Convert this Doc to a single-line representation.
+   *
+   * All newlines are replaced with spaces (and optional indentation
+   * is ignored). The resulting Doc will never render any newlines, no
+   * matter what width is used.
    */
   def flatten: Doc =
     this match {
@@ -305,8 +307,11 @@ sealed abstract class Doc extends Product with Serializable {
     }
 
   /**
-   * If the doc has no Line nodes, return None, else
-   * flatten the document.
+   * This method is similar to flatten, but returns None if no
+   * flattening was needed (i.e. if no newlines were present).
+   *
+   * As with flatten, the resulting Doc (if any) will never render any
+   * newlines, no matter what width is used.
    */
   def flattenOption: Option[Doc] =
     this match {
@@ -332,28 +337,44 @@ sealed abstract class Doc extends Product with Serializable {
     }
 
   /**
-   * What is the largest width that is relevant
-   * for this Doc (all internal branches are
-   * the same at this width and greater)
+   * Returns the largest width which may affect how this Doc
+   * renders. All widths larger than this amount are guaranteed to
+   * render the same.
    *
-   * val m = maxWidth(d)
-   * render(d, m) == render(d, n)
-   * for all n >= m
-   *
+   * Note that this does not guarantee that all widths below this
+   * value are distinct, just that they may be distinct. This value is
+   * an upper-bound on widths that produce distinct renderings, but
+   * not a least upper-bound.
    */
   def maxWidth: Int =
     Chunk.maxWidth(this)
 
   /**
-   * Return all the possible Docs WITHOUT any union
-   * nodes
+   * Return a stream of document which represent all possible
+   * renderings.
+   *
+   * Each document in this stream is guaranteed to render the same
+   * way, no matter what width is used.
    */
   def deunioned: Stream[Doc] =
     DocTree.deunioned(DocTree.toDocTree(this))
+
+  def split(pattern: String, sep: Doc): Doc =
+    this match {
+      case Empty => Empty
+      case Line => Line
+      case Text(s) => Doc.intercalate(sep, s.split(pattern, -1).map(Doc.text))
+      case Nest(i, d) => Nest(i, d.split(pattern, sep))
+      case Concat(a, b) => a.split(pattern, sep) + b.split(pattern, sep)
+      case Union(a, b) => Union(a.split(pattern, sep), () => b().split(pattern, sep))
+    }
 }
 
 object Doc {
 
+  /**
+   * Represents an empty document (the empty string).
+   */
   private[paiges] case object Empty extends Doc
 
   /**
@@ -366,15 +387,28 @@ object Doc {
    */
   private[paiges] case class Text(str: String) extends Doc
 
+  /**
+   * Represents a concatenation of two documents.
+   */
   private[paiges] case class Concat(a: Doc, b: Doc) extends Doc
 
+  /**
+   * Represents a "remembered indentation level" for a
+   * document. Newlines in this document will be followed by at least
+   * this much indentation (nesting is cumulative).
+   */
   private[paiges] case class Nest(indent: Int, doc: Doc) extends Doc
 
   /**
-   * There is an additional invariant on Union that
-   * a == flatten(b). By construction all have this
-   * property, but this is why we don't expose Union
-   * but only .grouped
+   * Represents an optimistic rendering (on the left) as well as a
+   * fallback rendering (on the right) if the first line of the left
+   * is too long.
+   *
+   * There is an additional invariant on Union: `a == flatten(b)`.
+   *
+   * By construction all `Union` nodes have this property; to preserve
+   * this we don't expose the `Union` constructor directly, but only
+   * the `.grouped` method on Doc.
    */
   private[paiges] case class Union(a: Doc, b: () => Doc) extends Doc {
     lazy val bDoc: Doc = b()
@@ -386,6 +420,11 @@ object Doc {
   private[this] val spaceArray: Array[Text] =
     (1 to maxSpaceTable).map { i => Text(" " * i) }.toArray
 
+  /**
+   * Produce a document of exactly `n` spaces.
+   *
+   * If `n < 1`, and empty document is returned.
+   */
   def spaces(n: Int): Doc =
     if (n < 1) Empty
     else if (n <= maxSpaceTable) spaceArray(n - 1)
@@ -403,8 +442,11 @@ object Doc {
     }
 
   /**
-   * Convert a string to text. Note all `\n` are converted
-   * to logical entities that the rendering is aware of.
+   * Convert a string to text.
+   *
+   * This method translates newlines into an appropriate document
+   * representation. The result may be much more complex than a single
+   * `Text(_)` node.
    */
   def text(str: String): Doc = {
     def tx(i: Int, j: Int): Doc =
@@ -426,19 +468,42 @@ object Doc {
   }
 
   /**
-   * Convert a T to a Doc using toString. Note that "\n" is
-   * converted to a Line and is treated specially
-   * by this code
+   * Convert an arbitrary value to a Doc, using `toString`.
+   *
+   * This method is equivalent to `Doc.text(t.toString)`.
    */
   def str[T](t: T): Doc =
     text(t.toString)
 
-  /*
-   * A variant of fillwords is fill , which collapses a list of documents into a
-   * document.  It puts a space between two documents when this leads to
-   * reasonable layout, and a newline otherwise
+  /**
+   * Convert the given string into a document of words.
+   *
+   * Unlike `Doc.text`, this method assumes it can use spaces or
+   * newlines in place of any whitespace between words.
+   */
+  def fillWords(s: String): Doc =
+    foldDoc(s.split(" ", -1).map(text))(_.spaceOrLine(_))
+
+  /**
+   * Collapse a collection of documents into one document, delimited
+   * by a separator and whitespace.
+   *
+   * The whitespace used (in addition to the separator) will be a
+   * space (if there is room) or a newline otherwise.
+   *
+   * For example:
+   *
+   *     import Doc.{ text, fill }
+   *     val comma = Doc.text(",")
+   *     val ds = text("1") :: text("2") :: text("3") :: Nil
+   *     val doc = fill(comma, ds)
+   *
+   *     doc.render(0)  // produces "1,\n2,\n3"
+   *     doc.render(6)  // produces "1, 2,\n3"
+   *     doc.render(10) // produces "1, 2, 3"
    */
   def fill(sep: Doc, ds: Iterable[Doc]): Doc = {
+
     def fillRec(lst: List[Doc]): Doc = lst match {
       case Nil => Empty
       case x :: Nil => x
@@ -491,13 +556,6 @@ object Doc {
     }
     fillRec(ds.toList)
   }
-
-  /**
-   * Convert assume we can replace space
-   * with newline, but newlines are preserved
-   */
-  def fillWords(s: String): Doc =
-    foldDoc(s.split(" ", -1).map(text))(_.spaceOrLine(_))
 
   /**
    * split on `\s+` and foldDoc with spaceOrLine

@@ -124,12 +124,12 @@ private object Chunk {
 
   private[this] final val indentMax = 100
 
+  private[this] def makeIndentStr(i: Int): String = "\n" + (" " * i)
+
   private[this] val indentTable: Array[String] =
     (0 to indentMax).iterator
       .map(makeIndentStr)
       .toArray
-
-  def makeIndentStr(i: Int): String = "\n" + (" " * i)
 
   def lineToStr(indent: Int): String =
     if (indent <= indentMax) indentTable(indent)

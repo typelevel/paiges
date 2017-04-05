@@ -75,10 +75,10 @@ the spaces""")
     }
   }
 
-  test("fillWords can be identity") {
-    forAll { (str: String) =>
+  test("d.split(\" \", space) is identity") {
+    forAll { (doc: Doc, w: Int) =>
       // this test fails if str is all newlines (e.g. "\n")
-      assert(Doc.fillWords(str).render(str.length) == str)
+      assert(doc.split(" ", Doc.space).render(w) == doc.render(w))
     }
   }
 
