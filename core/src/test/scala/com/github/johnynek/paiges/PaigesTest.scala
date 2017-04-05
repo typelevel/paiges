@@ -75,10 +75,9 @@ the spaces""")
     }
   }
 
-  test("d.split(\" \", space) is identity") {
-    forAll { (doc: Doc, w: Int) =>
-      // this test fails if str is all newlines (e.g. "\n")
-      assert(doc.split(" ", Doc.space).render(w) == doc.render(w))
+  test("Doc.split(s, \" \", space).render(w) = s") {
+    forAll { (s: String, w: Int) =>
+      assert(Doc.split(s, " ".r, Doc.space).render(w) == s)
     }
   }
 

@@ -4,6 +4,7 @@ import java.io.PrintWriter
 import java.lang.StringBuilder
 
 import scala.annotation.tailrec
+import scala.util.matching.Regex
 
 /**
  * implementation of Wadler's classic "A Prettier Printer"
@@ -361,35 +362,6 @@ sealed abstract class Doc extends Product with Serializable {
    */
   def deunioned: Stream[Doc] =
     DocTree.deunioned(DocTree.toDocTree(this))
-
-  /**
-   * Split the document's text based on pattern, replacing occurences
-   * with the given separator.
-   *
-   * This method only affects individual Text(_) nodes directly -- the
-   * pattern replacement does not span concatenations or unions.
-   *
-   * For example:
-   *
-   *    val d0 = text("a") + text("b")
-   *    val d1 = text("ab")
-   *    val c = text("c")
-   *
-   *    d0.split("ab", c).render(0)   // "ab"
-   *    d1.split("ab", c).render(0)   // "c"
-   *
-   * If this is a concern, it probably makes sense to perform this
-   * substitution after rendering the document as a string.
-   */
-  def split(pattern: String, sep: Doc): Doc =
-    this match {
-      case Empty => Empty
-      case Line => Line
-      case Text(s) => Doc.intercalate(sep, s.split(pattern, -1).map(Doc.text))
-      case Nest(i, d) => Nest(i, d.split(pattern, sep))
-      case Concat(a, b) => a.split(pattern, sep) + b.split(pattern, sep)
-      case Union(a, b) => Union(a.split(pattern, sep), () => b().split(pattern, sep))
-    }
 }
 
 object Doc {
@@ -497,14 +469,20 @@ object Doc {
   def str[T](t: T): Doc =
     text(t.toString)
 
-  // /**
-  //  * Convert the given string into a document of words.
-  //  *
-  //  * Unlike `Doc.text`, this method assumes it can use spaces or
-  //  * newlines in place of any whitespace between words.
-  //  */
-  // def fillWords(s: String): Doc =
-  //   foldDoc(s.split(" ", -1).map(text))(_.spaceOrLine(_))
+  private val splitWhitespace: Regex = """\s+""".r
+
+  /**
+   * Convert a string to text, replacing instances of the given
+   * pattern with the corresponding separator.
+   *
+   * Like Doc.text, this method will also lift newlines into the Doc
+   * abstraction.
+   *
+   * The default pattern to use is `"""\s+""".r` and the default
+   * separator to use is `Doc.spaceOrLine`.
+   */
+  def split(str: String, pat: Regex = Doc.splitWhitespace, sep: Doc = Doc.spaceOrLine): Doc =
+    foldDoc(pat.split(str).map(Doc.text))(_ + sep + _)
 
   /**
    * Collapse a collection of documents into one document, delimited
@@ -588,8 +566,8 @@ object Doc {
   def foldDoc(ds: Iterable[Doc])(fn: (Doc, Doc) => Doc): Doc =
     ds.reduceOption(fn).getOrElse(Empty)
 
-  def intercalate(d: Doc, ds: Iterable[Doc]): Doc =
-    foldDoc(ds) { (a, b) => a + (d + b) }
+  def intercalate(sep: Doc, ds: Iterable[Doc]): Doc =
+    foldDoc(ds) { (a, b) => a + (sep + b) }
 
   /**
    * intercalate with a space
