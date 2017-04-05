@@ -3,6 +3,7 @@ package com.github.johnynek.paiges
 import org.scalatest.FunSuite
 import org.scalatest.prop.PropertyChecks._
 import org.scalacheck.{Arbitrary, Gen}
+import scala.collection.immutable.SortedSet
 
 class PaigesTest extends FunSuite {
   import Generators._
@@ -301,10 +302,44 @@ the spaces""")
 
   test("if deunioned is a subset, then isSubDocOf") {
     forAll { (a: Doc, b: Doc) =>
-      if (a.deunioned.toSet.subsetOf(b.deunioned.toSet)) {
-        assert(a.isSubDocOf(b))
-      }
-      // due to normalization, the other case may tell us nothing
+      val da = a.deunioned
+      val db = b.deunioned
+      assert(a.isSubDocOf(b) == SortedSet(da: _*).subsetOf(SortedSet(db: _*)))
+    }
+  }
+  test("Doc.repeat matches naive implementation") {
+    /**
+     * comparing large equal documents can be very slow
+     * :(
+     */
+    implicit val generatorDrivenConfig =
+      PropertyCheckConfiguration(minSuccessful = 30)
+    val smallTree = Gen.choose(0, 3).flatMap(genTree)
+    val smallInt = Gen.choose(0, 10)
+
+    def simple(n: Int, d: Doc, acc: Doc): Doc = if(n <= 0) acc else simple(n - 1, d, acc + d)
+
+    forAll(smallTree, smallInt) { (d: Doc, small: Int) =>
+      assert(simple(small, d, Doc.empty).compare(d * small) == 0)
+    }
+  }
+  test("(d * a) * b == d * (a * b)") {
+    /**
+     * comparing large equal documents can be very slow
+     * :(
+     */
+    implicit val generatorDrivenConfig =
+      PropertyCheckConfiguration(minSuccessful = 30)
+    val smallTree = Gen.choose(0, 3).flatMap(genTree)
+    val smallInt = Gen.choose(0, 3)
+
+    forAll(smallTree, smallInt, smallInt) { (d: Doc, a: Int, b: Int) =>
+      assert(((d * a) * b).compare(d * (a * b)) == 0)
+    }
+  }
+  test("text(s) * n == s * n for identifiers") {
+    forAll(Gen.identifier, Gen.choose(0, 20)) { (s, n) =>
+      assert((Doc.text(s) * n).render(0) == (s * n))
     }
   }
 }

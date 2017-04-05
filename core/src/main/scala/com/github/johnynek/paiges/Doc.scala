@@ -44,6 +44,13 @@ sealed abstract class Doc extends Product with Serializable {
     this + Doc.text(str)
 
   /**
+   * Synonym for .repeat. If n > 0 repeat the doc n times,
+   * else return empty
+   */
+  def *(n: Int): Doc =
+    repeat(n)
+
+  /**
    * Append the given Doc to this one, separated by a newline.
    */
   def /(that: Doc): Doc =
@@ -180,6 +187,31 @@ sealed abstract class Doc extends Product with Serializable {
    */
   def renderStream(width: Int): Stream[String] =
     Chunk.best(width, this).map(_.str)
+
+  /**
+   * If n > 0, repeat the Doc that many times, else
+   * return empty
+   */
+  def repeat(count: Int): Doc = {
+    /**
+     * only have log depth, so recursion is fine
+     * d * (2n + c) = (dn + dn) + c
+     */
+    def loop(d: Doc, cnt: Int): Doc = {
+      val n = cnt >> 1
+      val dn2 =
+        if (n > 0) {
+          val dn = loop(d, n)
+          Concat(dn, dn)
+        }
+        else {
+          Empty
+        }
+      if ((cnt & 1) == 1) Concat(dn2, d) else dn2
+    }
+    if (count <= 0) Empty
+    else loop(this, count)
+  }
 
   /**
    * Nest appends spaces to any newlines ocurring within this Doc.
