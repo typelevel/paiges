@@ -150,7 +150,7 @@ sealed abstract class Doc extends Product with Serializable {
    * The expression `d.renderStream(w).mkString` is equivalent to
    * `d.render(w)`.
    */
-  private def renderStream(width: Int): Stream[String] =
+  def renderStream(width: Int): Stream[String] =
     Doc.renderStream(this, width)
 
   /**
@@ -476,16 +476,16 @@ object Doc {
       case None => doc
     }
 
-  def renderStream(d: Doc, width: Int): Stream[String] =
+  private def renderStream(d: Doc, width: Int): Stream[String] =
     Doc2.best(width, d).map(_.str)
 
-  def render(d: Doc, width: Int): String = {
+  private def render(d: Doc, width: Int): String = {
     val bldr = new StringBuilder
     renderStream(d, width).foreach(bldr.append(_))
     bldr.toString
   }
 
-  def write(d: Doc, width: Int, pw: PrintWriter): Unit = {
+  private def write(d: Doc, width: Int, pw: PrintWriter): Unit = {
     renderStream(d, width).foreach(pw.append(_))
   }
 
