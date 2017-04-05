@@ -13,18 +13,18 @@ class PaigesTest extends FunSuite {
     PropertyCheckConfiguration(minSuccessful = 500)
 
   test("basic test") {
-     assert((text("hello") +: text("world")).render(100) == "helloworld")
+     assert((text("hello") + text("world")).render(100) == "helloworld")
   }
 
   test("nest test") {
-    assert((text("yo") +: (text("yo\nho\nho").nest(2))).render(100) ==
+    assert((text("yo") + (text("yo\nho\nho").nest(2))).render(100) ==
 """yoyo
   ho
   ho""")
   }
 
   test("paper example") {
-    val g = text("hello").line("a").group.line("b").group.line("c").group
+    val g = (((text("hello") :/ "a").grouped :/ "b").grouped :/ "c").grouped
     assert(g.render(5) ==
 """hello
 a
@@ -36,7 +36,7 @@ c""")
   test("nesting with fillWords") {
     val words = List("this", "is", "a", "test", "of", "a", "block", "of", "text")
     val d1 = Doc.fillWords(words.mkString(" "))
-    val d2 = d1 +: (Doc.line :+ "love, Oscar").nest(2)
+    val d2 = d1 + (Doc.line :+ "love, Oscar").nest(2)
     assert(d2.render(0) == words.mkString("", "\n", "\n  love, Oscar"))
     assert(d2.render(100) == words.mkString("", " ", "\n  love, Oscar"))
   }
@@ -64,14 +64,14 @@ the spaces""")
 
   test("concat is associative") {
     forAll { (a: Doc, b: Doc, c: Doc, width: Int) =>
-      assert(((a +: b) +: c).render(width) ==
-        (a +: (b +: c)).render(width))
+      assert(((a + b) + c).render(width) ==
+        (a + (b + c)).render(width))
     }
   }
   test("empty does not change things") {
     forAll { (a: Doc, width: Int) =>
-      assert((a +: Doc.empty).render(width) == a.render(width))
-      assert((Doc.empty +: a).render(width) == a.render(width))
+      assert((a + Doc.empty).render(width) == a.render(width))
+      assert((Doc.empty + a).render(width) == a.render(width))
     }
   }
 
@@ -82,10 +82,9 @@ the spaces""")
     }
   }
 
-  test("line works as expected") {
+  test("(a /: b)  works as expected") {
     forAll { (a: String, b: String) =>
-      assert((text(a) line b).render(0) ==
-        s"$a\n$b")
+      assert((a /: Doc.text(b)).render(0) == s"$a\n$b")
     }
   }
 
@@ -168,7 +167,7 @@ the spaces""")
      * flatten(spaceOrLine) = s
      * group(spaceOrLine) = (s | (s|n)) == (s | n)
      */
-    assert(Doc.spaceOrLine.group.compare(Doc.spaceOrLine) == 0)
+    assert(Doc.spaceOrLine.grouped.compare(Doc.spaceOrLine) == 0)
   }
   test("group law") {
     /**
@@ -177,22 +176,22 @@ the spaces""")
      * (a | b)*c == (a*c | b*c) so, if flatten(c) == c we have:
      * c * (a | b) == (a*c | b*c)
      *
-     * b.group +: flatten(c) == (b +: flatten(c)).group
-     * flatten(c) +: b.group == (flatten(c) +: b).group
+     * b.grouped + flatten(c) == (b + flatten(c)).grouped
+     * flatten(c) + b.grouped == (flatten(c) + b).grouped
      */
     forAll { (b: Doc, c: Doc) =>
       val flatC = Doc.flatten(c)
-      val left = (b.group +: flatC)
-      val right = (b +: flatC).group
+      val left = (b.grouped + flatC)
+      val right = (b + flatC).grouped
       assert((left).compare(right) == 0)
-      assert((flatC +: b.group).compare((flatC +: b).group) == 0)
+      assert((flatC + b.grouped).compare((flatC + b).grouped) == 0)
       // since left == right, we could have used those instead of b:
-      assert((left.group +: flatC).compare((right +: flatC).group) == 0)
+      assert((left.grouped + flatC).compare((right + flatC).grouped) == 0)
     }
   }
   test("flatten(group(a)) == flatten(a)") {
     forAll { (a: Doc) =>
-      assert(Doc.flatten(a.group).compare(Doc.flatten(a)) == 0)
+      assert(Doc.flatten(a.grouped).compare(Doc.flatten(a)) == 0)
     }
   }
 
@@ -227,7 +226,7 @@ the spaces""")
     forAll { (d: Doc) =>
       import Doc._
       val f = flatten(d)
-      val g = d.group
+      val g = d.grouped
       assert(isSubDoc(toDocTree(f), toDocTree(g)))
     }
   }
