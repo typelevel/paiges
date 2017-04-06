@@ -82,6 +82,12 @@ the spaces""")
     }
   }
 
+  test("splitting x on x gives x") {
+    forAll(Gen.frequency((10, Gen.identifier), (1, Gen.const(" "))), Gen.choose(0, 100)) { (s, w) =>
+      assert(Doc.split(s, s.r, Doc.text(s)).render(w) == s)
+    }
+  }
+
   test("(a /: b)  works as expected") {
     forAll { (a: String, b: String) =>
       assert((a /: Doc.text(b)).render(0) == s"$a\n$b")
@@ -190,6 +196,11 @@ the spaces""")
   test("flatten(group(a)) == flatten(a)") {
     forAll { (a: Doc) =>
       assert(a.grouped.flatten.compare(a.flatten) == 0)
+    }
+  }
+  test("a.flatten == a.flattenOption.getOrElse(a)") {
+    forAll { (a: Doc) =>
+      assert(a.flatten.compare(a.flattenOption.getOrElse(a)) == 0)
     }
   }
 
