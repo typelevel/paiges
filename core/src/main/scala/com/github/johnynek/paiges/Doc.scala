@@ -514,7 +514,7 @@ object Doc {
    * separator to use is `Doc.spaceOrLine`.
    */
   def split(str: String, pat: Regex = Doc.splitWhitespace, sep: Doc = Doc.spaceOrLine): Doc =
-    foldDoc(pat.split(str).map(Doc.text))(_ + sep + _)
+    foldDocs(pat.split(str).map(Doc.text))(_ + sep + _)
 
   /**
    * Collapse a collection of documents into one document, delimited
@@ -589,17 +589,22 @@ object Doc {
     fillRec(ds.toList)
   }
 
+  def foldDocs(ds: Iterable[Doc])(fn: (Doc, Doc) => Doc): Doc =
+    //ds.reduceOption(fn).getOrElse(Empty)
+    ds.toList.reverse match {
+      case Nil => Doc.empty
+      case head :: tail => tail.foldLeft(head)((acc, d) => fn(d, acc))
+    }
+    //ds.foldRight(Doc.empty)(fn)
+
   /**
-   * split on `\s+` and foldDoc with spaceOrLine
+   * split on `\s+` and foldDocs with spaceOrLine
    */
   def paragraph(s: String): Doc =
-    foldDoc(s.split("\\s+", -1).map(text))(_.spaceOrLine(_))
-
-  def foldDoc(ds: Iterable[Doc])(fn: (Doc, Doc) => Doc): Doc =
-    ds.foldRight(Doc.empty)(fn)
+    foldDocs(s.split("\\s+", -1).map(text))(_.spaceOrLine(_))
 
   def intercalate(sep: Doc, ds: Iterable[Doc]): Doc =
-    foldDoc(ds) { (a, b) => a + (sep + b) }
+    foldDocs(ds) { (a, b) => a + (sep + b) }
 
   /**
    * intercalate with a space
