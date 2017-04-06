@@ -563,7 +563,7 @@ object Doc {
    * separator to use is `Doc.spaceOrLine`.
    */
   def split(str: String, pat: Regex = Doc.splitWhitespace, sep: Doc = Doc.spaceOrLine): Doc =
-    foldDocs(pat.split(str).map(Doc.text))((x, y) => x + (sep + y))
+    foldDocs(pat.pattern.split(str, -1).map(Doc.text))((x, y) => x + (sep + y))
 
   /**
    * Collapse a collection of documents into one document, delimited
