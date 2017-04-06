@@ -29,20 +29,50 @@ private object Chunk {
   }
 
   /**
-   * Given a width and 
+   * Given a width and Doc find the Iterator
+   * of Chunks.
    */
-  def best(w: Int, d: Doc): Stream[Chunk] = {
+  def best(w: Int, d: Doc): Iterator[Chunk] = {
+    sealed abstract class ChunkStream
+    object ChunkStream {
+      case object Empty extends ChunkStream
+      case class Item(chunk: Chunk, position: Int, stack: List[(Int, Doc)], isBreak: Boolean) extends ChunkStream {
+        private[this] var next: ChunkStream = null
+        def step: ChunkStream = {
+          // do a cheap local computation.
+          // lazy val is thread-safe, but more expensive
+          // since everything is immutable here, this is
+          // safe
+          val res = next
+          if (res != null) res
+          else {
+            val c = loop(position, stack)
+            next = c
+            c
+          }
+        }
+      }
+    }
+    class ChunkIterator(var current: ChunkStream) extends Iterator[Chunk] {
+      def hasNext: Boolean = (current != ChunkStream.Empty)
+      def next: Chunk = {
+        val item = current.asInstanceOf[ChunkStream.Item]
+        val res = item.chunk
+        current = item.step
+        res
+      }
+    }
 
     /**
      * Return the length of this line if it fits
      */
     @tailrec
-    def fits(pos: Int, d: Stream[Chunk]): Boolean =
+    def fits(pos: Int, d: ChunkStream): Boolean =
       (w >= pos) && {
-        if (d.isEmpty) true
-        else d.head match {
-          case Break(_) => true
-          case Str(s) => fits(pos + s.length, d.tail)
+        d match {
+          case ChunkStream.Empty => true
+          case item: ChunkStream.Item =>
+            item.isBreak || fits(item.position, item.step)
         }
       }
     /**
@@ -50,13 +80,13 @@ private object Chunk {
      * we cheat below in non-tail positions
      */
     @tailrec
-    def loop(pos: Int, lst: List[(Int, Doc)]): Stream[Chunk] = lst match {
-      case Nil => Stream.empty
+    def loop(pos: Int, lst: List[(Int, Doc)]): ChunkStream = lst match {
+      case Nil => ChunkStream.Empty
       case (i, Doc.Empty) :: z => loop(pos, z)
       case (i, Doc.Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z)
       case (i, Doc.Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
-      case (i, Doc.Text(s)) :: z => Str(s) #:: cheat(pos + s.length, z)
-      case (i, Doc.Line) :: z => Break(i) #:: cheat(i, z)
+      case (i, Doc.Text(s)) :: z => ChunkStream.Item(Str(s), pos + s.length, z, false)
+      case (i, Doc.Line) :: z => ChunkStream.Item(Break(i), i, z, true)
       case (i, u@Doc.Union(x, _)) :: z =>
         /**
          * If we can fit the next line from x, we take it.
@@ -66,10 +96,10 @@ private object Chunk {
         else loop(pos, (i, u.bDoc) :: z)
     }
 
-    def cheat(pos: Int, lst: List[(Int, Doc)]): Stream[Chunk] =
+    def cheat(pos: Int, lst: List[(Int, Doc)]) =
       loop(pos, lst)
 
-    loop(0, (0, d) :: Nil)
+    new ChunkIterator(loop(0, (0, d) :: Nil))
   }
 
   /**

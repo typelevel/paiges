@@ -174,7 +174,10 @@ sealed abstract class Doc extends Product with Serializable {
    */
   def render(width: Int): String = {
     val bldr = new StringBuilder
-    renderStream(width).foreach(bldr.append(_))
+    val it = Chunk.best(width, this)
+    while(it.hasNext) {
+      bldr.append(it.next.str)
+    }
     bldr.toString
   }
 
@@ -186,7 +189,7 @@ sealed abstract class Doc extends Product with Serializable {
    * `d.render(w)`.
    */
   def renderStream(width: Int): Stream[String] =
-    Chunk.best(width, this).map(_.str)
+    Chunk.best(width, this).map(_.str).toStream
 
   /**
    * If n > 0, repeat the Doc that many times, else
@@ -235,8 +238,12 @@ sealed abstract class Doc extends Product with Serializable {
    * This method does not close `pw` or have any side-effects other
    * than the actual writing.
    */
-  def writeTo(width: Int, pw: PrintWriter): Unit =
-    renderStream(width).foreach(pw.append(_))
+  def writeTo(width: Int, pw: PrintWriter): Unit = {
+    val it = Chunk.best(width, this)
+    while(it.hasNext) {
+      pw.append(it.next.str)
+    }
+  }
 
   /**
    * Compute a hash code for this Doc.
@@ -603,8 +610,16 @@ object Doc {
   def paragraph(s: String): Doc =
     foldDocs(s.split("\\s+", -1).map(text))(_.spaceOrLine(_))
 
-  def intercalate(sep: Doc, ds: Iterable[Doc]): Doc =
+  def intercalate(sep: Doc, ds: Iterable[Doc]): Doc = {
     foldDocs(ds) { (a, b) => a + (sep + b) }
+    // val rev = ds.toList.reverse
+    // @tailrec
+    // def go(stack: List[Doc], acc: Doc): Doc =
+    //   if (stack.isEmpty) acc
+    //   else go(stack.tail, (Concat(acc, Concat(sep, stack.head))))
+
+    // go(rev, Empty)
+  }
 
   /**
    * intercalate with a space
