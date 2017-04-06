@@ -596,7 +596,7 @@ object Doc {
     foldDoc(s.split("\\s+", -1).map(text))(_.spaceOrLine(_))
 
   def foldDoc(ds: Iterable[Doc])(fn: (Doc, Doc) => Doc): Doc =
-    ds.reduceOption(fn).getOrElse(Empty)
+    ds.foldRight(Doc.empty)(fn)
 
   def intercalate(sep: Doc, ds: Iterable[Doc]): Doc =
     foldDoc(ds) { (a, b) => a + (sep + b) }
