@@ -192,6 +192,11 @@ the spaces""")
       assert(a.grouped.flatten.compare(a.flatten) == 0)
     }
   }
+  test("a.flatten == a.flattenOption.getOrElse(a)") {
+    forAll { (a: Doc) =>
+      assert(a.flatten.compare(a.flattenOption.getOrElse(a)) == 0)
+    }
+  }
 
   test("test json array example") {
     val items = (0 to 20).map(Doc.str(_))

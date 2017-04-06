@@ -345,45 +345,73 @@ sealed abstract class Doc extends Product with Serializable {
    * is ignored). The resulting Doc will never render any newlines, no
    * matter what width is used.
    */
-  def flatten: Doc =
-    this match {
-      case Empty => Empty
-      case Line => Doc.space
-      case str@Text(_) => str
-      case Nest(i, d) => d.flatten // no Line, so Nest is irrelevant
-      case Concat(a, b) => Concat(a.flatten, b.flatten)
-      case Union(a, _) => a.flatten
-    }
+  def flatten: Doc = {
+
+    def finish(d: Doc, front: List[Doc]): Doc =
+      front.foldLeft(d) { (res, f) => Concat(f, res) }
+
+    @tailrec
+    def loop(h: Doc, stack: List[Doc], front: List[Doc]): Doc =
+      h match {
+        case Empty | Text(_) =>
+          stack match {
+            case Nil => finish(h, front)
+            case x :: xs => loop(x, xs, h :: front)
+          }
+        case Line => loop(Doc.space, stack, front)
+        case Nest(i, d) => loop(d, stack, front) // no Line, so Nest is irrelevant
+        case Union(a, _) => loop(a, stack, front) // invariant: flatten(union(a, b)) == flatten(a)
+        case Concat(a, b) => loop(a, b :: stack, front)
+      }
+    loop(this, Nil, Nil)
+  }
 
   /**
    * This method is similar to flatten, but returns None if no
-   * flattening was needed (i.e. if no newlines were present).
+   * flattening was needed (i.e. if no newlines or unions were present).
    *
    * As with flatten, the resulting Doc (if any) will never render any
    * newlines, no matter what width is used.
    */
-  def flattenOption: Option[Doc] =
-    this match {
-      case Empty | Text(_) => None
-      case Line => Some(Doc.space)
-      case Nest(i, d) =>
-        /*
-         * This is different from flatten which always strips
-         * the Nest node. This will return None if there is
-         * no embedded Line inside
-         */
-        d.flattenOption
-      case Concat(a, b) =>
-        // stack safety may be an issue here
-        (a.flattenOption, b.flattenOption) match {
-          case (Some(fa), Some(fb)) => Some(Concat(fa, fb))
-          case (Some(fa), None) => Some(Concat(fa, b))
-          case (None, Some(fb)) => Some(Concat(a, fb))
-          case (None, None) => None
-        }
-      case Union(a, _) =>
-        a.flattenOption.orElse(Some(a))
+  def flattenOption: Option[Doc] = {
+
+    type DB = (Doc, Boolean)
+
+    def finish(last: DB, front: List[DB]): Option[Doc] = {
+     val (d, c) = front.foldLeft(last) {
+        case ((d1, c1), (d0, c2)) => (Concat(d0, d1), c1 || c2)
+      }
+     if (c) Some(d) else None
     }
+
+    @tailrec
+    def loop(h: DB, stack: List[DB], front: List[DB]): Option[Doc] =
+      h._1 match {
+        case Empty | Text(_) =>
+          val noChange = h
+          stack match {
+            case Nil => finish(h, front)
+            case x :: xs => loop(x, xs, h :: front)
+          }
+        case Line =>
+          val next = Doc.space
+          val change = (next, true)
+          stack match {
+            case Nil => finish(change, front)
+            case x :: xs => loop(x, xs, change :: front)
+          }
+        case Nest(i, d) =>
+          /*
+           * This is different from flatten which always strips
+           * the Nest node. This will return None if there is
+           * no embedded Line inside
+           */
+          loop((d, h._2), stack, front) // no Line, so Nest is irrelevant
+        case Union(a, _) => loop((a, true), stack, front) // invariant: flatten(union(a, b)) == flatten(a)
+        case Concat(a, b) => loop((a, h._2), (b, h._2) :: stack, front)
+      }
+    loop((this, false), Nil, Nil)
+  }
 
   /**
    * Returns the largest width which may affect how this Doc
