@@ -126,7 +126,13 @@ sealed abstract class Doc extends Product with Serializable {
    * is enough room. Otherwise, the Doc will be rendered as-is.
    */
   def grouped: Doc =
-    Doc.group(this)
+    flattenOption match {
+      case Some(flat) =>
+        // todo, flat could already be in the doc
+        // set. This complicates comparisons
+        Union(flat, () => this)
+      case None => this
+    }
 
   /**
    * Returns true if every call to .render will return the empty
@@ -174,7 +180,10 @@ sealed abstract class Doc extends Product with Serializable {
    */
   def render(width: Int): String = {
     val bldr = new StringBuilder
-    renderStream(width).foreach(bldr.append(_))
+    val it = Chunk.best(width, this)
+    while (it.hasNext) {
+      bldr.append(it.next.str)
+    }
     bldr.toString
   }
 
@@ -186,7 +195,7 @@ sealed abstract class Doc extends Product with Serializable {
    * `d.render(w)`.
    */
   def renderStream(width: Int): Stream[String] =
-    Chunk.best(width, this).map(_.str)
+    Chunk.best(width, this).map(_.str).toStream
 
   /**
    * If n > 0, repeat the Doc that many times, else
@@ -235,8 +244,12 @@ sealed abstract class Doc extends Product with Serializable {
    * This method does not close `pw` or have any side-effects other
    * than the actual writing.
    */
-  def writeTo(width: Int, pw: PrintWriter): Unit =
-    renderStream(width).foreach(pw.append(_))
+  def writeTo(width: Int, pw: PrintWriter): Unit = {
+    val it = Chunk.best(width, this)
+    while(it.hasNext) {
+      pw.append(it.next.str)
+    }
+  }
 
   /**
    * Compute a hash code for this Doc.
@@ -457,7 +470,7 @@ object Doc {
     else Text(" " * n)
 
   val space: Doc = spaceArray(0)
-  val comma: Doc = Doc.text(",")
+  val comma: Doc = Text(",")
   val line: Doc = Line
   val spaceOrLine: Doc = Union(space, () => line)
   val empty: Doc = Empty
@@ -488,10 +501,18 @@ object Doc {
       }
 
     if (str == "") Empty
-    else if (str == " ") space
+    else if (str.length == 1) {
+      val c = str.charAt(0)
+      if ((' ' <= c) && (c <= '~')) charTable(c.toInt - 32)
+      else if (c == '\n') Line
+      else Text(str)
+    }
     else if (str.indexOf('\n') < 0) Text(str)
     else parse(str.length - 1, str.length, Empty)
   }
+
+  private[this] val charTable: Array[Doc] =
+    (32 to 126).map { i => Text(i.toChar.toString) }.toArray
 
   /**
    * Convert an arbitrary value to a Doc, using `toString`.
@@ -514,7 +535,7 @@ object Doc {
    * separator to use is `Doc.spaceOrLine`.
    */
   def split(str: String, pat: Regex = Doc.splitWhitespace, sep: Doc = Doc.spaceOrLine): Doc =
-    foldDoc(pat.split(str).map(Doc.text))(_ + sep + _)
+    foldDocs(pat.split(str).map(Doc.text))((x, y) => x + (sep + y))
 
   /**
    * Collapse a collection of documents into one document, delimited
@@ -535,11 +556,11 @@ object Doc {
    *     doc.render(10) // produces "1, 2, 3"
    */
   def fill(sep: Doc, ds: Iterable[Doc]): Doc = {
+    @tailrec
+    def fillRec(x: Doc, lst: List[Doc], stack: List[Doc => Doc]): Doc = lst match {
+      case Nil => call(x, stack)
+      case y :: tail =>
 
-    def fillRec(lst: List[Doc]): Doc = lst match {
-      case Nil => Empty
-      case x :: Nil => x
-      case x :: y :: tail =>
         /**
          * The cost of this algorithm c(n) for list of size n.
          * note that c(n) = 2 * c(n-1) + k
@@ -564,63 +585,97 @@ object Doc {
         val xsep = x + sep
         (xsep.flattenOption, y.flattenOption) match {
           case (Some(flatx), Some(flaty)) =>
-            val resty = fillRec(flaty :: tail)
-            val first = flatx.space(resty)
-            def second = xsep / fillRec(y :: tail)
-            // note that first != second
-            Union(first, () => second)
+            def cont(resty: Doc) = {
+              val first = flatx.space(resty)
+              def second = xsep / cheatRec(y, tail)
+              // note that first != second
+              Union(first, () => second)
+            }
+            fillRec(flaty, tail, (cont _) :: stack)
           case (Some(flatx), None) =>
-            val resty = fillRec(y :: tail)
-            val first = flatx.space(resty)
-            def second = xsep / resty
-            // note that first != second
-            Union(first, () => second)
+            def cont(resty: Doc) = {
+              val first = flatx.space(resty)
+              def second = xsep / resty
+              // note that first != second
+              Union(first, () => second)
+            }
+            fillRec(y, tail, (cont _) :: stack)
           case (None, Some(flaty)) =>
-            val resty = fillRec(flaty :: tail)
-            val first = xsep.space(resty)
-            def second = xsep / fillRec(y :: tail)
-            // note that first != second
-            Union(first, () => second)
+            def cont(resty: Doc) = {
+              val first = xsep.space(resty)
+              def second = xsep / cheatRec(y, tail)
+              // note that first != second
+              Union(first, () => second)
+            }
+            fillRec(flaty, tail, (cont _) :: stack)
           case (None, None) =>
-            val resty = fillRec(y :: tail)
-            xsep.spaceOrLine(resty)
+            fillRec(y, tail, (xsep.spaceOrLine(_: Doc)) :: stack)
         }
     }
-    fillRec(ds.toList)
+
+    def cheatRec(x: Doc, lst: List[Doc]): Doc =
+      fillRec(x, lst, Nil)
+
+    ds.toList match {
+      case Nil => Empty
+      case h :: tail => fillRec(h, tail, Nil)
+    }
   }
 
   /**
-   * split on `\s+` and foldDoc with spaceOrLine
+   * Combine documents, using the given associative function.
+   *
+   * The function `fn` must be associative. That is, the expression
+   * `fn(x, fn(y, z))` must be equivalent to `fn(fn(x, y), z)`.
+   *
+   * In practice this method builds documents from the right, so that
+   * the resulting concatenations are all right-associated.
+   */
+  def foldDocs(ds: Iterable[Doc])(fn: (Doc, Doc) => Doc): Doc =
+    if (ds.isEmpty) Doc.empty else {
+      val xs = ds.toArray
+      var d = xs(xs.length - 1)
+      var i = xs.length - 2
+      while (i >= 0) {
+        d = fn(xs(i), d)
+        i -= 1
+      }
+      d
+    }
+
+  /**
+   * Split the given text into words (separated by whitespace), and
+   * then join those words with a space or newline.
+   *
+   * This produces text which will wrap naturally at line boundaries,
+   * producing a block of text.
+   *
+   * `paragraph` is an alias for Doc.split(s), which uses its default
+   * arguments to split on whitespace and to rejoin the documents with
+   * `Doc.spaceOrLine`.
    */
   def paragraph(s: String): Doc =
-    foldDoc(s.split("\\s+", -1).map(text))(_.spaceOrLine(_))
+    split(s)
 
-  def foldDoc(ds: Iterable[Doc])(fn: (Doc, Doc) => Doc): Doc =
-    ds.reduceOption(fn).getOrElse(Empty)
-
+  /**
+   * Concatenate the given documents together, delimited by the given
+   * separator.
+   *
+   * For example, `intercalate(comma, List(a, b, c))` is equivalent to
+   * `a + comma + b + comma + b`.
+   */
   def intercalate(sep: Doc, ds: Iterable[Doc]): Doc =
-    foldDoc(ds) { (a, b) => a + (sep + b) }
+    foldDocs(ds) { (a, b) => a + (sep + b) }
 
   /**
-   * intercalate with a space
+   * Concatenate the given documents together, delimited by spaces.
    */
-  def spread(ds: Iterable[Doc]): Doc = intercalate(space, ds)
+  def spread(ds: Iterable[Doc]): Doc =
+    intercalate(space, ds)
 
   /**
-   * intercalate with a newline
+   * Concatenate the given documents together, delimited by newlines.
    */
-  def stack(ds: Iterable[Doc]): Doc = intercalate(line, ds)
-
-  /**
-   * This returns a new doc where we can replace line with space
-   * to fit into a line
-   */
-  private def group(doc: Doc): Doc =
-    doc.flattenOption match {
-      case Some(flat) =>
-        // todo, flat could already be in the doc
-        // set. This complicates comparisons
-        Union(flat, () => doc)
-      case None => doc
-    }
+  def stack(ds: Iterable[Doc]): Doc =
+    intercalate(line, ds)
 }
