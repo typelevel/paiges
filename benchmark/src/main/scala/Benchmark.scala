@@ -41,6 +41,6 @@ class PaigesBenchmark {
     Doc.fill(Doc.text(","), strs.map(Doc.text)).render(0)
 
   @Benchmark
-  def fillMax(): String =
-    Doc.fill(Doc.text(","), strs.map(Doc.text)).render(Int.MaxValue)
+  def fill100(): String =
+    Doc.fill(Doc.text(","), strs.map(Doc.text)).render(100)
 }
