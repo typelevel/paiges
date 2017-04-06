@@ -126,7 +126,13 @@ sealed abstract class Doc extends Product with Serializable {
    * is enough room. Otherwise, the Doc will be rendered as-is.
    */
   def grouped: Doc =
-    Doc.group(this)
+    flattenOption match {
+      case Some(flat) =>
+        // todo, flat could already be in the doc
+        // set. This complicates comparisons
+        Union(flat, () => this)
+      case None => this
+    }
 
   /**
    * Returns true if every call to .render will return the empty
@@ -622,7 +628,8 @@ object Doc {
    * The function `fn` must be associative. That is, the expression
    * `fn(x, fn(y, z))` must be equivalent to `fn(fn(x, y), z)`.
    *
-   * In practice
+   * In practice this method builds documents from the right, so that
+   * the resulting concatenations are all right-associated.
    */
   def foldDocs(ds: Iterable[Doc])(fn: (Doc, Doc) => Doc): Doc =
     if (ds.isEmpty) Doc.empty else {
@@ -637,34 +644,38 @@ object Doc {
     }
 
   /**
-   * split on `\s+` and foldDocs with spaceOrLine
+   * Split the given text into words (separated by whitespace), and
+   * then join those words with a space or newline.
+   *
+   * This produces text which will wrap naturally at line boundaries,
+   * producing a block of text.
+   *
+   * `paragraph` is an alias for Doc.split(s), which uses its default
+   * arguments to split on whitespace and to rejoin the documents with
+   * `Doc.spaceOrLine`.
    */
   def paragraph(s: String): Doc =
-    foldDocs(s.split("\\s+", -1).map(text))(_.spaceOrLine(_))
+    split(s)
 
+  /**
+   * Concatenate the given documents together, delimited by the given
+   * separator.
+   *
+   * For example, `intercalate(comma, List(a, b, c))` is equivalent to
+   * `a + comma + b + comma + b`.
+   */
   def intercalate(sep: Doc, ds: Iterable[Doc]): Doc =
     foldDocs(ds) { (a, b) => a + (sep + b) }
 
   /**
-   * intercalate with a space
+   * Concatenate the given documents together, delimited by spaces.
    */
-  def spread(ds: Iterable[Doc]): Doc = intercalate(space, ds)
+  def spread(ds: Iterable[Doc]): Doc =
+    intercalate(space, ds)
 
   /**
-   * intercalate with a newline
+   * Concatenate the given documents together, delimited by newlines.
    */
-  def stack(ds: Iterable[Doc]): Doc = intercalate(line, ds)
-
-  /**
-   * This returns a new doc where we can replace line with space
-   * to fit into a line
-   */
-  private def group(doc: Doc): Doc =
-    doc.flattenOption match {
-      case Some(flat) =>
-        // todo, flat could already be in the doc
-        // set. This complicates comparisons
-        Union(flat, () => doc)
-      case None => doc
-    }
+  def stack(ds: Iterable[Doc]): Doc =
+    intercalate(line, ds)
 }
