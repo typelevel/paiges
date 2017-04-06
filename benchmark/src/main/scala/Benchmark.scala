@@ -20,9 +20,9 @@ class PaigesBenchmark {
     strs = (1 to size).map(_.toString).toVector
   }
 
-  // @Benchmark
-  // def mkstring(): String =
-  //   strs.mkString(", ")
+  @Benchmark
+  def mkstring(): String =
+    strs.mkString(", ")
   //
   // @Benchmark
   // def concat(): String =

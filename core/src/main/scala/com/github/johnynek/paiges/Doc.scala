@@ -464,7 +464,7 @@ object Doc {
     else Text(" " * n)
 
   val space: Doc = spaceArray(0)
-  val comma: Doc = Doc.text(",")
+  val comma: Doc = Text(",")
   val line: Doc = Line
   val spaceOrLine: Doc = Union(space, () => line)
   val empty: Doc = Empty
@@ -495,10 +495,18 @@ object Doc {
       }
 
     if (str == "") Empty
-    else if (str == " ") space
+    else if (str.length == 1) {
+      val c = str.charAt(0)
+      if ((' ' <= c) && (c <= '~')) charTable(c.toInt - 32)
+      else if (c == '\n') Line
+      else Text(str)
+    }
     else if (str.indexOf('\n') < 0) Text(str)
     else parse(str.length - 1, str.length, Empty)
   }
+
+  private[this] val charTable: Array[Doc] =
+    (32 to 126).map { i => Text(i.toChar.toString) }.toArray
 
   /**
    * Convert an arbitrary value to a Doc, using `toString`.
@@ -542,11 +550,10 @@ object Doc {
    *     doc.render(10) // produces "1, 2, 3"
    */
   def fill(sep: Doc, ds: Iterable[Doc]): Doc = {
-
-    def fillRec(lst: List[Doc]): Doc = lst match {
-      case Nil => Empty
-      case x :: Nil => x
-      case x :: y :: tail =>
+    @tailrec
+    def fillRec(x: Doc, lst: List[Doc], stack: List[Doc => Doc]): Doc = lst match {
+      case Nil => call(x, stack)
+      case y :: tail =>
 
         /**
          * The cost of this algorithm c(n) for list of size n.
@@ -572,29 +579,41 @@ object Doc {
         val xsep = x + sep
         (xsep.flattenOption, y.flattenOption) match {
           case (Some(flatx), Some(flaty)) =>
-            val resty = fillRec(flaty :: tail)
-            val first = flatx.space(resty)
-            def second = xsep / fillRec(y :: tail)
-            // note that first != second
-            Union(first, () => second)
+            def cont(resty: Doc) = {
+              val first = flatx.space(resty)
+              def second = xsep / cheatRec(y, tail)
+              // note that first != second
+              Union(first, () => second)
+            }
+            fillRec(flaty, tail, (cont _) :: stack)
           case (Some(flatx), None) =>
-            val resty = fillRec(y :: tail)
-            val first = flatx.space(resty)
-            def second = xsep / resty
-            // note that first != second
-            Union(first, () => second)
+            def cont(resty: Doc) = {
+              val first = flatx.space(resty)
+              def second = xsep / resty
+              // note that first != second
+              Union(first, () => second)
+            }
+            fillRec(y, tail, (cont _) :: stack)
           case (None, Some(flaty)) =>
-            val resty = fillRec(flaty :: tail)
-            val first = xsep.space(resty)
-            def second = xsep / fillRec(y :: tail)
-            // note that first != second
-            Union(first, () => second)
+            def cont(resty: Doc) = {
+              val first = xsep.space(resty)
+              def second = xsep / cheatRec(y, tail)
+              // note that first != second
+              Union(first, () => second)
+            }
+            fillRec(flaty, tail, (cont _) :: stack)
           case (None, None) =>
-            val resty = fillRec(y :: tail)
-            xsep.spaceOrLine(resty)
+            fillRec(y, tail, (xsep.spaceOrLine(_: Doc)) :: stack)
         }
     }
-    fillRec(ds.toList)
+
+    def cheatRec(x: Doc, lst: List[Doc]): Doc =
+      fillRec(x, lst, Nil)
+
+    ds.toList match {
+      case Nil => Empty
+      case h :: tail => fillRec(h, tail, Nil)
+    }
   }
 
   /**
@@ -603,7 +622,7 @@ object Doc {
    * The function `fn` must be associative. That is, the expression
    * `fn(x, fn(y, z))` must be equivalent to `fn(fn(x, y), z)`.
    *
-   * In practice 
+   * In practice
    */
   def foldDocs(ds: Iterable[Doc])(fn: (Doc, Doc) => Doc): Doc =
     if (ds.isEmpty) Doc.empty else {
