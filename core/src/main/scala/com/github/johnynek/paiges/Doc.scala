@@ -175,7 +175,7 @@ sealed abstract class Doc extends Product with Serializable {
   def render(width: Int): String = {
     val bldr = new StringBuilder
     val it = Chunk.best(width, this)
-    while(it.hasNext) {
+    while (it.hasNext) {
       bldr.append(it.next.str)
     }
     bldr.toString
@@ -521,7 +521,7 @@ object Doc {
    * separator to use is `Doc.spaceOrLine`.
    */
   def split(str: String, pat: Regex = Doc.splitWhitespace, sep: Doc = Doc.spaceOrLine): Doc =
-    foldDocs(pat.split(str).map(Doc.text))(_ + sep + _)
+    foldDocs(pat.split(str).map(Doc.text))((x, y) => x + (sep + y))
 
   /**
    * Collapse a collection of documents into one document, delimited
@@ -547,6 +547,7 @@ object Doc {
       case Nil => Empty
       case x :: Nil => x
       case x :: y :: tail =>
+
         /**
          * The cost of this algorithm c(n) for list of size n.
          * note that c(n) = 2 * c(n-1) + k
@@ -596,13 +597,25 @@ object Doc {
     fillRec(ds.toList)
   }
 
+  /**
+   * Combine documents, using the given associative function.
+   *
+   * The function `fn` must be associative. That is, the expression
+   * `fn(x, fn(y, z))` must be equivalent to `fn(fn(x, y), z)`.
+   *
+   * In practice 
+   */
   def foldDocs(ds: Iterable[Doc])(fn: (Doc, Doc) => Doc): Doc =
-    //ds.reduceOption(fn).getOrElse(Empty)
-    ds.toList.reverse match {
-      case Nil => Doc.empty
-      case head :: tail => tail.foldLeft(head)((acc, d) => fn(d, acc))
+    if (ds.isEmpty) Doc.empty else {
+      val xs = ds.toArray
+      var d = xs(xs.length - 1)
+      var i = xs.length - 2
+      while (i >= 0) {
+        d = fn(xs(i), d)
+        i -= 1
+      }
+      d
     }
-    //ds.foldRight(Doc.empty)(fn)
 
   /**
    * split on `\s+` and foldDocs with spaceOrLine
@@ -610,16 +623,8 @@ object Doc {
   def paragraph(s: String): Doc =
     foldDocs(s.split("\\s+", -1).map(text))(_.spaceOrLine(_))
 
-  def intercalate(sep: Doc, ds: Iterable[Doc]): Doc = {
+  def intercalate(sep: Doc, ds: Iterable[Doc]): Doc =
     foldDocs(ds) { (a, b) => a + (sep + b) }
-    // val rev = ds.toList.reverse
-    // @tailrec
-    // def go(stack: List[Doc], acc: Doc): Doc =
-    //   if (stack.isEmpty) acc
-    //   else go(stack.tail, (Concat(acc, Concat(sep, stack.head))))
-
-    // go(rev, Empty)
-  }
 
   /**
    * intercalate with a space

@@ -20,15 +20,27 @@ class PaigesBenchmark {
     strs = (1 to size).map(_.toString).toVector
   }
 
-  @Benchmark
-  def mkstring(): String =
-    strs.mkString(", ")
-
-  @Benchmark
-  def concat(): String =
-    strs.reduceLeft(_ + ", " + _)
+  // @Benchmark
+  // def mkstring(): String =
+  //   strs.mkString(", ")
+  //
+  // @Benchmark
+  // def concat(): String =
+  //   strs.reduceLeft(_ + ", " + _)
 
   @Benchmark
   def intercalate(): String =
     Doc.intercalate(Doc.text(", "), strs.map(Doc.text)).render(0)
+
+  @Benchmark
+  def fill(): Doc =
+    Doc.fill(Doc.text(","), strs.map(Doc.text))
+
+  @Benchmark
+  def fill0(): String =
+    Doc.fill(Doc.text(","), strs.map(Doc.text)).render(0)
+
+  @Benchmark
+  def fillMax(): String =
+    Doc.fill(Doc.text(","), strs.map(Doc.text)).render(Int.MaxValue)
 }
