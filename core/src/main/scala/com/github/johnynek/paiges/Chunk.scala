@@ -32,12 +32,12 @@ private object Chunk {
    * Given a width and Doc find the Iterator
    * of Chunks.
    */
-  def best(w: Int, d: Doc): Iterator[Chunk] = {
+  def best(w: Int, d: Doc): Iterator[String] = {
     sealed abstract class ChunkStream
     object ChunkStream {
       case object Empty extends ChunkStream
       case class Item(str: String, position: Int, stack: List[(Int, Doc)], isBreak: Boolean) extends ChunkStream {
-        def chunk: Chunk = if (isBreak) Break(position) else Str(str)
+        def stringChunk: String = if (isBreak) lineToStr(position) else str
         private[this] var next: ChunkStream = null
         def step: ChunkStream = {
           // do a cheap local computation.
@@ -54,11 +54,11 @@ private object Chunk {
         }
       }
     }
-    class ChunkIterator(var current: ChunkStream) extends Iterator[Chunk] {
+    class ChunkIterator(var current: ChunkStream) extends Iterator[String] {
       def hasNext: Boolean = (current != ChunkStream.Empty)
-      def next: Chunk = {
+      def next: String = {
         val item = current.asInstanceOf[ChunkStream.Item]
-        val res = item.chunk
+        val res = item.stringChunk
         current = item.step
         res
       }
@@ -101,56 +101,6 @@ private object Chunk {
       loop(pos, lst)
 
     new ChunkIterator(loop(0, (0, d) :: Nil))
-  }
-
-  /**
-   * We follow the same algorithm as best, but only
-   * track what the largest width is that triggers
-   * a branch to the left
-   */
-  def maxWidth(d: Doc): Int = {
-
-    /**
-     * Return the length of this line
-     */
-    @tailrec
-    def lineSize(pos: Int, d: Stream[Chunk]): Int =
-      if (d.isEmpty) pos
-      else d.head match {
-        case Break(_) => pos
-        case Str(s) => lineSize(pos + s.length, d.tail)
-      }
-
-    /**
-     * This is not really tail recursive but many branches are, so
-     * we cheat below in non-tail positions
-     */
-    @tailrec
-    def loop(pos: Int, lst: List[(Int, Doc)], max: Int): Stream[(Int, Chunk)] = lst match {
-      case Nil => Stream.empty
-      case (i, Doc.Empty) :: z => loop(pos, z, max)
-      case (i, Doc.Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z, max)
-      case (i, Doc.Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z, max)
-      case (i, Doc.Text(s)) :: z => (max, Str(s)) #:: cheat(pos + s.length, z, max)
-      case (i, Doc.Line) :: z => (max, Break(i)) #:: cheat(i, z, max)
-      case (i, Doc.Union(x, _)) :: z =>
-        val first = cheat(pos, (i, x) :: z, max)
-        val neededWidth = lineSize(pos, first.map(_._2))
-        /**
-         * if width >= neededWidth, we would branch left here (to x)
-         * else we go right
-         */
-        if (neededWidth <= max) first
-        else loop(pos, (i, x) :: z, neededWidth)
-    }
-
-    def cheat(pos: Int, lst: List[(Int, Doc)], max: Int): Stream[(Int, Chunk)] =
-      loop(pos, lst, max)
-
-    loop(0, (0, d) :: Nil, 0)
-      .map(_._1)
-      .reduceOption(_ max _)
-      .getOrElse(0)
   }
 
   private[this] final val indentMax = 100

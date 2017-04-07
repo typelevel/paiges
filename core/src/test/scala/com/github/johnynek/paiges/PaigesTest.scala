@@ -353,4 +353,25 @@ the spaces""")
       assert((Doc.text(s) * n).render(0) == (s * n))
     }
   }
+
+  test("maxWidth is stack safe") {
+    assert(Doc.intercalate(Doc.spaceOrLine, (1 to 100000).map(Doc.str)).maxWidth >= 0)
+  }
+
+  test("renderWide is stack safe") {
+    val nums = (1 to 100000)
+    assert(Doc.intercalate(Doc.spaceOrLine, nums.map(Doc.str)).renderWideStream.mkString == nums.mkString(" "))
+  }
+
+  test("renderTall == render(0)") {
+    forAll { (d: Doc) =>
+      assert(d.renderTallStream.mkString == d.render(0))
+    }
+  }
+  test("renderWide == render(maxWidth)") {
+    forAll { (d: Doc) =>
+      val max = d.maxWidth
+      assert(d.renderWideStream.mkString == d.render(max))
+    }
+  }
 }
