@@ -195,14 +195,15 @@ sealed abstract class Doc extends Product with Serializable {
    * `d.render(w)`.
    */
   def renderStream(width: Int): Stream[String] =
-    Chunk.best(width, this).toStream
+    if (width <= 0) renderTallStream
+    else Chunk.best(width, this).toStream
 
   /**
    * Render this Doc as a stream of strings, using
    * the tallest possible variant. This is the same
    * as render(0) except it is more efficient.
    */
-  def renderTall: List[String] =
+  def renderTallStream: Stream[String] =
     renderFixedDirection(tall = true)
 
   /**
@@ -210,24 +211,26 @@ sealed abstract class Doc extends Product with Serializable {
    * the widest possible variant. This is the same
    * as render(Int.MaxValue) except it is more efficient.
    */
-  def renderWide: List[String] =
+  def renderWideStream: Stream[String] =
     renderFixedDirection(tall = false)
 
-  private def renderFixedDirection(tall: Boolean): List[String] = {
+  private def renderFixedDirection(tall: Boolean): Stream[String] = {
     @tailrec
-    def loop(pos: Int, lst: List[(Int, Doc)], acc: List[String]): List[String] = lst match {
-      case Nil => acc.reverse
-      case (i, Empty) :: z => loop(pos, z, acc)
-      case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z, acc)
-      case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z, acc)
-      case (i, Text(s)) :: z => loop(pos + s.length, z, s :: acc)
-      case (i, Line) :: z => loop(i, z, Chunk.lineToStr(i) :: acc)
+    def loop(pos: Int, lst: List[(Int, Doc)]): Stream[String] = lst match {
+      case Nil => Stream.empty
+      case (i, Empty) :: z => loop(pos, z)
+      case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z)
+      case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
+      case (i, Text(s)) :: z => s #:: cheat(pos + s.length, z)
+      case (i, Line) :: z => Chunk.lineToStr(i) #:: cheat(i, z)
       case (i, u@Union(a, _)) :: z =>
         val next = if (tall) u.bDoc else a
-        loop(pos, (i, next) :: z, acc)
+        loop(pos, (i, next) :: z)
     }
+    def cheat(pos: Int, lst: List[(Int, Doc)]) =
+      loop(pos, lst)
 
-    loop(0, (0, this) :: Nil, Nil)
+    loop(0, (0, this) :: Nil)
   }
 
   /**
