@@ -353,4 +353,8 @@ the spaces""")
       assert((Doc.text(s) * n).render(0) == (s * n))
     }
   }
+
+  test("maxWidth is stack safe") {
+    assert(Doc.intercalate(Doc.spaceOrLine, (1 to 100000).map(Doc.str)).maxWidth >= 0)
+  }
 }

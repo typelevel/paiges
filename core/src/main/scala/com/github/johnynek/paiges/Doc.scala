@@ -182,7 +182,7 @@ sealed abstract class Doc extends Product with Serializable {
     val bldr = new StringBuilder
     val it = Chunk.best(width, this)
     while (it.hasNext) {
-      bldr.append(it.next.str)
+      bldr.append(it.next)
     }
     bldr.toString
   }
@@ -195,7 +195,40 @@ sealed abstract class Doc extends Product with Serializable {
    * `d.render(w)`.
    */
   def renderStream(width: Int): Stream[String] =
-    Chunk.best(width, this).map(_.str).toStream
+    Chunk.best(width, this).toStream
+
+  /**
+   * Render this Doc as a stream of strings, using
+   * the tallest possible variant. This is the same
+   * as render(0) except it is more efficient.
+   */
+  def renderTall: List[String] =
+    renderFixedDirection(tall = true)
+
+  /**
+   * Render this Doc as a stream of strings, using
+   * the widest possible variant. This is the same
+   * as render(Int.MaxValue) except it is more efficient.
+   */
+  def renderWide: List[String] =
+    renderFixedDirection(tall = false)
+
+  private def renderFixedDirection(tall: Boolean): List[String] = {
+    @tailrec
+    def loop(pos: Int, lst: List[(Int, Doc)], acc: List[String]): List[String] = lst match {
+      case Nil => acc.reverse
+      case (i, Empty) :: z => loop(pos, z, acc)
+      case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z, acc)
+      case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z, acc)
+      case (i, Text(s)) :: z => loop(pos + s.length, z, s :: acc)
+      case (i, Line) :: z => loop(i, z, Chunk.lineToStr(i) :: acc)
+      case (i, u@Union(a, _)) :: z =>
+        val next = if (tall) u.bDoc else a
+        loop(pos, (i, next) :: z, acc)
+    }
+
+    loop(0, (0, this) :: Nil, Nil)
+  }
 
   /**
    * If n > 0, repeat the Doc that many times, else
@@ -247,7 +280,7 @@ sealed abstract class Doc extends Product with Serializable {
   def writeTo(width: Int, pw: PrintWriter): Unit = {
     val it = Chunk.best(width, this)
     while(it.hasNext) {
-      pw.append(it.next.str)
+      pw.append(it.next)
     }
   }
 
@@ -423,8 +456,22 @@ sealed abstract class Doc extends Product with Serializable {
    * an upper-bound on widths that produce distinct renderings, but
    * not a least upper-bound.
    */
-  def maxWidth: Int =
-    Chunk.maxWidth(this)
+  def maxWidth: Int = {
+    @tailrec
+    def loop(pos: Int, lst: List[(Int, Doc)], max: Int): Int = lst match {
+      case Nil => math.max(max, pos)
+      case (i, Empty) :: z => loop(pos, z, max)
+      case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z, max)
+      case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z, max)
+      case (i, Text(s)) :: z => loop(pos + s.length, z, max)
+      case (i, Line) :: z => loop(i, z, math.max(max, pos))
+      case (i, Union(a, _)) :: z =>
+        // we always go left, take the widest branch
+        loop(pos, (i, a) :: z, max)
+    }
+
+    loop(0, (0, this) :: Nil, 0)
+  }
 
   /**
    * Return a stream of document which represent all possible
