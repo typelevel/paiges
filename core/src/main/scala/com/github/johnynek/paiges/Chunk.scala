@@ -93,6 +93,12 @@ private object Chunk {
          * If we can fit the next line from x, we take it.
          */
         val first = cheat(pos, (i, x) :: z)
+        /**
+         * Note that in Union the left side is always right associated.
+         * This means the "fits" branch in rendering
+         * always has a right associated Doc which means it is O(w)
+         * to find if you can fit in width w.
+         */
         if (fits(pos, first)) first
         else loop(pos, (i, u.bDoc) :: z)
     }
