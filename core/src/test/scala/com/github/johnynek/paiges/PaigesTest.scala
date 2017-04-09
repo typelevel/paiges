@@ -198,10 +198,57 @@ the spaces""")
       assert(a.grouped.flatten.compare(a.flatten) == 0)
     }
   }
+  test("a.flatten == a.flatten.flatten") {
+    forAll { (a: Doc) =>
+      val aflat = a.flatten
+      assert(aflat.compare(aflat.flatten) == 0)
+    }
+  }
   test("a.flatten == a.flattenOption.getOrElse(a)") {
     forAll { (a: Doc) =>
       assert(a.flatten.compare(a.flattenOption.getOrElse(a)) == 0)
     }
+  }
+
+  test("the left and right side of a union are the same after flattening") {
+    import Doc._
+    def okay(d: Doc): Boolean = d match {
+      case Empty | Text(_) | Line => true
+      case Concat(a, b) => okay(a) && okay(b)
+      case Nest(j, d) => okay(d)
+      case u@Union(a, _) =>
+        (a.flatten.compare(u.bDoc.flatten) == 0) && okay(a) && okay(u.bDoc)
+    }
+
+    forAll { (a: Doc) => assert(okay(a)) }
+  }
+
+  test("the left side of a union has a next line as long or longer than the right") {
+    import Doc._
+
+    def nextLineLength(d: Doc): (Boolean, Int) = d match {
+      case Line => (true, 0)
+      case Empty => (false, 0)
+      case Text(s) => (false, s.length)
+      case Nest(j, d) => nextLineLength(d) // nesting only matters AFTER the next line
+      case Concat(a, b) =>
+        val r1@(done, l) = nextLineLength(a)
+        if (!done) {
+          val (d2, l2) = nextLineLength(b)
+          (d2, l2 + l)
+        } else r1
+      case Union(a, _) => nextLineLength(a) // assume the property is true
+    }
+
+    def okay(d: Doc): Boolean = d match {
+      case Empty | Text(_) | Line => true
+      case Nest(j, d) => okay(d)
+      case Concat(a, b) => okay(a) && okay(b)
+      case u@Union(a, _) =>
+        nextLineLength(a)._2 >= nextLineLength(u.bDoc)._2
+    }
+
+    forAll { (a: Doc) => assert(okay(a)) }
   }
 
   test("test json array example") {
