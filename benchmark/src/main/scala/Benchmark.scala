@@ -27,6 +27,9 @@ class PaigesBenchmark {
   // @Benchmark
   // def concat(): String =
   //   strs.reduceLeft(_ + ", " + _)
+  @Benchmark
+  def docConcat(): String =
+    strs.foldLeft(Doc.empty) { (d1, s) => d1 :+ s }.render(0)
 
   @Benchmark
   def intercalate(): String =
@@ -43,4 +46,5 @@ class PaigesBenchmark {
   @Benchmark
   def fill100(): String =
     Doc.fill(Doc.text(","), strs.map(Doc.text)).render(100)
+
 }

@@ -17,15 +17,9 @@ sealed abstract class Doc extends Product with Serializable {
 
   /**
    * Append the given Doc to this one.
-   *
-   * This method will automatically right-associate; that is, the
-   * expression `(x + y) + z` is equivalent to `x + (y + z)`.
    */
   def +(that: Doc): Doc =
-    this match {
-      case Concat(x, y) => Concat(x, y + that)
-      case _ => Concat(this, that)
-    }
+    Concat(this, that)
 
   /**
    * Prepend the given String to this Doc.
@@ -54,7 +48,7 @@ sealed abstract class Doc extends Product with Serializable {
    * Append the given Doc to this one, separated by a newline.
    */
   def /(that: Doc): Doc =
-    this + Concat(Doc.line, that)
+    Concat(this, Concat(Doc.line, that))
 
   /**
    * Append the given Doc to this one, separated by a newline.
@@ -68,7 +62,7 @@ sealed abstract class Doc extends Product with Serializable {
    * The expression `str /: d` is equivalent to `Doc.text(str) / d`.
    */
   def /:(str: String): Doc =
-    Doc.text(str) + Concat(Doc.line, this)
+    Concat(Doc.text(str), Concat(Doc.line, this))
 
   /**
    * Append the given String to this Doc, separated by a newline.
@@ -88,7 +82,7 @@ sealed abstract class Doc extends Product with Serializable {
    * Append the given Doc to this one, separated by a space.
    */
   def space(that: Doc): Doc =
-    this + (Doc.space + that)
+    Concat(this, Concat(Doc.space, that))
 
   /**
    * Append the given String to this Doc, separated by a space.
@@ -101,7 +95,7 @@ sealed abstract class Doc extends Product with Serializable {
    * enough room), or a newline otherwise.
    */
   def spaceOrLine(that: Doc): Doc =
-    this + (Doc.spaceOrLine + that)
+    Concat(this, Concat(Doc.spaceOrLine, that))
 
   /**
    * Append the given String to this Doc, using a space (if there is
@@ -117,7 +111,7 @@ sealed abstract class Doc extends Product with Serializable {
    * By default, the indentation is two spaces.
    */
   def bracketBy(left: Doc, right: Doc, indent: Int = 2): Doc =
-    (left + ((Doc.line + this).nest(indent) + (Doc.line + right))).grouped
+    Concat(left, Concat(Concat(Doc.line, this).nest(indent), Concat(Doc.line, right)).grouped)
 
   /**
    * Treat this Doc as a group that can be compressed.
@@ -299,7 +293,7 @@ sealed abstract class Doc extends Product with Serializable {
       if (i < s.length) shash(hash(n, s.charAt(i)), s, i + 1) else n
 
     // Always go left to avoid triggering the lazy fill evaluation.
-    renderStream(Int.MaxValue).foldLeft(0xdead60d5) {
+    renderWideStream.foldLeft(0xdead60d5) {
       case (n, s) => shash(n, s, 0)
     }
   }
@@ -383,6 +377,13 @@ sealed abstract class Doc extends Product with Serializable {
    */
   def flatten: Doc = {
 
+    /**
+     * Note after this, docs are right associated.
+     * Also note the left side of a grouped is always
+     * flattened, this means the "fits" branch in rendering
+     * always has a right associated Doc which means it is O(w)
+     * to find if you can fit in width w.
+     */
     def finish(d: Doc, front: List[Doc]): Doc =
       front.foldLeft(d) { (res, f) => Concat(f, res) }
 
@@ -526,6 +527,10 @@ object Doc {
    * By construction all `Union` nodes have this property; to preserve
    * this we don't expose the `Union` constructor directly, but only
    * the `.grouped` method on Doc.
+   *
+   * Additionally, the left side (a) MUST be right associated with
+   * any Concat nodes to maintain efficiency in rendering. This
+   * is currently done by flatten/flattenOption
    */
   private[paiges] case class Union(a: Doc, b: () => Doc) extends Doc {
     lazy val bDoc: Doc = b()
@@ -743,7 +748,8 @@ object Doc {
    * `a + comma + b + comma + b`.
    */
   def intercalate(sep: Doc, ds: Iterable[Doc]): Doc =
-    foldDocs(ds) { (a, b) => a + (sep + b) }
+    if (sep.isEmpty) foldDocs(ds)(Concat(_, _))
+    else foldDocs(ds) { (a, b) => Concat(a, Concat(sep, b)) }
 
   /**
    * Concatenate the given documents together, delimited by spaces.
