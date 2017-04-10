@@ -17,8 +17,8 @@ class PaigesTest extends FunSuite {
      assert((text("hello") + text("world")).render(100) == "helloworld")
   }
 
-  test("nest test") {
-    assert((text("yo") + (text("yo\nho\nho").nest(2))).render(100) ==
+  test("nested test") {
+    assert((text("yo") + (text("yo\nho\nho").nested(2))).render(100) ==
 """yoyo
   ho
   ho""")
@@ -34,10 +34,10 @@ c""")
     assert(g.render(11) == "hello a b c")
   }
 
-  test("nesting with paragraph") {
+  test("nesteding with paragraph") {
     val words = List("this", "is", "a", "test", "of", "a", "block", "of", "text")
     val d1 = Doc.paragraph(words.mkString(" "))
-    val d2 = d1 + (Doc.line :+ "love, Oscar").nest(2)
+    val d2 = d1 + (Doc.line :+ "love, Oscar").nested(2)
     assert(d2.render(0) == words.mkString("", "\n", "\n  love, Oscar"))
     assert(d2.render(100) == words.mkString("", " ", "\n  love, Oscar"))
   }
@@ -156,7 +156,7 @@ the spaces""")
      *   (a * n * (b * s * c) | (b * n * c))
      */
     val first = Doc.paragraph("a b c")
-    val second = Doc.fill(Doc.spaceOrLine, List("a", "b", "c").map(Doc.text))
+    val second = Doc.fill(Doc.lineOrSpace, List("a", "b", "c").map(Doc.text))
     /*
      * I think this fails perhaps because of the way fill constructs
      * Unions. It violates a stronger invariant that Union(a, b)
@@ -167,11 +167,11 @@ the spaces""")
     assert(first.compare(second) == 0)
 
     /**
-     * spaceOrLine == (s | n)
-     * flatten(spaceOrLine) = s
-     * group(spaceOrLine) = (s | (s|n)) == (s | n)
+     * lineOrSpace == (s | n)
+     * flatten(lineOrSpace) = s
+     * group(lineOrSpace) = (s | (s|n)) == (s | n)
      */
-    assert(Doc.spaceOrLine.grouped.compare(Doc.spaceOrLine) == 0)
+    assert(Doc.lineOrSpace.grouped.compare(Doc.lineOrSpace) == 0)
   }
   test("group law") {
     /**
@@ -232,7 +232,7 @@ the spaces""")
       case Line(_) => (true, 0)
       case Empty => (false, 0)
       case Text(s) => (false, s.length)
-      case Nest(j, d) => nextLineLength(d) // nesting only matters AFTER the next line
+      case Nest(j, d) => nextLineLength(d) // nesteding only matters AFTER the next line
       case Align(d) => nextLineLength(d) // aligning only matters AFTER the next line
       case Concat(a, b) =>
         val r1@(done, l) = nextLineLength(a)
@@ -275,7 +275,7 @@ the spaces""")
 
   test("test json map example") {
     val kvs = (0 to 20).map { i => text("\"%s\": %s".format(s"key$i", i)) }
-    val parts = Doc.fill(Doc.comma + Doc.spaceOrLine, kvs)
+    val parts = Doc.fill(Doc.comma + Doc.lineOrSpace, kvs)
     val map = parts.bracketBy(Doc.text("{"), Doc.text("}"))
     assert(map.render(1000) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.mkString("{ ", ", ", " }"))
     assert(map.render(20) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.map("  " + _).mkString("{\n", ",\n", "\n}"))
@@ -293,7 +293,7 @@ the spaces""")
     forAll { (d0: Doc, d1: Doc, dsLong: List[Doc]) =>
       // we need at least 2 docs for this law
       val ds = (d0 :: d1 :: dsLong.take(4))
-      val f = Doc.fill(Doc.spaceOrLine, ds)
+      val f = Doc.fill(Doc.lineOrSpace, ds)
       val g = Doc.intercalate(Doc.space, ds.map(_.flatten))
       assert(g.isSubDocOf(f))
     }
@@ -405,12 +405,12 @@ the spaces""")
   }
 
   test("maxWidth is stack safe") {
-    assert(Doc.intercalate(Doc.spaceOrLine, (1 to 100000).map(Doc.str)).maxWidth >= 0)
+    assert(Doc.intercalate(Doc.lineOrSpace, (1 to 100000).map(Doc.str)).maxWidth >= 0)
   }
 
   test("renderWide is stack safe") {
     val nums = (1 to 100000)
-    assert(Doc.intercalate(Doc.spaceOrLine, nums.map(Doc.str)).renderWideStream.mkString == nums.mkString(" "))
+    assert(Doc.intercalate(Doc.lineOrSpace, nums.map(Doc.str)).renderWideStream.mkString == nums.mkString(" "))
   }
 
   test("render(w) == renderStream(w).mkString") {
