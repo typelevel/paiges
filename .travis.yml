@@ -4,7 +4,7 @@ matrix:
       language: scala
       jdk: oraclejdk8
       env: PLATFORM="jvm"
-      script: sbt coreJVM/test catsJVM/test
+      script: sbt coreJVM/test catsJVM/test docs/tut
 
     - scala: 2.10.6
       language: scala
@@ -16,7 +16,7 @@ matrix:
       language: scala
       jdk: oraclejdk8
       env: PLATFORM="jvm"
-      script: sbt coreJVM/test catsJVM/test
+      script: sbt coreJVM/test catsJVM/test docs/tut
 
     - scala: 2.11.8
       language: scala
@@ -28,7 +28,7 @@ matrix:
       language: scala
       jdk: oraclejdk8
       env: PLATFORM="jvm"
-      script: sbt coreJVM/test catsJVM/test
+      script: sbt coreJVM/test catsJVM/test docs/tut
 
     - scala: 2.12.1
       language: scala
