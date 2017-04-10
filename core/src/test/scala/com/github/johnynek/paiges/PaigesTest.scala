@@ -454,4 +454,23 @@ the spaces""")
     assert(doc.render(6) == "1, 2,\n3")
     assert(doc.render(10) == "1, 2, 3")
   }
+
+  test("a == b implies f(a) == f(b)") {
+    import Doc.docOrdering
+
+    def law(a: Doc, b: Doc, f: Doc => Doc) =
+      if (docOrdering.equiv(a, b)) {
+        assert(docOrdering.equiv(f(a), f(b)), s"${a.representation(true).render(40)}\n\n${b.representation(true).render(40)}")
+      }
+      else ()
+
+    // Here are some hard cases
+    val examples = List((Doc.line, Doc.lineBreak, { (d: Doc) => d.grouped }))
+    examples.foreach { case (a, b, f) => law(a, b, f) }
+
+    implicit val generatorDrivenConfig =
+      PropertyCheckConfiguration(minSuccessful = 5000)
+
+    forAll(genDoc, genDoc, unary) { (a, b, f) => law(a, b, f) }
+  }
 }
