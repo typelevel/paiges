@@ -213,7 +213,8 @@ the spaces""")
   test("the left and right side of a union are the same after flattening") {
     import Doc._
     def okay(d: Doc): Boolean = d match {
-      case Empty | Text(_) | Line => true
+      case Empty | Text(_) => true
+      case Line(d) => okay(d)
       case Concat(a, b) => okay(a) && okay(b)
       case Nest(j, d) => okay(d)
       case u@Union(a, _) =>
@@ -227,7 +228,7 @@ the spaces""")
     import Doc._
 
     def nextLineLength(d: Doc): (Boolean, Int) = d match {
-      case Line => (true, 0)
+      case Line(_) => (true, 0)
       case Empty => (false, 0)
       case Text(s) => (false, s.length)
       case Nest(j, d) => nextLineLength(d) // nesting only matters AFTER the next line
@@ -241,7 +242,7 @@ the spaces""")
     }
 
     def okay(d: Doc): Boolean = d match {
-      case Empty | Text(_) | Line => true
+      case Empty | Text(_) | Line(_) => true
       case Nest(j, d) => okay(d)
       case Concat(a, b) => okay(a) && okay(b)
       case u@Union(a, _) =>
@@ -420,5 +421,17 @@ the spaces""")
       val max = d.maxWidth
       assert(d.renderWideStream.mkString == d.render(max))
     }
+  }
+  test("lineBreak works as expected") {
+    import Doc._
+    // render a tight list:
+    val res = text("(") + Doc.intercalate((Doc.comma + Doc.lineBreak).grouped, (1 to 20).map(Doc.str)) + text(")")
+    assert(res.render(10) == """(1,2,3,4,
+                                |5,6,7,8,9,
+                                |10,11,12,
+                                |13,14,15,
+                                |16,17,18,
+                                |19,20)""".stripMargin)
+    assert(res.renderWideStream.mkString == (1 to 20).mkString("(", ",", ")"))
   }
 }

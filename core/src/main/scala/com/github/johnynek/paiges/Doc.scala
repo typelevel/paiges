@@ -139,7 +139,7 @@ sealed abstract class Doc extends Product with Serializable {
           case d1 :: tail => loop(d1, tail)
           case Nil => true
         }
-        case Concat(_, Line) =>
+        case Concat(_, Line(_)) =>
           false // minor optimization to short circuit sooner
         case Concat(a, Text(s)) =>
           // minor optimization to short circuit sooner
@@ -149,7 +149,7 @@ sealed abstract class Doc extends Product with Serializable {
         case Text(s) =>
           // shouldn't be empty by construction, but defensive
           s.isEmpty && loop(Empty, stack)
-        case Line => false
+        case Line(_) => false
         case Union(flattened, _) =>
           // flattening cannot change emptiness
           loop(flattened, stack)
@@ -216,7 +216,7 @@ sealed abstract class Doc extends Product with Serializable {
       case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z)
       case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
       case (i, Text(s)) :: z => s #:: cheat(pos + s.length, z)
-      case (i, Line) :: z => Chunk.lineToStr(i) #:: cheat(i, z)
+      case (i, Line(_)) :: z => Chunk.lineToStr(i) #:: cheat(i, z)
       case (i, u@Union(a, _)) :: z =>
         val next = if (tall) u.bDoc else a
         loop(pos, (i, next) :: z)
@@ -330,8 +330,8 @@ sealed abstract class Doc extends Product with Serializable {
               d match {
                 case Empty =>
                   loop(tail, "Empty" +: suffix)
-                case Line =>
-                  loop(tail, "Line" +: suffix)
+                case Line(d) =>
+                  loop(Left(d) :: Right("Line(") :: tail, ")" +: suffix)
                 case Text(s) =>
                   loop(tail, "Text(" +: s +: ")" +: suffix)
                 case Nest(i, d) =>
@@ -395,7 +395,7 @@ sealed abstract class Doc extends Product with Serializable {
             case Nil => finish(h, front)
             case x :: xs => loop(x, xs, h :: front)
           }
-        case Line => loop(Doc.space, stack, front)
+        case Line(flattenTo) => loop(flattenTo, stack, front)
         case Nest(i, d) => loop(d, stack, front) // no Line, so Nest is irrelevant
         case Union(a, _) => loop(a, stack, front) // invariant: flatten(union(a, b)) == flatten(a)
         case Concat(a, b) => loop(a, b :: stack, front)
@@ -430,8 +430,8 @@ sealed abstract class Doc extends Product with Serializable {
             case Nil => finish(h, front)
             case x :: xs => loop(x, xs, h :: front)
           }
-        case Line =>
-          val next = Doc.space
+        case Line(flattenTo) =>
+          val next = flattenTo
           val change = (next, true)
           stack match {
             case Nil => finish(change, front)
@@ -468,7 +468,7 @@ sealed abstract class Doc extends Product with Serializable {
       case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z, max)
       case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z, max)
       case (i, Text(s)) :: z => loop(pos + s.length, z, max)
-      case (i, Line) :: z => loop(i, z, math.max(max, pos))
+      case (i, Line(_)) :: z => loop(i, z, math.max(max, pos))
       case (i, Union(a, _)) :: z =>
         // we always go left, take the widest branch
         loop(pos, (i, a) :: z, max)
@@ -497,8 +497,9 @@ object Doc {
 
   /**
    * Represents a single, literal newline.
+   * invariant: flattenTo contains no inner Line nodes
    */
-  private[paiges] case object Line extends Doc
+  private[paiges] case class Line(flattenTo: Doc) extends Doc
 
   /**
    * The string must not be empty, and may not contain newlines.
@@ -554,9 +555,19 @@ object Doc {
 
   val space: Doc = spaceArray(0)
   val comma: Doc = Text(",")
-  val line: Doc = Line
-  val spaceOrLine: Doc = Union(space, () => line)
   val empty: Doc = Empty
+  /**
+   * when flattened a line becomes a space
+   * You might also @see lineBreak if you want a line that
+   * is flattened into empty
+   */
+  val line: Doc = Line(space)
+  /**
+   * A lineBreak is a line that is flattened into
+   * an empty Doc.
+   */
+  val lineBreak: Doc = Line(empty)
+  val spaceOrLine: Doc = Union(space, () => line)
 
   implicit val docOrdering: Ordering[Doc] =
     new Ordering[Doc] {
@@ -579,7 +590,7 @@ object Doc {
     @tailrec def parse(i: Int, limit: Int, doc: Doc): Doc =
       if (i < 0) tx(0, limit) + doc
       else str.charAt(i) match {
-        case '\n' => parse(i - 1, i, Line + tx(i + 1, limit) + doc)
+        case '\n' => parse(i - 1, i, line + tx(i + 1, limit) + doc)
         case _ => parse(i - 1, limit, doc)
       }
 
@@ -587,7 +598,7 @@ object Doc {
     else if (str.length == 1) {
       val c = str.charAt(0)
       if ((' ' <= c) && (c <= '~')) charTable(c.toInt - 32)
-      else if (c == '\n') Line
+      else if (c == '\n') line
       else Text(str)
     }
     else if (str.indexOf('\n') < 0) Text(str)

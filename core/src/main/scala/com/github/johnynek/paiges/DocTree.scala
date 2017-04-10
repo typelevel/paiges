@@ -55,7 +55,7 @@ object DocTree {
       case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z, bounds)
       case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z, bounds)
       case (i, Text(s)) :: z => docTree(Emit(Str(s)) #:: cheat(pos + s.length, z, bounds).unfix)
-      case (i, Line) :: z => docTree(Emit(Break(i)) #:: cheat(i, z, bounds).unfix)
+      case (i, Line(_)) :: z => docTree(Emit(Break(i)) #:: cheat(i, z, bounds).unfix)
       case (i, u@Union(a, _)) :: z =>
         /**
          * if we can go left, we do, otherwise we go right. So, in the current
@@ -103,7 +103,7 @@ object DocTree {
         case (Emit(Str(t)) #:: tail) =>
           loop(docTree(tail), cat(prefix, Text(t)))
         case (Emit(Break(n)) #:: tail) =>
-          loop(docTree(tail), cat(prefix, cat(Line, spaces(n))))
+          loop(docTree(tail), cat(prefix, cat(line, spaces(n))))
         case (Split(a, b) #:: _) =>
           cheat(a, prefix) #::: cheat(b(), prefix)
       }

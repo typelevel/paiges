@@ -87,7 +87,7 @@ private object Chunk {
       case (i, Doc.Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z)
       case (i, Doc.Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
       case (i, Doc.Text(s)) :: z => ChunkStream.Item(s, pos + s.length, z, false)
-      case (i, Doc.Line) :: z => ChunkStream.Item(null, i, z, true)
+      case (i, Doc.Line(_)) :: z => ChunkStream.Item(null, i, z, true)
       case (i, u@Doc.Union(x, _)) :: z =>
         /**
          * If we can fit the next line from x, we take it.
