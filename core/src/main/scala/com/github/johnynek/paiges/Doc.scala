@@ -13,7 +13,7 @@ import scala.util.matching.Regex
  */
 sealed abstract class Doc extends Product with Serializable {
 
-  import Doc.{ Empty, Text, Line, Nest, Concat, Union }
+  import Doc.{ Align, Empty, Text, Line, Nest, Concat, Union }
 
   /**
    * Append the given Doc to this one.
@@ -129,8 +129,7 @@ sealed abstract class Doc extends Product with Serializable {
     }
 
   /**
-   * Returns true if every call to .render will return the empty
-   * string (no matter what width is used); otherwise, returns false.
+   * Returns true if all renders return the empty string
    */
   def isEmpty: Boolean = {
     @tailrec def loop(doc: Doc, stack: List[Doc]): Boolean =
@@ -139,23 +138,29 @@ sealed abstract class Doc extends Product with Serializable {
           case d1 :: tail => loop(d1, tail)
           case Nil => true
         }
-        case Concat(_, Line) =>
+        case Concat(_, Line(_)) =>
           false // minor optimization to short circuit sooner
         case Concat(a, Text(s)) =>
           // minor optimization to short circuit sooner
           s.isEmpty && loop(a, stack)
         case Concat(a, b) => loop(a, b :: stack)
         case Nest(i, d) => loop(d, stack)
+        case Align(d) => loop(d, stack)
         case Text(s) =>
           // shouldn't be empty by construction, but defensive
           s.isEmpty && loop(Empty, stack)
-        case Line => false
+        case Line(_) => false
         case Union(flattened, _) =>
           // flattening cannot change emptiness
           loop(flattened, stack)
       }
     loop(this, Nil)
   }
+
+  /**
+   * d.nonEmpty == !d.isEmpty
+   */
+  def nonEmpty: Boolean = !isEmpty
 
   /**
    * Returns true if there is a width where these Docs render the same
@@ -189,37 +194,28 @@ sealed abstract class Doc extends Product with Serializable {
    * `d.render(w)`.
    */
   def renderStream(width: Int): Stream[String] =
-    if (width <= 0) renderTallStream
-    else Chunk.best(width, this).toStream
-
-  /**
-   * Render this Doc as a stream of strings, using
-   * the tallest possible variant. This is the same
-   * as render(0) except it is more efficient.
-   */
-  def renderTallStream: Stream[String] =
-    renderFixedDirection(tall = true)
+    Chunk.best(width, this).toStream
 
   /**
    * Render this Doc as a stream of strings, using
    * the widest possible variant. This is the same
    * as render(Int.MaxValue) except it is more efficient.
    */
-  def renderWideStream: Stream[String] =
-    renderFixedDirection(tall = false)
-
-  private def renderFixedDirection(tall: Boolean): Stream[String] = {
+  def renderWideStream: Stream[String] = {
     @tailrec
     def loop(pos: Int, lst: List[(Int, Doc)]): Stream[String] = lst match {
       case Nil => Stream.empty
       case (i, Empty) :: z => loop(pos, z)
       case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z)
       case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
+      case (i, Align(d)) :: z => loop(pos, (pos, d) :: z)
       case (i, Text(s)) :: z => s #:: cheat(pos + s.length, z)
-      case (i, Line) :: z => Chunk.lineToStr(i) #:: cheat(i, z)
-      case (i, u@Union(a, _)) :: z =>
-        val next = if (tall) u.bDoc else a
-        loop(pos, (i, next) :: z)
+      case (i, Line(_)) :: z => Chunk.lineToStr(i) #:: cheat(i, z)
+      case (i, Union(a, _)) :: z =>
+        /**
+         * if we are infinitely wide, a always fits
+         */
+        loop(pos, (i, a) :: z)
     }
     def cheat(pos: Int, lst: List[(Int, Doc)]) =
       loop(pos, lst)
@@ -263,6 +259,19 @@ sealed abstract class Doc extends Product with Serializable {
       case Nest(i, d) => Nest(i + amount, d)
       case _ => Nest(amount, this)
     }
+
+  /**
+   * aligned sets the nesting to the column position before we
+   * render the current doc. This is useful if you have:
+   *
+   * Doc.text("foo") + (Doc.text("bar").line(Doc.text("baz"))).align
+   *
+   * which will render as:
+   *
+   * foobar
+   *    baz
+   */
+  def aligned: Doc = Align(this)
 
   /**
    * Render this Doc at the given `width`, and write it to the given
@@ -330,12 +339,14 @@ sealed abstract class Doc extends Product with Serializable {
               d match {
                 case Empty =>
                   loop(tail, "Empty" +: suffix)
-                case Line =>
-                  loop(tail, "Line" +: suffix)
+                case Line(d) =>
+                  loop(Left(d) :: Right("Line(") :: tail, ")" +: suffix)
                 case Text(s) =>
                   loop(tail, "Text(" +: s +: ")" +: suffix)
                 case Nest(i, d) =>
                   loop(Left(d) :: Right(", ") :: Right(i.toString) :: Right("Nest(") :: tail, ")" +: suffix)
+                case Align(d) =>
+                  loop(Left(d) :: Right("Align(") :: tail, ")" +: suffix)
                 case Concat(x, y) =>
                   loop(Left(y) :: Right(", ") :: Left(x) :: Right("Concat(") :: tail, ")" +: suffix)
                 case Union(x, y) =>
@@ -395,8 +406,9 @@ sealed abstract class Doc extends Product with Serializable {
             case Nil => finish(h, front)
             case x :: xs => loop(x, xs, h :: front)
           }
-        case Line => loop(Doc.space, stack, front)
+        case Line(flattenTo) => loop(flattenTo, stack, front)
         case Nest(i, d) => loop(d, stack, front) // no Line, so Nest is irrelevant
+        case Align(d) => loop(d, stack, front) // no Line, so Align is irrelevant
         case Union(a, _) => loop(a, stack, front) // invariant: flatten(union(a, b)) == flatten(a)
         case Concat(a, b) => loop(a, b :: stack, front)
       }
@@ -430,8 +442,8 @@ sealed abstract class Doc extends Product with Serializable {
             case Nil => finish(h, front)
             case x :: xs => loop(x, xs, h :: front)
           }
-        case Line =>
-          val next = Doc.space
+        case Line(flattenTo) =>
+          val next = flattenTo
           val change = (next, true)
           stack match {
             case Nil => finish(change, front)
@@ -444,6 +456,13 @@ sealed abstract class Doc extends Product with Serializable {
            * no embedded Line inside
            */
           loop((d, h._2), stack, front) // no Line, so Nest is irrelevant
+        case Align(d) =>
+          /*
+           * This is different from flatten which always strips
+           * the Align node. This will return None if there is
+           * no embedded Line inside
+           */
+          loop((d, h._2), stack, front) // no Line, so Align is irrelevant
         case Union(a, _) => loop((a, true), stack, front) // invariant: flatten(union(a, b)) == flatten(a)
         case Concat(a, b) => loop((a, h._2), (b, h._2) :: stack, front)
       }
@@ -467,8 +486,9 @@ sealed abstract class Doc extends Product with Serializable {
       case (i, Empty) :: z => loop(pos, z, max)
       case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z, max)
       case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z, max)
+      case (i, Align(d)) :: z => loop(pos, (pos, d) :: z, max)
       case (i, Text(s)) :: z => loop(pos + s.length, z, max)
-      case (i, Line) :: z => loop(i, z, math.max(max, pos))
+      case (i, Line(_)) :: z => loop(i, z, math.max(max, pos))
       case (i, Union(a, _)) :: z =>
         // we always go left, take the widest branch
         loop(pos, (i, a) :: z, max)
@@ -497,8 +517,9 @@ object Doc {
 
   /**
    * Represents a single, literal newline.
+   * invariant: flattenTo contains no inner Line nodes
    */
-  private[paiges] case object Line extends Doc
+  private[paiges] case class Line(flattenTo: Doc) extends Doc
 
   /**
    * The string must not be empty, and may not contain newlines.
@@ -518,11 +539,16 @@ object Doc {
   private[paiges] case class Nest(indent: Int, doc: Doc) extends Doc
 
   /**
+   * Align sets the nesting at the current position
+   */
+  private[paiges] case class Align(doc: Doc) extends Doc
+
+  /**
    * Represents an optimistic rendering (on the left) as well as a
    * fallback rendering (on the right) if the first line of the left
    * is too long.
    *
-   * There is an additional invariant on Union: `a == flatten(b)`.
+   * There is an additional invariant on Union: `flatten(a) == flatten(b)`.
    *
    * By construction all `Union` nodes have this property; to preserve
    * this we don't expose the `Union` constructor directly, but only
@@ -534,7 +560,6 @@ object Doc {
    */
   private[paiges] case class Union(a: Doc, b: () => Doc) extends Doc {
     lazy val bDoc: Doc = b()
-    override def toString: String = s"Union($a, $bDoc)"
   }
 
   private[this] val maxSpaceTable = 20
@@ -554,9 +579,21 @@ object Doc {
 
   val space: Doc = spaceArray(0)
   val comma: Doc = Text(",")
-  val line: Doc = Line
-  val spaceOrLine: Doc = Union(space, () => line)
   val empty: Doc = Empty
+  /**
+   * when flattened a line becomes a space
+   * You might also @see lineBreak if you want a line that
+   * is flattened into empty
+   */
+  val line: Doc = Line(space)
+  /**
+   * A lineBreak is a line that is flattened into
+   * an empty Doc. This is generally useful in code
+   * following tokens that parse without the need for
+   * whitespace termination (consider ";" "," "=>" etc..)
+   */
+  val lineBreak: Doc = Line(empty)
+  val spaceOrLine: Doc = Union(space, () => line)
 
   implicit val docOrdering: Ordering[Doc] =
     new Ordering[Doc] {
@@ -579,7 +616,7 @@ object Doc {
     @tailrec def parse(i: Int, limit: Int, doc: Doc): Doc =
       if (i < 0) tx(0, limit) + doc
       else str.charAt(i) match {
-        case '\n' => parse(i - 1, i, Line + tx(i + 1, limit) + doc)
+        case '\n' => parse(i - 1, i, line + tx(i + 1, limit) + doc)
         case _ => parse(i - 1, limit, doc)
       }
 
@@ -587,7 +624,7 @@ object Doc {
     else if (str.length == 1) {
       val c = str.charAt(0)
       if ((' ' <= c) && (c <= '~')) charTable(c.toInt - 32)
-      else if (c == '\n') Line
+      else if (c == '\n') line
       else Text(str)
     }
     else if (str.indexOf('\n') < 0) Text(str)
@@ -622,23 +659,23 @@ object Doc {
 
   /**
    * Collapse a collection of documents into one document, delimited
-   * by a separator and whitespace.
-   *
-   * The whitespace used (in addition to the separator) will be a
-   * space (if there is room) or a newline otherwise.
+   * by a separator.
    *
    * For example:
    *
-   *     import Doc.{ text, fill }
-   *     val comma = Doc.text(",")
+   *     import Doc.{ comma, line, text, fill }
    *     val ds = text("1") :: text("2") :: text("3") :: Nil
-   *     val doc = fill(comma, ds)
+   *     val doc = fill(comma + line, ds)
    *
    *     doc.render(0)  // produces "1,\n2,\n3"
    *     doc.render(6)  // produces "1, 2,\n3"
    *     doc.render(10) // produces "1, 2, 3"
    */
   def fill(sep: Doc, ds: Iterable[Doc]): Doc = {
+
+    val flatSep = sep.flatten
+    val sepGroup = sep.grouped
+
     @tailrec
     def fillRec(x: Doc, lst: List[Doc], stack: List[Doc => Doc]): Doc = lst match {
       case Nil => call(x, stack)
@@ -654,45 +691,37 @@ object Doc {
          *
          * which is exponential in n (O(2^n))
          *
-         * making the second parameter in the union lazy would fix this.
-         * that seems an expensive fix for a single combinator. Maybe
-         * there is an alternative way to express this that is not
-         * exponential.
-         *
-         * On top of this difficulty, this formulation creates
-         * Union nodes that violate the invariant that Union(a, b)
-         * means a == flatten(b). It still has flatten(a) == flatten(b),
-         * however. This fact seems to complicate comparison of Doc
-         * which is valuable.
+         * Making the second parameter in the union lazy fixes this.
+         * This is exactly the motivation for keeping the second
+         * parameter of Union lazy.
          */
-        val xsep = x + sep
-        (xsep.flattenOption, y.flattenOption) match {
+        (x.flattenOption, y.flattenOption) match {
           case (Some(flatx), Some(flaty)) =>
             def cont(resty: Doc) = {
-              val first = flatx.space(resty)
-              def second = xsep / cheatRec(y, tail)
+              val first = Concat(flatx, Concat(flatSep, resty))
+              def second = Concat(x, Concat(sep, cheatRec(y, tail)))
               // note that first != second
               Union(first, () => second)
             }
             fillRec(flaty, tail, (cont _) :: stack)
           case (Some(flatx), None) =>
             def cont(resty: Doc) = {
-              val first = flatx.space(resty)
-              def second = xsep / resty
+              val first = Concat(flatx, Concat(flatSep, resty))
+              val second = Concat(x, Concat(sep, resty))
               // note that first != second
               Union(first, () => second)
             }
             fillRec(y, tail, (cont _) :: stack)
           case (None, Some(flaty)) =>
             def cont(resty: Doc) = {
-              val first = xsep.space(resty)
-              def second = xsep / cheatRec(y, tail)
+              val first = Concat(x, Concat(flatSep, resty))
+              def second = Concat(x, Concat(sep, cheatRec(y, tail)))
               // note that first != second
               Union(first, () => second)
             }
             fillRec(flaty, tail, (cont _) :: stack)
           case (None, None) =>
-            fillRec(y, tail, (xsep.spaceOrLine(_: Doc)) :: stack)
+            fillRec(y, tail, { d: Doc => Concat(x, Concat(sepGroup, d)) } :: stack)
         }
     }
 
