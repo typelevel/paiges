@@ -51,10 +51,11 @@ object DocTree {
     @tailrec
     def loop(pos: Int, lst: List[(Int, Doc)], bounds: Bounds): DocTree = lst match {
       case Nil => docTree(Stream.empty)
-      case (i, Empty) :: z => loop(pos, z, bounds)
+      case (_, Empty) :: z => loop(pos, z, bounds)
       case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z, bounds)
       case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z, bounds)
-      case (i, Text(s)) :: z => docTree(Emit(Str(s)) #:: cheat(pos + s.length, z, bounds).unfix)
+      case (_, Align(d)) :: z => loop(pos, (pos, d) :: z, bounds)
+      case (_, Text(s)) :: z => docTree(Emit(Str(s)) #:: cheat(pos + s.length, z, bounds).unfix)
       case (i, Line(_)) :: z => docTree(Emit(Break(i)) #:: cheat(i, z, bounds).unfix)
       case (i, u@Union(a, _)) :: z =>
         /**
@@ -64,7 +65,7 @@ object DocTree {
          * else go left
          */
         val as = cheat(pos, (i, a) :: z, bounds)
-        val minLeftWidth = fits(pos, as, Int.MaxValue)
+        val minLeftWidth = fits(pos, as, bounds.max)
         bounds.split(minLeftWidth) match {
           case None =>
             // cannot go left

@@ -101,23 +101,17 @@ the spaces""")
     }
   }
 
-  test("isEmpty == true means render is empty String") {
-    forAll { (d: Doc, w0: Int, ws: List[Int]) =>
-      if (d.isEmpty) (w0 :: ws).foreach { w =>
-        val str = d.render(w)
-        assert(str.isEmpty, s"width: $w gave str: $str, should be empty")
+  test("isEmpty == render(w).isEmpty for all w") {
+    forAll { (d: Doc) =>
+      if (d.isEmpty) {
+        assert((0 to d.maxWidth).forall(d.render(_).isEmpty), s"${d.representation(true).render(50)} has nonEmpty renderings")
       }
       else succeed
     }
   }
-  test("renders to empty implies isEmpty == true") {
-    forAll { (d: Doc, w0: Int, ws: List[Int]) =>
-      val emptyWidth = (w0 :: ws).find { w =>
-        d.render(w).isEmpty
-      }
-      emptyWidth.foreach { w =>
-        assert(d.isEmpty, s"width $w renders empty, but !d.isEmpty")
-      }
+  test("nonEmpty == !isEmpty") {
+    forAll { (d: Doc) =>
+      assert(d.nonEmpty == !d.isEmpty)
     }
   }
   test("isEmpty compare empty == 0") {
@@ -145,6 +139,12 @@ the spaces""")
       else succeed
     }
   }
+  test("render(w) == render(0) for w <= 0") {
+    forAll { (a: Doc, w: Int) =>
+      val wNeg = if (w > 0) -w else w
+      assert(a.render(wNeg) == a.render(0), s"${a.representation(true).render(40)}.render($wNeg) fails")
+    }
+  }
 
   test("hard union cases") {
     /**
@@ -156,7 +156,7 @@ the spaces""")
      *   (a * n * (b * s * c) | (b * n * c))
      */
     val first = Doc.paragraph("a b c")
-    val second = Doc.fill(Doc.empty, List("a", "b", "c").map(Doc.text))
+    val second = Doc.fill(Doc.spaceOrLine, List("a", "b", "c").map(Doc.text))
     /*
      * I think this fails perhaps because of the way fill constructs
      * Unions. It violates a stronger invariant that Union(a, b)
@@ -217,6 +217,7 @@ the spaces""")
       case Line(d) => okay(d)
       case Concat(a, b) => okay(a) && okay(b)
       case Nest(j, d) => okay(d)
+      case Align(d) => okay(d)
       case u@Union(a, _) =>
         (a.flatten.compare(u.bDoc.flatten) == 0) && okay(a) && okay(u.bDoc)
     }
@@ -232,6 +233,7 @@ the spaces""")
       case Empty => (false, 0)
       case Text(s) => (false, s.length)
       case Nest(j, d) => nextLineLength(d) // nesting only matters AFTER the next line
+      case Align(d) => nextLineLength(d) // aligning only matters AFTER the next line
       case Concat(a, b) =>
         val r1@(done, l) = nextLineLength(a)
         if (!done) {
@@ -244,6 +246,7 @@ the spaces""")
     def okay(d: Doc): Boolean = d match {
       case Empty | Text(_) | Line(_) => true
       case Nest(j, d) => okay(d)
+      case Align(d) => okay(d)
       case Concat(a, b) => okay(a) && okay(b)
       case u@Union(a, _) =>
         nextLineLength(a)._2 >= nextLineLength(u.bDoc)._2
@@ -254,14 +257,13 @@ the spaces""")
 
   test("test json array example") {
     val items = (0 to 20).map(Doc.str(_))
-    val parts = Doc.fill(Doc.comma, items)
-    val ary = "[" +: ((parts :+ "]").nest(2))
-    assert(ary.render(1000) == (0 to 20).mkString("[", ", ", "]"))
+    val parts = Doc.fill(Doc.comma + Doc.line, items)
+    val ary = "[" +: ((parts :+ "]").aligned)
+    assert(ary.renderWideStream.mkString == (0 to 20).mkString("[", ", ", "]"))
     val expect = """[0, 1, 2, 3, 4, 5,
-                   |  6, 7, 8, 9, 10,
-                   |  11, 12, 13, 14,
-                   |  15, 16, 17, 18,
-                   |  19, 20]""".stripMargin
+                   | 6, 7, 8, 9, 10, 11,
+                   | 12, 13, 14, 15, 16,
+                   | 17, 18, 19, 20]""".stripMargin
     assert(ary.render(20) == expect)
   }
 
@@ -273,7 +275,7 @@ the spaces""")
 
   test("test json map example") {
     val kvs = (0 to 20).map { i => text("\"%s\": %s".format(s"key$i", i)) }
-    val parts = Doc.fill(Doc.comma, kvs)
+    val parts = Doc.fill(Doc.comma + Doc.spaceOrLine, kvs)
     val map = parts.bracketBy(Doc.text("{"), Doc.text("}"))
     assert(map.render(1000) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.mkString("{ ", ", ", " }"))
     assert(map.render(20) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.map("  " + _).mkString("{\n", ",\n", "\n}"))
@@ -291,7 +293,7 @@ the spaces""")
     forAll { (d0: Doc, d1: Doc, dsLong: List[Doc]) =>
       // we need at least 2 docs for this law
       val ds = (d0 :: d1 :: dsLong.take(4))
-      val f = Doc.fill(Doc.empty, ds)
+      val f = Doc.fill(Doc.spaceOrLine, ds)
       val g = Doc.intercalate(Doc.space, ds.map(_.flatten))
       assert(g.isSubDocOf(f))
     }
@@ -411,9 +413,9 @@ the spaces""")
     assert(Doc.intercalate(Doc.spaceOrLine, nums.map(Doc.str)).renderWideStream.mkString == nums.mkString(" "))
   }
 
-  test("renderTall == render(0)") {
-    forAll { (d: Doc) =>
-      assert(d.renderTallStream.mkString == d.render(0))
+  test("render(w) == renderStream(w).mkString") {
+    forAll { (d: Doc, w: Int) =>
+      assert(d.render(w) == d.renderStream(w).mkString)
     }
   }
   test("renderWide == render(maxWidth)") {
@@ -433,5 +435,23 @@ the spaces""")
                                 |16,17,18,
                                 |19,20)""".stripMargin)
     assert(res.renderWideStream.mkString == (1 to 20).mkString("(", ",", ")"))
+  }
+  test("align works as expected") {
+    import Doc._
+    // render with alignment
+    val d1 = text("fooooo ") + (text("bar") line text("baz")).aligned
+
+    assert(d1.render(0) == """fooooo bar
+                             |       baz""".stripMargin)
+  }
+
+  test("fill example") {
+    import Doc.{ comma, text, fill }
+    val ds = text("1") :: text("2") :: text("3") :: Nil
+    val doc = fill(comma + Doc.line, ds)
+
+    assert(doc.render(0) == "1,\n2,\n3")
+    assert(doc.render(6) == "1, 2,\n3")
+    assert(doc.render(10) == "1, 2, 3")
   }
 }

@@ -18,6 +18,7 @@ object Generators {
     (1, Doc.empty),
     (1, Doc.space),
     (1, Doc.line),
+    (1, Doc.lineBreak),
     (1, Doc.spaceOrLine),
     (10, asciiString.map(text(_))),
     (10, generalString.map(text(_))),
@@ -36,14 +37,16 @@ object Generators {
   val unary: Gen[Doc => Doc] =
     Gen.oneOf(
       Gen.const({ d: Doc => d.grouped }),
+      Gen.const({ d: Doc => d.aligned }),
       Gen.choose(0, 40).map { i => { d: Doc => d.nest(i) } })
 
   val folds: Gen[(List[Doc] => Doc)] =
     Gen.oneOf(
-    // fill is exponentially expensive currently
-    { ds: List[Doc] => Doc.fill(Doc.empty, ds.take(6)) },
-    { ds: List[Doc] => Doc.spread(ds) },
-    { ds: List[Doc] => Doc.stack(ds) })
+    doc0Gen.map { sep =>
+      { ds: List[Doc] => Doc.fill(sep, ds.take(8)) }
+    },
+    Gen.const({ ds: List[Doc] => Doc.spread(ds) }),
+    Gen.const({ ds: List[Doc] => Doc.stack(ds) }))
 
   val maxDepth = 7
 
