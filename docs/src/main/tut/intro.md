@@ -58,9 +58,11 @@ There are also some useful methods defined in the `Doc` companion:
  * `Doc.empty`: an empty document, equivalent to `Doc.text("")`
  * `Doc.space`: a single space, equivalent to `Doc.text(" ")`
  * `Doc.comma`: a single comma, equivalent to `Doc.text(",")`
- * `Doc.line`: a single newline, equivalent to  `Doc.text("\n")`
+ * `Doc.line`: a single newline, equivalent to  `Doc.text("\n")`. When flattened, this becomes space.
+ * `Doc.lineBreak`: a single newline that flattens to empty.
  * `Doc.spaces(n)`: *n* spaces, equivalent to `Doc.text(" " * n)`
- * `Doc.spaceOrLine`: a space or newline, depending upon rendering width
+ * `Doc.lineOrSpace`: a space or newline, depending upon rendering width
+ * `Doc.lineOrEmpty`: empty or newline, depending upon rendering width
 
 ## Combining documents
 

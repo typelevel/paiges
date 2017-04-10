@@ -35,13 +35,13 @@ object Json {
   case class JArray(toVector: Vector[Json]) extends Json {
     def toDoc = {
       val parts = Doc.intercalate(Doc.comma, toVector.map { j => (Doc.line + j.toDoc).grouped })
-      "[" +: ((parts :+ " ]").nest(2))
+      "[" +: ((parts :+ " ]").nested(2))
     }
   }
   case class JObject(toMap: Map[String, Json]) extends Json {
     def toDoc = {
       val kvs = toMap.map { case (s, j) =>
-        JString(s).toDoc + text(":") + ((Doc.spaceOrLine + j.toDoc).nest(2))
+        JString(s).toDoc + text(":") + ((Doc.lineOrSpace + j.toDoc).nested(2))
       }
       val parts = Doc.fill(Doc.comma, kvs)
       parts.bracketBy(text("{"), text("}"))
@@ -52,7 +52,7 @@ object Json {
 class JsonTest extends FunSuite {
   import Json._
 
-  test("test nested array json example") {
+  test("test nesteded array json example") {
     val inner = JArray((1 to 20).map { i => JNumber(i.toDouble) }.toVector)
     val outer = JArray(Vector(inner, inner, inner))
 

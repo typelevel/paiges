@@ -19,7 +19,7 @@ object Generators {
     (1, Doc.space),
     (1, Doc.line),
     (1, Doc.lineBreak),
-    (1, Doc.spaceOrLine),
+    (1, Doc.lineOrSpace),
     (10, asciiString.map(text(_))),
     (10, generalString.map(text(_))),
     (3, asciiString.map(Doc.split(_))),
@@ -32,13 +32,13 @@ object Generators {
     { (a: Doc, b: Doc) => a + b },
     { (a: Doc, b: Doc) => a space b },
     { (a: Doc, b: Doc) => a / b },
-    { (a: Doc, b: Doc) => a spaceOrLine b })
+    { (a: Doc, b: Doc) => a lineOrSpace b })
 
   val unary: Gen[Doc => Doc] =
     Gen.oneOf(
       Gen.const({ d: Doc => d.grouped }),
       Gen.const({ d: Doc => d.aligned }),
-      Gen.choose(0, 40).map { i => { d: Doc => d.nest(i) } })
+      Gen.choose(0, 40).map { i => { d: Doc => d.nested(i) } })
 
   val folds: Gen[(List[Doc] => Doc)] =
     Gen.oneOf(

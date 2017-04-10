@@ -94,15 +94,15 @@ sealed abstract class Doc extends Product with Serializable {
    * Append the given Doc to this one, using a space (if there is
    * enough room), or a newline otherwise.
    */
-  def spaceOrLine(that: Doc): Doc =
-    Concat(this, Concat(Doc.spaceOrLine, that))
+  def lineOrSpace(that: Doc): Doc =
+    Concat(this, Concat(Doc.lineOrSpace, that))
 
   /**
    * Append the given String to this Doc, using a space (if there is
    * enough room), or a newline otherwise.
    */
-  def spaceOrLine(that: String): Doc =
-    spaceOrLine(Doc.text(that))
+  def lineOrSpace(that: String): Doc =
+    lineOrSpace(Doc.text(that))
 
   /**
    * Bookend this Doc between the given Docs, separated by newlines
@@ -111,7 +111,7 @@ sealed abstract class Doc extends Product with Serializable {
    * By default, the indentation is two spaces.
    */
   def bracketBy(left: Doc, right: Doc, indent: Int = 2): Doc =
-    Concat(left, Concat(Concat(Doc.line, this).nest(indent), Concat(Doc.line, right)).grouped)
+    Concat(left, Concat(Concat(Doc.line, this).nested(indent), Concat(Doc.line, right)).grouped)
 
   /**
    * Treat this Doc as a group that can be compressed.
@@ -252,9 +252,9 @@ sealed abstract class Doc extends Product with Serializable {
    * Nest appends spaces to any newlines ocurring within this Doc.
    *
    * The effect of this is cumulative. For example, the expression
-   * `x.nest(1).nest(2)` is equivalent to `x.nest(3)`.
+   * `x.nested(1).nested(2)` is equivalent to `x.nested(3)`.
    */
-  def nest(amount: Int): Doc =
+  def nested(amount: Int): Doc =
     this match {
       case Nest(i, d) => Nest(i + amount, d)
       case _ => Nest(amount, this)
@@ -591,9 +591,22 @@ object Doc {
    * an empty Doc. This is generally useful in code
    * following tokens that parse without the need for
    * whitespace termination (consider ";" "," "=>" etc..)
+   *
+   * when we call `.grouped` on lineBreak we get lineOrEmpty
    */
   val lineBreak: Doc = Line(empty)
-  val spaceOrLine: Doc = Union(space, () => line)
+
+  /**
+   * lineOrSpace renders a space if we can fit the rest
+   * or inserts a newline. Identical to line.grouped
+   */
+  val lineOrSpace: Doc = line.grouped
+
+  /**
+   * lineOrEmpty renders as empty if we can fit the rest
+   * or inserts a newline. Identical to lineBreak.grouped
+   */
+  val lineOrEmpty: Doc = lineBreak.grouped
 
   implicit val docOrdering: Ordering[Doc] =
     new Ordering[Doc] {
@@ -652,9 +665,9 @@ object Doc {
    * abstraction.
    *
    * The default pattern to use is `"""\s+""".r` and the default
-   * separator to use is `Doc.spaceOrLine`.
+   * separator to use is `Doc.lineOrSpace`.
    */
-  def split(str: String, pat: Regex = Doc.splitWhitespace, sep: Doc = Doc.spaceOrLine): Doc =
+  def split(str: String, pat: Regex = Doc.splitWhitespace, sep: Doc = Doc.lineOrSpace): Doc =
     foldDocs(pat.pattern.split(str, -1).map(Doc.text))((x, y) => x + (sep + y))
 
   /**
@@ -764,7 +777,7 @@ object Doc {
    *
    * `paragraph` is an alias for Doc.split(s), which uses its default
    * arguments to split on whitespace and to rejoin the documents with
-   * `Doc.spaceOrLine`.
+   * `Doc.lineOrSpace`.
    */
   def paragraph(s: String): Doc =
     split(s)
