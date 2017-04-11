@@ -129,13 +129,14 @@ the spaces""")
       assert(goodW.forall { w => d.render(w) == maxR })
     }
   }
-  test("if we always render the same, we compare the same") {
+  test("if we compare the same we render the same") {
     forAll { (a: Doc, b: Doc) =>
-      val maxR = a.maxWidth max b.maxWidth
-      val allSame = (0 to maxR).forall { w =>
-        a.render(w) == b.render(w)
+      if(a.compare(b) == 0) {
+        val maxR = a.maxWidth max b.maxWidth
+        val allSame = (0 to maxR).forall { w =>
+          a.render(w) == b.render(w)
+        }
       }
-      if (allSame) assert(a.compare(b) == 0)
       else succeed
     }
   }
@@ -213,8 +214,7 @@ the spaces""")
   test("the left and right side of a union are the same after flattening") {
     import Doc._
     def okay(d: Doc): Boolean = d match {
-      case Empty | Text(_) => true
-      case Line(d) => okay(d)
+      case Empty | Text(_) | Line(_) => true
       case Concat(a, b) => okay(a) && okay(b)
       case Nest(j, d) => okay(d)
       case Align(d) => okay(d)
@@ -349,7 +349,6 @@ the spaces""")
           case Some(bMinusA) =>
             // disjoint or overlapping, so atree and bMinusA are disjoint
             assert(!DocTree.isSubDoc(atree, bMinusA))
-            assert(((DocTree.deunioned(atree).toSet) & (DocTree.deunioned(bMinusA).toSet)).isEmpty)
         }
       }
     }
@@ -361,11 +360,14 @@ the spaces""")
     }
   }
 
-  test("if deunioned is a subset, then isSubDocOf") {
+  test("if isSubDocOf then deunioned is a subset") {
     forAll { (a: Doc, b: Doc) =>
       val da = a.deunioned
       val db = b.deunioned
-      assert(a.isSubDocOf(b) == SortedSet(da: _*).subsetOf(SortedSet(db: _*)))
+      if (a.isSubDocOf(b)) {
+        assert(SortedSet(da: _*).subsetOf(SortedSet(db: _*)))
+      }
+      else succeed
     }
   }
   test("Doc.repeat matches naive implementation") {
@@ -453,5 +455,28 @@ the spaces""")
     assert(doc.render(0) == "1,\n2,\n3")
     assert(doc.render(6) == "1, 2,\n3")
     assert(doc.render(10) == "1, 2, 3")
+  }
+
+  test("a == b implies f(a) == f(b)") {
+    import Doc.docOrdering
+
+    def law(a: Doc, b: Doc, f: Doc => Doc) =
+      if (docOrdering.equiv(a, b)) {
+        assert(docOrdering.equiv(f(a), f(b)), s"${a.representation(true).render(40)}\n\n${b.representation(true).render(40)}")
+      }
+      else ()
+
+    // Here are some hard cases
+    val examples = List(
+      (Doc.line, Doc.lineBreak, { (d: Doc) => d.grouped }),
+      (Doc.lineOrSpace, Doc.lineOrSpace.aligned, { (d: Doc) => d.nested(1) })
+    )
+
+    examples.foreach { case (a, b, f) => law(a, b, f) }
+
+    implicit val generatorDrivenConfig =
+      PropertyCheckConfiguration(minSuccessful = 5000)
+
+    forAll(genDoc, genDoc, unary) { (a, b, f) => law(a, b, f) }
   }
 }
