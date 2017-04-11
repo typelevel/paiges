@@ -1,22 +1,54 @@
 # Paiges
+
+## Summary
+
 An implementation of [Wadler's "A Prettier Printer"](http://homepages.inf.ed.ac.uk/wadler/papers/prettier/prettier.pdf).
 This code is a direct port of the code in section 7 of this paper, with an attempt to be idiomatic
 in scala.
 
 This algorithm is optimal and bounded. From the paper:
-> Say that a pretty printing algorithm is optimal if it chooses line breaks
-> so as to avoid overflow whenever possible; say that it is bounded if it can make
-> this choice after looking at no more than the next w characters, where w is the
-> line width. Hughes notes that there is no algorithm to choose line breaks for his
-> combinators that is optimal and bounded, while the layout algorithm presented
-> here has both properties.
+
+> Say that a pretty printing algorithm is optimal if it chooses line
+> breaks so as to avoid overflow whenever possible; say that it is
+> bounded if it can make this choice after looking at no more than the
+> next w characters, where w is the line width. Hughes notes that
+> there is no algorithm to choose line breaks for his combinators that
+> is optimal and bounded, while the layout algorithm presented here
+> has both properties.
 
 The name is a reference to the [Paige compositor](https://en.wikipedia.org/wiki/Paige_Compositor)
 and the fact that it helps you layout pages.
 
-The main utilities or this code:
+Some selling points of this code:
 
-1. not have to go crazy dealing with indentation when producing text documents, and to do so a clean way.
-2. support cases where whitespace and newlines might be interchangable.
+ 1. Lazy, O(1) concatenation
+ 2. Competitive performance (3-4x slower than `StringBuffer`)
+ 3. Elegantly handle indentation
+ 4. Flexible line-wrapping strategies
+ 5. Lawful equality and ordering
+ 6. Functional cred ;)
 
+## Organization
 
+The current Paiges maintainers are:
+
+ * [Oscar Boykin](https://github.com/johnynek)
+ * [Erik Osheim](https://github.com/non)
+
+People are expected to follow the [Typelevel Code of Conduct](http://typelevel.org/conduct.html)
+when discussing Paiges on the Github page or other official venues.
+
+Concerns or issues can be sent to any of Paiges' maintainers, or to
+the Typelevel organization.
+
+## License
+
+Paiges is licensed under the [Apache License, Version 2.0](LICENSE)
+(the "License"); you may not use this software except in compliance
+with the License.
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+implied. See the License for the specific language governing
+permissions and limitations under the License.
