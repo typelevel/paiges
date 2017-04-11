@@ -213,8 +213,7 @@ the spaces""")
   test("the left and right side of a union are the same after flattening") {
     import Doc._
     def okay(d: Doc): Boolean = d match {
-      case Empty | Text(_) => true
-      case Line(d) => okay(d)
+      case Empty | Text(_) | Line(_) => true
       case Concat(a, b) => okay(a) && okay(b)
       case Nest(j, d) => okay(d)
       case Align(d) => okay(d)
@@ -465,7 +464,11 @@ the spaces""")
       else ()
 
     // Here are some hard cases
-    val examples = List((Doc.line, Doc.lineBreak, { (d: Doc) => d.grouped }))
+    val examples = List(
+      (Doc.line, Doc.lineBreak, { (d: Doc) => d.grouped }),
+      (Doc.lineOrSpace, Doc.lineOrSpace.aligned, { (d: Doc) => d.nested(1) })
+    )
+
     examples.foreach { case (a, b, f) => law(a, b, f) }
 
     implicit val generatorDrivenConfig =

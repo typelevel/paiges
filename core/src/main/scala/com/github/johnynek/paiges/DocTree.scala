@@ -35,7 +35,7 @@ object DocTree {
     def fits(pos: Int, d: DocTree, minV: Int): Int =
       d.unfix match {
         case Stream.Empty => pos min minV// we always can fit by going left
-        case Emit(Break(_)) #:: _ => pos min minV
+        case Emit(Break(_, _)) #:: _ => pos min minV
         case Emit(Str(s)) #:: tail =>
           val nextPos = pos + s.length
           if (nextPos >= minV) minV
@@ -56,7 +56,7 @@ object DocTree {
       case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z, bounds)
       case (_, Align(d)) :: z => loop(pos, (pos, d) :: z, bounds)
       case (_, Text(s)) :: z => docTree(Emit(Str(s)) #:: cheat(pos + s.length, z, bounds).unfix)
-      case (i, Line(_)) :: z => docTree(Emit(Break(i)) #:: cheat(i, z, bounds).unfix)
+      case (i, Line(fts)) :: z => docTree(Emit(Break(i, fts)) #:: cheat(i, z, bounds).unfix)
       case (i, u@Union(a, _)) :: z =>
         /**
          * if we can go left, we do, otherwise we go right. So, in the current
@@ -103,8 +103,8 @@ object DocTree {
         case Stream.Empty => Stream(prefix)
         case (Emit(Str(t)) #:: tail) =>
           loop(docTree(tail), cat(prefix, Text(t)))
-        case (Emit(Break(n)) #:: tail) =>
-          loop(docTree(tail), cat(prefix, cat(line, spaces(n))))
+        case (Emit(Break(n, fts)) #:: tail) =>
+          loop(docTree(tail), cat(prefix, cat(Line(fts), spaces(n))))
         case (Split(a, b) #:: _) =>
           cheat(a, prefix) #::: cheat(b(), prefix)
       }
@@ -169,7 +169,7 @@ object DocTree {
         }
       case (Stream.Empty, Stream.Empty) => None // this is now the empty set
       case (Stream.Empty, _) => Some(a)
-      case (Emit(Break(nx)) #:: tailx, (right@Emit(Break(ny))) #:: taily) if (nx == ny) =>
+      case (Emit(Break(nx, fx)) #:: tailx, (right@Emit(Break(ny, fy))) #:: taily) if (nx == ny) && (fx == fy) =>
         setDiff(docTree(tailx), docTree(taily)).map { diff =>
           docTree(right #:: diff.unfix)
         }
@@ -219,15 +219,17 @@ object DocTree {
       case (Stream.Empty, Stream.Empty) => true
       case (Stream.Empty, _) => false
       case (_, Stream.Empty) => false
-      case (Emit(Break(nx)) #:: tailx, Emit(Break(ny)) #:: taily) =>
-        if (nx == ny) isSubDoc(docTree(tailx), docTree(taily))
-        else {
-          val m = nx min ny
-          // pull the space out
-          isSubDoc(docTree(space2(nx - m) #:: tailx), docTree(space2(ny - m) #:: taily))
+      case (Emit(Break(nx, fx)) #:: tailx, Emit(Break(ny, fy)) #:: taily) =>
+        (fx == fy) && {
+          if (nx == ny) isSubDoc(docTree(tailx), docTree(taily))
+          else {
+            val m = nx min ny
+            // pull the space out
+            isSubDoc(docTree(space2(nx - m) #:: tailx), docTree(space2(ny - m) #:: taily))
+          }
         }
-      case (Emit(Break(_)) #:: _, _) => false // line comes after text (different from ascii!)
-      case (_, Emit(Break(_)) #:: _) => false
+      case (Emit(Break(_, _)) #:: _, _) => false // line comes after text (different from ascii!)
+      case (_, Emit(Break(_, _)) #:: _) => false
       case (Emit(Str(s1)) #:: xtail, Emit(Str(s2)) #:: ytail) =>
         if (s1.length == s2.length) {
           (s1 == s2) && isSubDoc(docTree(xtail), docTree(ytail))
@@ -300,15 +302,24 @@ object DocTree {
       case (Stream.Empty, Stream.Empty) => 0
       case (Stream.Empty, _) => -1
       case (_, Stream.Empty) => 1
-      case (Emit(Break(nx)) #:: tailx, Emit(Break(ny)) #:: taily) =>
-        if (nx == ny) compareTree(docTree(tailx), docTree(taily))
-        else {
-          val m = nx min ny
-          // pull the space out
-          compareTree(docTree(space2(nx - m) #:: tailx), docTree(space2(ny - m) #:: taily))
+      case (Emit(Break(nx, fx)) #:: tailx, Emit(Break(ny, fy)) #:: taily) =>
+        if (fx == fy) {
+          if (nx == ny) compareTree(docTree(tailx), docTree(taily))
+          else {
+            val m = nx min ny
+            // pull the space out
+            compareTree(docTree(space2(nx - m) #:: tailx), docTree(space2(ny - m) #:: taily))
+          }
         }
-      case (Emit(Break(_)) #:: _, _) => 1 // line comes after text (different from ascii!)
-      case (_, Emit(Break(_)) #:: _) => -1
+        else {
+          if (fx) {
+            // we flatten the left to space, but the right to newline and
+            // line comes after text
+            -1
+          } else 1
+        }
+      case (Emit(Break(_, _)) #:: _, _) => 1 // line comes after text (different from ascii!)
+      case (_, Emit(Break(_, _)) #:: _) => -1
       case (Emit(Str(s1)) #:: xtail, Emit(Str(s2)) #:: ytail) =>
         if (s1.length == s2.length) {
           val c = s1 compare s2
