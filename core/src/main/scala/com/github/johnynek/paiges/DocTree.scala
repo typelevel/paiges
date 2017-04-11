@@ -35,7 +35,7 @@ object DocTree {
     def fits(pos: Int, d: DocTree, minV: Int): Int =
       d.unfix match {
         case Stream.Empty => pos min minV// we always can fit by going left
-        case Emit(Break(_, _)) #:: _ => pos min minV
+        case Emit(Break(_, _, _)) #:: _ => pos min minV
         case Emit(Str(s)) #:: tail =>
           val nextPos = pos + s.length
           if (nextPos >= minV) minV
@@ -49,43 +49,51 @@ object DocTree {
       fits(pos, d, minV)
 
     @tailrec
-    def loop(pos: Int, lst: List[(Int, Doc)], bounds: Bounds): DocTree = lst match {
+    def loop(pos: Int, lst: List[((Int, Boolean),  Doc)], bounds: Bounds): DocTree = lst match {
       case Nil => docTree(Stream.empty)
       case (_, Empty) :: z => loop(pos, z, bounds)
-      case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z, bounds)
-      case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z, bounds)
-      case (_, Align(d)) :: z => loop(pos, (pos, d) :: z, bounds)
+      case (indent, Concat(a, b)) :: z => loop(pos, (indent, a) :: (indent, b) :: z, bounds)
+      case ((i, abs), Nest(j, d)) :: z => loop(pos, (((i + j), abs), d) :: z, bounds)
+      case (_, Align(d)) :: z => loop(pos, ((pos, true), d) :: z, bounds)
       case (_, Text(s)) :: z => docTree(Emit(Str(s)) #:: cheat(pos + s.length, z, bounds).unfix)
-      case (i, Line(fts)) :: z => docTree(Emit(Break(i, fts)) #:: cheat(i, z, bounds).unfix)
-      case (i, u@Union(a, _)) :: z =>
+      case ((i, abs), Line(fts)) :: z => docTree(Emit(Break(i, fts, abs)) #:: cheat(i, z, bounds).unfix)
+      case (indent, u@Union(a, _)) :: z =>
         /**
          * if we can go left, we do, otherwise we go right. So, in the current
          * bounds, there is a threshold for the current node:
          * if (w < wmin) go right
          * else go left
          */
-        val as = cheat(pos, (i, a) :: z, bounds)
+        val as = cheat(pos, (indent, a) :: z, bounds)
         val minLeftWidth = fits(pos, as, bounds.max)
         bounds.split(minLeftWidth) match {
           case None =>
             // cannot go left
-            loop(pos, (i, u.bDoc) :: z, bounds)
+            loop(pos, (indent, u.bDoc) :: z, bounds)
           case Some((None, _)) =>
             // always go left, because bounds.min == minLeftWidth
             as
           case Some((Some(rb), lb)) => // note when the width is smaller we go right
-            val left = cheat(pos, (i, a) :: z, lb)
-            def right = cheat(pos, (i, u.bDoc) :: z, rb)
+            val left = cheat(pos, (indent, a) :: z, lb)
+            def right = cheat(pos, (indent, u.bDoc) :: z, rb)
             docTree(Stream(Split(left, () => right)))
         }
     }
 
-    def cheat(pos: Int, lst: List[(Int, Doc)], bounds: Bounds): DocTree =
+    def cheat(pos: Int, lst: List[((Int, Boolean), Doc)], bounds: Bounds): DocTree =
       loop(pos, lst, bounds)
 
-    loop(0, (0, d) :: Nil, Bounds(0, Int.MaxValue))
+    loop(0, ((0, false), d) :: Nil, Bounds(0, Int.MaxValue))
   }
 
+  /**
+   * This is a method for testing. It emits only Text and Line
+   * nodes, so it loses information, namely the Nesting/Alignment
+   * nodes are lost. Alignment creates absolute positioning,
+   * as compared to the relative positioning of nesting. Thus
+   * the output of this method, while useful for law checking,
+   * should not be exposed to users
+   */
   private[paiges] def deunioned(d: DocTree): Stream[Doc] = {
 
     def cat(a: Doc, b: Doc): Doc =
@@ -103,7 +111,10 @@ object DocTree {
         case Stream.Empty => Stream(prefix)
         case (Emit(Str(t)) #:: tail) =>
           loop(docTree(tail), cat(prefix, Text(t)))
-        case (Emit(Break(n, fts)) #:: tail) =>
+        case (Emit(Break(n, fts, abs)) #:: tail) =>
+          // We are ignoring if this is an absolute (Align) or not (Nest)
+          // to add this we would need to find the previous line
+          // where we could do the Align-ment to.
           loop(docTree(tail), cat(prefix, cat(Line(fts), spaces(n))))
         case (Split(a, b) #:: _) =>
           cheat(a, prefix) #::: cheat(b(), prefix)
@@ -169,9 +180,18 @@ object DocTree {
         }
       case (Stream.Empty, Stream.Empty) => None // this is now the empty set
       case (Stream.Empty, _) => Some(a)
-      case (Emit(Break(nx, fx)) #:: tailx, (right@Emit(Break(ny, fy))) #:: taily) if (nx == ny) && (fx == fy) =>
-        setDiff(docTree(tailx), docTree(taily)).map { diff =>
-          docTree(right #:: diff.unfix)
+      case (Emit(bx@Break(nx, fx, absx)) #:: tailx, (right@Emit(by@Break(ny, fy, absy))) #:: taily) if (fx == fy) && (absx == absy) =>
+        if (nx == ny) {
+          setDiff(docTree(tailx), docTree(taily)).map { diff =>
+            docTree(right #:: diff.unfix)
+          }
+        }
+        else {
+          val m = nx min ny
+          // pull the space out
+          val newLeft = docTree(Emit(Break(m, fx, absx)) #:: space2(nx - m) #:: tailx)
+          val newRight = docTree(Emit(Break(m, fy, absy)) #:: space2(ny - m) #:: tailx)
+          setDiff(newLeft, newRight)
         }
       case ((left@Emit(Str(s1))) #:: xtail, (right@Emit(Str(s2))) #:: ytail) =>
         if (s1.length == s2.length) {
@@ -219,8 +239,8 @@ object DocTree {
       case (Stream.Empty, Stream.Empty) => true
       case (Stream.Empty, _) => false
       case (_, Stream.Empty) => false
-      case (Emit(Break(nx, fx)) #:: tailx, Emit(Break(ny, fy)) #:: taily) =>
-        (fx == fy) && {
+      case (Emit(Break(nx, fx, absx)) #:: tailx, Emit(Break(ny, fy, absy)) #:: taily) =>
+        (fx == fy) && (absx == absy) && {
           if (nx == ny) isSubDoc(docTree(tailx), docTree(taily))
           else {
             val m = nx min ny
@@ -228,8 +248,8 @@ object DocTree {
             isSubDoc(docTree(space2(nx - m) #:: tailx), docTree(space2(ny - m) #:: taily))
           }
         }
-      case (Emit(Break(_, _)) #:: _, _) => false // line comes after text (different from ascii!)
-      case (_, Emit(Break(_, _)) #:: _) => false
+      case (Emit(Break(_, _, _)) #:: _, _) => false // line comes after text (different from ascii!)
+      case (_, Emit(Break(_, _, _)) #:: _) => false
       case (Emit(Str(s1)) #:: xtail, Emit(Str(s2)) #:: ytail) =>
         if (s1.length == s2.length) {
           (s1 == s2) && isSubDoc(docTree(xtail), docTree(ytail))
@@ -302,13 +322,19 @@ object DocTree {
       case (Stream.Empty, Stream.Empty) => 0
       case (Stream.Empty, _) => -1
       case (_, Stream.Empty) => 1
-      case (Emit(Break(nx, fx)) #:: tailx, Emit(Break(ny, fy)) #:: taily) =>
+      case (Emit(Break(nx, fx, absx)) #:: tailx, Emit(Break(ny, fy, absy)) #:: taily) =>
         if (fx == fy) {
-          if (nx == ny) compareTree(docTree(tailx), docTree(taily))
+          if (absx == absy) {
+            if (nx == ny) compareTree(docTree(tailx), docTree(taily))
+            else {
+              val m = nx min ny
+              // pull the space out
+              compareTree(docTree(space2(nx - m) #:: tailx), docTree(space2(ny - m) #:: taily))
+            }
+          }
           else {
-            val m = nx min ny
-            // pull the space out
-            compareTree(docTree(space2(nx - m) #:: tailx), docTree(space2(ny - m) #:: taily))
+            // put absolute newlines before relative newlines
+            if (absx) -1 else 1
           }
         }
         else {
@@ -318,8 +344,8 @@ object DocTree {
             -1
           } else 1
         }
-      case (Emit(Break(_, _)) #:: _, _) => 1 // line comes after text (different from ascii!)
-      case (_, Emit(Break(_, _)) #:: _) => -1
+      case (Emit(Break(_, _, _)) #:: _, _) => 1 // line comes after text (different from ascii!)
+      case (_, Emit(Break(_, _, _)) #:: _) => -1
       case (Emit(Str(s1)) #:: xtail, Emit(Str(s2)) #:: ytail) =>
         if (s1.length == s2.length) {
           val c = s1 compare s2

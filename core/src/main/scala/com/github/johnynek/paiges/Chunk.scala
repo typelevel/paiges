@@ -24,7 +24,7 @@ private object Chunk {
    *
    * The indentation must be non-negative.
    */
-  case class Break(indent: Int, flattenToSpace: Boolean) extends Chunk {
+  case class Break(indent: Int, flattenToSpace: Boolean, absolute: Boolean) extends Chunk {
     def str: String = lineToStr(indent)
   }
 
