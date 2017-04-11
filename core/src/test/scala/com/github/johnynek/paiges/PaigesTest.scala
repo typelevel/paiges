@@ -11,7 +11,7 @@ class PaigesTest extends FunSuite {
   import Doc.text
 
   implicit val generatorDrivenConfig =
-    PropertyCheckConfiguration(minSuccessful = 5000)
+    PropertyCheckConfiguration(minSuccessful = 500)
 
   test("basic test") {
      assert((text("hello") + text("world")).render(100) == "helloworld")
@@ -129,7 +129,7 @@ the spaces""")
       assert(goodW.forall { w => d.render(w) == maxR })
     }
   }
-  test("if we always render the same, we compare the same") {
+  test("if we compare the same we render the same") {
     forAll { (a: Doc, b: Doc) =>
       if(a.compare(b) == 0) {
         val maxR = a.maxWidth max b.maxWidth
@@ -367,9 +367,7 @@ the spaces""")
       if (a.isSubDocOf(b)) {
         assert(SortedSet(da: _*).subsetOf(SortedSet(db: _*)))
       }
-      else {
-        ()
-      }
+      else succeed
     }
   }
   test("Doc.repeat matches naive implementation") {
