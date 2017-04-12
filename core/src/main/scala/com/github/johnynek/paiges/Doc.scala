@@ -119,14 +119,11 @@ sealed abstract class Doc extends Product with Serializable {
    * The effect of this is to replace newlines with spaces, if there
    * is enough room. Otherwise, the Doc will be rendered as-is.
    */
-  def grouped: Doc =
-    flattenOption match {
-      case Some(flat) =>
-        // todo, flat could already be in the doc
-        // set. This complicates comparisons
-        Union(flat, () => this)
-      case None => this
-    }
+  def grouped: Doc = {
+    val (flattened, changed) = flattenBoolean
+    if (changed) Union(flattened, () => this)
+    else flattened
+  }
 
   /**
    * Returns true if all renders return the empty string
@@ -425,18 +422,22 @@ sealed abstract class Doc extends Product with Serializable {
    * newlines, no matter what width is used.
    */
   def flattenOption: Option[Doc] = {
+    val res = flattenBoolean
+    if (res._2) Some(res._1) else None
+  }
+
+  // return the flattenen doc, and if it is different
+  private def flattenBoolean: (Doc, Boolean) = {
 
     type DB = (Doc, Boolean)
 
-    def finish(last: DB, front: List[DB]): Option[Doc] = {
-     val (d, c) = front.foldLeft(last) {
+    def finish(last: DB, front: List[DB]): DB =
+      front.foldLeft(last) {
         case ((d1, c1), (d0, c2)) => (Concat(d0, d1), c1 || c2)
       }
-     if (c) Some(d) else None
-    }
 
     @tailrec
-    def loop(h: DB, stack: List[DB], front: List[DB]): Option[Doc] =
+    def loop(h: DB, stack: List[DB], front: List[DB]): DB =
       h._1 match {
         case Empty | Text(_) =>
           val noChange = h
@@ -712,8 +713,11 @@ object Doc {
          * This is exactly the motivation for keeping the second
          * parameter of Union lazy.
          */
-        (x.flattenOption, y.flattenOption) match {
-          case (Some(flatx), Some(flaty)) =>
+        val (flaty, changedy) = y.flattenBoolean
+        val (flatx, changedx) = x.flattenBoolean
+
+        (changedx, changedy) match {
+          case (true, true) =>
             def cont(resty: Doc) = {
               val first = Concat(flatx, Concat(flatSep, resty))
               def second = Concat(x, Concat(sep, cheatRec(y, tail)))
@@ -721,24 +725,28 @@ object Doc {
               Union(first, () => second)
             }
             fillRec(flaty, tail, (cont _) :: stack)
-          case (Some(flatx), None) =>
+          case (true, false) =>
+            // flaty == y but reassociated
             def cont(resty: Doc) = {
               val first = Concat(flatx, Concat(flatSep, resty))
               val second = Concat(x, Concat(sep, resty))
               // note that first != second
               Union(first, () => second)
             }
-            fillRec(y, tail, (cont _) :: stack)
-          case (None, Some(flaty)) =>
+            fillRec(flaty, tail, (cont _) :: stack)
+          case (false, true) =>
+            // flatx == x but reassociated
             def cont(resty: Doc) = {
-              val first = Concat(x, Concat(flatSep, resty))
-              def second = Concat(x, Concat(sep, cheatRec(y, tail)))
+              val first = Concat(flatx, Concat(flatSep, resty))
+              def second = Concat(flatx, Concat(sep, cheatRec(y, tail)))
               // note that first != second
               Union(first, () => second)
             }
             fillRec(flaty, tail, (cont _) :: stack)
-          case (None, None) =>
-            fillRec(y, tail, { d: Doc => Concat(x, Concat(sepGroup, d)) } :: stack)
+          case (false, false) =>
+            // flaty == y but reassociated
+            // flatx == x but reassociated
+            fillRec(flaty, tail, { d: Doc => Concat(flatx, Concat(sepGroup, d)) } :: stack)
         }
     }
 
