@@ -3,9 +3,8 @@ package bench
 import java.util.concurrent.TimeUnit
 import org.openjdk.jmh.annotations._
 
-import com.github.johnynek.paiges.Doc
+import org.typelevel.paiges.Doc
 
-//@BenchmarkMode(Array(Mode.AverageTime))
 @State(Scope.Benchmark)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 class PaigesBenchmark {
@@ -22,22 +21,23 @@ class PaigesBenchmark {
 
   @Benchmark
   def mkstring(): String =
+    strs.mkString
+
+  @Benchmark
+  def mkstringComma(): String =
     strs.mkString(", ")
-  //
-  // @Benchmark
-  // def concat(): String =
-  //   strs.reduceLeft(_ + ", " + _)
+
   @Benchmark
   def docConcat(): String =
     strs.foldLeft(Doc.empty) { (d1, s) => d1 :+ s }.render(0)
 
   @Benchmark
-  def intercalate(): String =
-    Doc.intercalate(Doc.text(", "), strs.map(Doc.text)).render(0)
+  def docConcatComma(): String =
+    strs.foldLeft(Doc.empty) { (d1, s) => d1 :+ ", " :+ s }.render(0)
 
   @Benchmark
-  def fill(): Doc =
-    Doc.fill(Doc.text(","), strs.map(Doc.text))
+  def intercalate(): String =
+    Doc.intercalate(Doc.text(", "), strs.map(Doc.text)).render(0)
 
   @Benchmark
   def fill0(): String =

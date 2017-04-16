@@ -1,4 +1,4 @@
-package com.github.johnynek.paiges
+package org.typelevel.paiges
 
 import catalysts.Platform
 import catalysts.macros.TypeTagM // need this import for implicit macros
@@ -14,8 +14,8 @@ import org.scalatest.FunSuite
 import org.scalatest.prop.Configuration
 
 class LawTests extends LawChecking {
-  import com.github.johnynek.paiges.Generators._
-  import com.github.johnynek.paiges.instances._
+  import org.typelevel.paiges.Generators._
+  import org.typelevel.paiges.instances._
 
   implicit def orderLaws[A: Eq: Cogen: Arbitrary] = OrderLaws[A]
   implicit def groupLaws[A: Eq: Arbitrary] = GroupLaws[A]

@@ -1,4 +1,4 @@
-package com.github.johnynek
+package org.typelevel
 
 package object paiges {
 

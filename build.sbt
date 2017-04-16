@@ -4,7 +4,7 @@ lazy val noPublish = Seq(
   publishArtifact := false)
 
 lazy val paigesSettings = Seq(
-  organization := "com.github.johnynek",
+  organization := "org.typelevel",
   scalaVersion := "2.12.1",
   crossScalaVersions := Seq("2.10.6", "2.11.8", "2.12.1"),
   libraryDependencies ++= Seq(

@@ -1,4 +1,4 @@
-package com.github.johnynek.paiges
+package org.typelevel.paiges
 
 import java.io.PrintWriter
 import java.lang.StringBuilder
@@ -617,6 +617,12 @@ object Doc {
     new Ordering[Doc] {
       def compare(x: Doc, y: Doc): Int = x compare y
     }
+
+  /**
+   * Build a document from a single character.
+   */
+  def char(c: Char): Doc =
+    if (c == '\n') Doc.line else Text(new String(Array(c)))
 
   /**
    * Convert a string to text.

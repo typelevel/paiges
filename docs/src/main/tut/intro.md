@@ -9,7 +9,7 @@ To get started, you'll want to import `Doc`. This is the basis for
 Paiges, and is likely the only type you'll need to work with:
 
 ```tut:book
-import com.github.johnynek.paiges.Doc
+import org.typelevel.paiges.Doc
 ```
 
 ## Creating documents

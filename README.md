@@ -22,11 +22,34 @@ and the fact that it helps you layout pages.
 Some selling points of this code:
 
  1. Lazy, O(1) concatenation
- 2. Competitive performance (3-4x slower than `StringBuffer`)
+ 2. Competitive performance (e.g. 3-5x slower than `mkString`)
  3. Elegantly handle indentation
  4. Flexible line-wrapping strategies
  5. Lawful equality and ordering
  6. Functional cred ;)
+
+## Benchmarks
+
+The Paiges benchmarks are written against JMH. To run them, you'll
+want to use a command like this from SBT:
+
+```
+benchmark/jmh:run -wi 5 -i 5 -f1 -t1 bench.PaigesBenchmark
+```
+
+By default the values reported are *ops/ms* (operations per
+millisecond), so higher numbers are better.
+
+The parameters used here are:
+
+ * `-wi`: the number of times to run during warmup
+ * `-i`: the number of times to benchmark
+ * `-f`: the number of processes to use during benchmarking
+ * `-t`: the number of threads to use during benchmarking
+
+In other words, the example command-line runs one thread in one
+process, with a relatively small number of warmups + runs (so that it
+will finish relatively quickly).
 
 ## Organization
 
