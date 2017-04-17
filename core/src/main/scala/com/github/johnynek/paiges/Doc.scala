@@ -622,7 +622,8 @@ object Doc {
    * Build a document from a single character.
    */
   def char(c: Char): Doc =
-    if (c == '\n') Doc.line else Text(new String(Array(c)))
+    if (32 <= c && c <= 126) charTable(c.toInt)
+    else Text(new String(Array(c)))
 
   /**
    * Convert a string to text.
