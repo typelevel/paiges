@@ -1,4 +1,4 @@
-package com.github.johnynek.paiges
+package org.typelevel.paiges
 
 sealed abstract class Step[+A, +B]
 

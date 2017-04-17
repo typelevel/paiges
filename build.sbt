@@ -4,7 +4,7 @@ lazy val noPublish = Seq(
   publishArtifact := false)
 
 lazy val paigesSettings = Seq(
-  organization := "com.github.johnynek",
+  organization := "org.typelevel",
   scalaVersion := "2.12.1",
   crossScalaVersions := Seq("2.10.6", "2.11.8", "2.12.1"),
   libraryDependencies ++= Seq(
@@ -82,7 +82,7 @@ lazy val cats = crossProject.crossType(CrossType.Pure)
   .settings(moduleName := "paiges-cats")
   .settings(paigesSettings: _*)
   .settings(libraryDependencies ++= Seq(
-    "org.typelevel" %%% "cats-kernel" % "0.9.0",
+    "org.typelevel" %%% "cats-core" % "0.9.0",
     "org.typelevel" %%% "cats-kernel-laws" % "0.9.0" % Test))
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings:_*)
