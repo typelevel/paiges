@@ -622,7 +622,7 @@ object Doc {
    * Build a document from a single character.
    */
   def char(c: Char): Doc =
-    if (32 <= c && c <= 126) charTable(c.toInt)
+    if ((' ' <= c) && (c <= '~')) charTable(c.toInt - 32)
     else Text(new String(Array(c)))
 
   /**

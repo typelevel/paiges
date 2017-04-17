@@ -426,6 +426,15 @@ the spaces""")
       assert(d.renderWideStream.mkString == d.render(max))
     }
   }
+
+  test("character concat works") {
+    forAll { (c1: Char, c2: Char) =>
+      val got = Doc.char(c1) + Doc.char(c2)
+      val expected = Doc.text(new String(Array(c1, c2)))
+      assert((got compare expected) == 0)
+    }
+  }
+
   test("lineBreak works as expected") {
     import Doc._
     // render a tight list:
