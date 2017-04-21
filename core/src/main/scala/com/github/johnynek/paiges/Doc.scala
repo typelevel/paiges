@@ -840,9 +840,23 @@ object Doc {
     intercalate(line, ds)
 
   /**
+   * A simple table which is the same as:
+   * tabulate("", ' ', "", kv)
+   *
+   * or, no left or right separator and a space as the fill
+   */
+  def tabulate(kv: List[(String, Doc)]): Doc =
+    tabulate("", ' ', "", kv)
+
+  /**
    * build a table with the strings left aligned and
    * the Docs starting in the column after the longest string.
    * The Docs on the right are rendered aligned after the rightSep
+   *
+   * @param leftSep a string appended on the end of the key
+   * @param fill the character used to fill the columns to make the values aligned (i.e. ' ' or '.')
+   * @param rightSep a string append left to the left of the value. Intended for use with bullets on values
+   * @param kv a List of key, value pairs to put in a table.
    */
   def tabulate(leftSep: String, fill: Char, rightSep: String, kv: List[(String, Doc)]): Doc =
     if (kv.isEmpty) empty
