@@ -76,6 +76,17 @@ the spaces""")
     }
   }
 
+  test("spaces(n) == text(\" \") * n == text(\" \" * n)") {
+    forAll(Gen.choose(-10, 1000)) { n =>
+      val sn = Doc.spaces(n)
+      val tn = Doc.text(" ") * n
+      val un = Doc.text(" " * n)
+
+      assert(sn eqv tn)
+      assert(tn eqv un)
+    }
+  }
+
   test("Doc.split(s, \" \", space).render(w) = s") {
     forAll { (s: String, w: Int) =>
       assert(Doc.split(s, " ".r, Doc.space).render(w) == s)
@@ -487,5 +498,21 @@ the spaces""")
       PropertyCheckConfiguration(minSuccessful = 5000)
 
     forAll(genDoc, genDoc, unary) { (a, b, f) => law(a, b, f) }
+  }
+
+  test("Doc.tabulate works in some example cases") {
+    val caseMatch = List(
+      ("Item1(x)", Doc.text("callItem(x)")),
+      ("ItemXandItemY(x, y)", Doc.text("callItem(x)") / Doc.text("callItem(y)")),
+      ("ItemXandItemYandZ(x, y, z)", Doc.text("callItem(x)") / Doc.text("callItem(y)") / Doc.text("callItem(z)")))
+
+    val expected = """case Item1(x)                   => callItem(x)
+                     |case ItemXandItemY(x, y)        => callItem(x)
+                     |                                   callItem(y)
+                     |case ItemXandItemYandZ(x, y, z) => callItem(x)
+                     |                                   callItem(y)
+                     |                                   callItem(z)""".stripMargin
+
+    assert(Doc.tabulate("", ' ', " => ", caseMatch.map { case (s, d) => ("case " + s, d) }).render(20) == expected)
   }
 }
