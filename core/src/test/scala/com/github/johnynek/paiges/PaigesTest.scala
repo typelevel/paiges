@@ -520,6 +520,6 @@ the spaces""")
                      |                                   callItem(y)
                      |                                   callItem(z)""".stripMargin
 
-    assert(Doc.tabulate("", ' ', " => ", caseMatch.map { case (s, d) => ("case " + s, d) }).render(20) == expected)
+    assert(Doc.tabulate(' ', " => ", caseMatch.map { case (s, d) => ("case " + s, d) }).render(20) == expected)
   }
 }
