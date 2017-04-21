@@ -25,7 +25,13 @@ lazy val paigesSettings = Seq(
     "-Ywarn-dead-code",
     "-Ywarn-numeric-widen",
     "-Ywarn-value-discard",
-    "-Xfuture"))
+    "-Xfuture"),
+  // HACK: without these lines, the console is basically unusable,
+  // since all imports are reported as being unused (and then become
+  // fatal errors).
+  scalacOptions in (Compile, console) ~= {_.filterNot("-Ywarn-unused-import" == _)},
+  scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value)
+
 
 lazy val commonJvmSettings = Seq(
   testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oDF"))
