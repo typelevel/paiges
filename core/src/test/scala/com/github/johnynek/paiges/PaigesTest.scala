@@ -2,7 +2,7 @@ package org.typelevel.paiges
 
 import org.scalatest.FunSuite
 import org.scalatest.prop.PropertyChecks._
-import org.scalacheck.{Arbitrary, Gen}
+import org.scalacheck.Gen
 import scala.collection.immutable.SortedSet
 
 class PaigesTest extends FunSuite {
@@ -60,6 +60,12 @@ the spaces""")
   test("(x = y) -> (x.## = y.##)") {
     forAll { (a: Doc, b: Doc) =>
       if ((a compare b) == 0) assert(a.## == b.##) else succeed
+    }
+  }
+
+  test("a eqv b iff a compare b == 0") {
+    forAll { (a: Doc, b: Doc) =>
+      assert((a eqv b) == (a.compare(b) == 0))
     }
   }
 
@@ -147,6 +153,7 @@ the spaces""")
         val allSame = (0 to maxR).forall { w =>
           a.render(w) == b.render(w)
         }
+        assert(allSame)
       }
       else succeed
     }

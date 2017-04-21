@@ -447,7 +447,6 @@ sealed abstract class Doc extends Product with Serializable {
     def loop(h: DB, stack: List[DB], front: List[DB]): DB =
       h._1 match {
         case Empty | Text(_) =>
-          val noChange = h
           stack match {
             case Nil => finish(h, front)
             case x :: xs => loop(x, xs, h :: front)
@@ -849,7 +848,6 @@ object Doc {
     if (kv.isEmpty) empty
     else {
       val fills = kv.iterator.map(_._1.length).max
-      val width = leftSep.length + fills + rightSep.length
       val leftD = Doc.text(leftSep)
       val rightD = Doc.text(rightSep)
       def keyToDoc(s: String): Doc = Doc.text(s) + leftD + Doc.char(fill).repeat(fills - s.length) + rightD
