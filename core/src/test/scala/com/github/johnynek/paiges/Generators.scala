@@ -3,7 +3,7 @@ package org.typelevel.paiges
 import org.scalacheck.{Arbitrary, Cogen, Gen}
 
 object Generators {
-  import Doc.{ str, text }
+  import Doc.text
 
   val asciiString: Gen[String] =
     for {

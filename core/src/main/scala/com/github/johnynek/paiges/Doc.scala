@@ -361,6 +361,13 @@ sealed abstract class Doc extends Product with Serializable {
   }
 
   /**
+   * semantic equivalence of Documents (not structural).
+   * a eqv b implies a compare b == 0
+   */
+  def eqv(that: Doc): Boolean =
+    (this eq that) || (compare(that) == 0)
+
+  /**
    * Compare two Docs by finding the first rendering where the strings
    * produced differ (if any).
    *
@@ -440,7 +447,6 @@ sealed abstract class Doc extends Product with Serializable {
     def loop(h: DB, stack: List[DB], front: List[DB]): DB =
       h._1 match {
         case Empty | Text(_) =>
-          val noChange = h
           stack match {
             case Nil => finish(h, front)
             case x :: xs => loop(x, xs, h :: front)
@@ -580,10 +586,14 @@ object Doc {
   def spaces(n: Int): Doc =
     if (n < 1) Empty
     else if (n <= maxSpaceTable) spaceArray(n - 1)
-    else Text(" " * n)
+    else {
+      // n = max * d + r
+      val d = n / maxSpaceTable
+      val r = n % maxSpaceTable
+      spaceArray(maxSpaceTable - 1) * d + spaces(r)
+    }
 
   val space: Doc = spaceArray(0)
-  val comma: Doc = Text(",")
   val empty: Doc = Empty
   /**
    * when flattened a line becomes a space
@@ -618,12 +628,20 @@ object Doc {
       def compare(x: Doc, y: Doc): Int = x compare y
     }
 
+  private[this] val charTable: Array[Doc] =
+    (32 to 126).map { i => Text(i.toChar.toString) }.toArray
+
   /**
    * Build a document from a single character.
    */
   def char(c: Char): Doc =
     if ((' ' <= c) && (c <= '~')) charTable(c.toInt - 32)
     else Text(new String(Array(c)))
+
+  /**
+   * a literal comma, equivalent to char(',')
+   */
+  val comma: Doc = char(',')
 
   /**
    * Convert a string to text.
@@ -655,9 +673,6 @@ object Doc {
     else if (str.indexOf('\n') < 0) Text(str)
     else parse(str.length - 1, str.length, Empty)
   }
-
-  private[this] val charTable: Array[Doc] =
-    (32 to 126).map { i => Text(i.toChar.toString) }.toArray
 
   /**
    * Convert an arbitrary value to a Doc, using `toString`.
@@ -823,4 +838,31 @@ object Doc {
    */
   def stack(ds: Iterable[Doc]): Doc =
     intercalate(line, ds)
+
+  /**
+   * A simple table which is the same as:
+   * tabulate("", ' ', "", kv)
+   *
+   * or, no right separator and a space as the fill
+   */
+  def tabulate(kv: List[(String, Doc)]): Doc =
+    tabulate(' ', "", kv)
+
+  /**
+   * build a table with the strings left aligned and
+   * the Docs starting in the column after the longest string.
+   * The Docs on the right are rendered aligned after the rightSep
+   *
+   * @param fill the character used to fill the columns to make the values aligned (i.e. ' ' or '.')
+   * @param rightSep a string append left to the left of the value. Intended for use with bullets on values
+   * @param kv a List of key, value pairs to put in a table.
+   */
+  def tabulate(fill: Char, rightSep: String, rows: Iterable[(String, Doc)]): Doc =
+    if (rows.isEmpty) empty
+    else {
+      val fills = rows.iterator.map(_._1.length).max
+      val rightD = Doc.text(rightSep)
+      def keyToDoc(s: String): Doc = Doc.text(s) + Doc.char(fill).repeat(fills - s.length) + rightD
+      intercalate(line, rows.map { case (k, v) => keyToDoc(k) + v.aligned })
+    }
 }

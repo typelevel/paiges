@@ -2,7 +2,7 @@ package org.typelevel.paiges
 
 import org.scalatest.FunSuite
 import org.scalatest.prop.PropertyChecks._
-import org.scalacheck.{Arbitrary, Gen}
+import org.scalacheck.Gen
 import scala.collection.immutable.SortedSet
 
 class PaigesTest extends FunSuite {
@@ -63,6 +63,12 @@ the spaces""")
     }
   }
 
+  test("a eqv b iff a compare b == 0") {
+    forAll { (a: Doc, b: Doc) =>
+      assert((a eqv b) == (a.compare(b) == 0))
+    }
+  }
+
   test("concat is associative") {
     forAll { (a: Doc, b: Doc, c: Doc, width: Int) =>
       assert(((a + b) + c).render(width) ==
@@ -73,6 +79,17 @@ the spaces""")
     forAll { (a: Doc, width: Int) =>
       assert((a + Doc.empty).render(width) == a.render(width))
       assert((Doc.empty + a).render(width) == a.render(width))
+    }
+  }
+
+  test("spaces(n) == text(\" \") * n == text(\" \" * n)") {
+    forAll(Gen.choose(-10, 1000)) { n =>
+      val sn = Doc.spaces(n)
+      val tn = Doc.text(" ") * n
+      val un = Doc.text(" " * n)
+
+      assert(sn eqv tn)
+      assert(tn eqv un)
     }
   }
 
@@ -136,6 +153,7 @@ the spaces""")
         val allSame = (0 to maxR).forall { w =>
           a.render(w) == b.render(w)
         }
+        assert(allSame)
       }
       else succeed
     }
@@ -487,5 +505,21 @@ the spaces""")
       PropertyCheckConfiguration(minSuccessful = 5000)
 
     forAll(genDoc, genDoc, unary) { (a, b, f) => law(a, b, f) }
+  }
+
+  test("Doc.tabulate works in some example cases") {
+    val caseMatch = List(
+      ("Item1(x)", Doc.text("callItem(x)")),
+      ("ItemXandItemY(x, y)", Doc.text("callItem(x)") / Doc.text("callItem(y)")),
+      ("ItemXandItemYandZ(x, y, z)", Doc.text("callItem(x)") / Doc.text("callItem(y)") / Doc.text("callItem(z)")))
+
+    val expected = """case Item1(x)                   => callItem(x)
+                     |case ItemXandItemY(x, y)        => callItem(x)
+                     |                                   callItem(y)
+                     |case ItemXandItemYandZ(x, y, z) => callItem(x)
+                     |                                   callItem(y)
+                     |                                   callItem(z)""".stripMargin
+
+    assert(Doc.tabulate(' ', " => ", caseMatch.map { case (s, d) => ("case " + s, d) }).render(20) == expected)
   }
 }
