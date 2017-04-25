@@ -636,6 +636,7 @@ object Doc {
    */
   def char(c: Char): Doc =
     if ((' ' <= c) && (c <= '~')) charTable(c.toInt - 32)
+    else if (c == '\n') line
     else Text(new String(Array(c)))
 
   /**
