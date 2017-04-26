@@ -159,10 +159,6 @@ object DocTree {
   private def space2(n: Int): Step[Nothing, Chunk] =
     Emit(Str(" " * n)) // can memoize this
 
-  private def extract(s: String, part: String): Option[Str] =
-    if (s.startsWith(part)) Some(Str(s.substring(part.length)))
-    else None
-
   /**
    * Remove b from a
    *
@@ -221,7 +217,7 @@ object DocTree {
         else if (s1.length < s2.length) {
           extract(s2, s1) match {
             case Some(t) =>
-              setDiff(docTree(xtail), docTree(Emit(t) #:: ytail)).map { diff =>
+              setDiff(docTree(xtail), docTree(Emit(Str(t)) #:: ytail)).map { diff =>
                 docTree(left #:: diff.unfix)
               }
             case None => Some(a)
@@ -229,7 +225,7 @@ object DocTree {
         } else {
           extract(s1, s2) match {
             case Some(t) =>
-              setDiff(docTree(Emit(t) #:: xtail), docTree(ytail)).map { diff =>
+              setDiff(docTree(Emit(Str(t)) #:: xtail), docTree(ytail)).map { diff =>
                 docTree(right #:: diff.unfix)
               }
             case None => Some(a)
@@ -272,12 +268,12 @@ object DocTree {
         }
         else if (s1.length < s2.length) {
           extract(s2, s1) match {
-            case Some(t) => isSubDoc(docTree(xtail), docTree(Emit(t) #:: ytail))
+            case Some(t) => isSubDoc(docTree(xtail), docTree(Emit(Str(t)) #:: ytail))
             case None => false
           }
         } else {
           extract(s1, s2) match {
-            case Some(t) => isSubDoc(docTree(Emit(t) #:: xtail), docTree(ytail))
+            case Some(t) => isSubDoc(docTree(Emit(Str(t)) #:: xtail), docTree(ytail))
             case None => false
           }
         }
@@ -370,12 +366,12 @@ object DocTree {
         }
         else if (s1.length < s2.length) {
           extract(s2, s1) match {
-            case Some(t) => compareTree(docTree(xtail), docTree(Emit(t) #:: ytail))
+            case Some(t) => compareTree(docTree(xtail), docTree(Emit(Str(t)) #:: ytail))
             case None => s1 compare s2
           }
         } else {
           extract(s1, s2) match {
-            case Some(t) => compareTree(docTree(Emit(t) #:: xtail), docTree(ytail))
+            case Some(t) => compareTree(docTree(Emit(Str(t)) #:: xtail), docTree(ytail))
             case None => s1 compare s2
           }
         }

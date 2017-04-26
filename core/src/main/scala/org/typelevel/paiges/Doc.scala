@@ -147,9 +147,11 @@ sealed abstract class Doc extends Product with Serializable {
           // shouldn't be empty by construction, but defensive
           s.isEmpty && loop(Empty, stack)
         case Line(_) => false
-        case Union(flattened, _) =>
-          // flattening cannot change emptiness
-          loop(flattened, stack)
+        case u@Union(Text(s), _) =>
+          // try to avoid forcing the union
+          s.isEmpty && loop(u.bDoc, stack)
+        case u@Union(flattened, _) =>
+          loop(flattened, u.bDoc :: stack)
       }
     loop(this, Nil)
   }
@@ -243,6 +245,26 @@ sealed abstract class Doc extends Product with Serializable {
     }
     if (count <= 0) Empty
     else loop(this, count)
+  }
+
+  private[paiges] def rightAssociate: Doc = {
+    @tailrec
+    def go(a: Doc, stack: List[Doc], tail: List[Doc]): List[Doc] =
+      a match{
+        case Concat(h, t) => go(h, t :: stack, tail)
+        case Empty => stack match {
+          case Nil => tail
+          case sh :: stail => go(sh, stail, tail)
+        }
+        case notConcat => stack match {
+          case Nil => a :: tail
+          case sh :: stail => go(sh, stail, a :: tail)
+        }
+      }
+
+    go(this, Nil, Nil)
+      .reduceOption { (r, l) => Concat(l, r) }
+      .getOrElse(Empty)
   }
 
   /**
@@ -380,8 +402,40 @@ sealed abstract class Doc extends Product with Serializable {
    * above-mentioned case where Docs are not structurally equal but
    * are equivalent.
    */
-  def compare(that: Doc): Int =
-    DocTree.compareTree(DocTree.toDocTree(this), DocTree.toDocTree(that))
+  def compare(that: Doc): Int = {
+
+    @tailrec
+    def fastCompare(a: Doc, b: Doc): Int =
+      (a, b) match {
+        case (Empty, y) => if (y.isEmpty) 0 else -1
+        case (x, Empty) => if (x.isEmpty) 0 else 1
+        case (Text(x), Text(y)) => x.compare(y)
+        case (Concat(xx, rx), Concat(yy, ry)) if xx == yy => fastCompare(rx, ry)
+        case (Concat(Text(x), rx), Concat(Text(y), ry)) =>
+          if (x.length == y.length) {
+            val c = x.compare(y)
+            if (c == 0) fastCompare(rx, ry)
+            else c
+          }
+          else if (x.length < y.length) {
+            extract(y, x) match {
+              case Some(yt) => fastCompare(rx, Concat(Text(yt), ry))
+              case None => x.compare(y)
+            }
+          }
+          else {
+            extract(x, y) match {
+              case Some(xt) => fastCompare(Concat(Text(xt), rx), ry)
+              case None => x.compare(y)
+            }
+          }
+        case (x, y) if x == y => 0
+        case (notEasyX, notEasyY) =>
+          DocTree.compareTree(DocTree.toDocTree(notEasyX), DocTree.toDocTree(notEasyY))
+      }
+
+    fastCompare(rightAssociate, that.rightAssociate)
+  }
 
   /**
    * Convert this Doc to a single-line representation.

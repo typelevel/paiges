@@ -34,11 +34,16 @@ object Generators {
     { (a: Doc, b: Doc) => a / b },
     { (a: Doc, b: Doc) => a lineOrSpace b })
 
-  val unary: Gen[Doc => Doc] =
+  lazy val unary: Gen[Doc => Doc] = unaryDepth(0)
+
+  def unaryDepth(i: Int): Gen[Doc => Doc] =
     Gen.oneOf(
       Gen.const({ d: Doc => d.grouped }),
       Gen.const({ d: Doc => d.aligned }),
       Gen.choose(0, 40).map { i => { d: Doc => d.nested(i) } })
+      // genTree(i / 2).flatMap { left => combinators.map { fn => { d: Doc => fn(left, d) } } },
+      // genTree(i / 2).flatMap { right => combinators.map { fn => { d: Doc => fn(d, right) } } }
+      //)
 
   val folds: Gen[(List[Doc] => Doc)] =
     Gen.oneOf(
@@ -51,18 +56,18 @@ object Generators {
   val maxDepth = 7
 
   def genTree(depth: Int): Gen[Doc] = {
-    val ugen = for {
+    lazy val ugen = for {
       u <- unary
       d <- genTree(depth - 1)
     } yield u(d)
 
-    val cgen = for {
+    lazy val cgen = for {
       c <- combinators
       d0 <- genTree(depth - 1)
       d1 <- genTree(depth - 1)
     } yield c(d0, d1)
 
-    val fgen = for {
+    lazy val fgen = for {
       fold <- folds
       num <- Gen.choose(0, 20)
       ds <- Gen.listOfN(num, Gen.lzy(genTree(depth - 1)))

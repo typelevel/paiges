@@ -4,6 +4,7 @@ import org.scalatest.FunSuite
 import org.scalatest.prop.PropertyChecks._
 import org.scalacheck.Gen
 import scala.collection.immutable.SortedSet
+import scala.annotation.tailrec
 
 class PaigesTest extends FunSuite {
   import Generators._
@@ -11,7 +12,7 @@ class PaigesTest extends FunSuite {
   import Doc.text
 
   implicit val generatorDrivenConfig =
-    PropertyCheckConfiguration(minSuccessful = 50000)
+    PropertyCheckConfiguration(minSuccessful = 500)
 
   test("basic test") {
      assert((text("hello") + text("world")).render(100) == "helloworld")
@@ -131,15 +132,14 @@ the spaces""")
       assert(d.nonEmpty == !d.isEmpty)
     }
   }
-  // this law is false, you can always render empty, but after nesting not, and thus not be the same
-  // as empty
-  //
-  // test("isEmpty compare empty == 0") {
-  //   forAll { (d: Doc) =>
-  //     if (d.isEmpty) assert(d.compare(Doc.empty) == 0)
-  //     else succeed
-  //   }
-  // }
+
+  test("isEmpty compare empty == 0") {
+    forAll { (d: Doc) =>
+      if (d.isEmpty) assert(d.compare(Doc.empty) == 0)
+      else succeed
+    }
+  }
+
   test("renders are constant after maxWidth") {
     forAll { (d: Doc, ws: List[Int]) =>
       val m = d.maxWidth
@@ -340,7 +340,7 @@ the spaces""")
     }
   }
   test("setDiff(a, a) == None") {
-    forAll { (a: Doc) =>
+    forAll(doc0Gen) { (a: Doc) =>
       val atree = DocTree.toDocTree(a)
       // we should totally empty a tree
       assert(DocTree.setDiff(atree, atree).isEmpty)
@@ -448,11 +448,35 @@ the spaces""")
     }
   }
 
+  test("rightAssociate does not change meaning") {
+    forAll { (d: Doc) =>
+      assert(d eqv (d.rightAssociate),
+        s"${d.representation(true).render(0)} vs ${d.rightAssociate.representation(true).render(0)}")
+    }
+
+    val rightAlready = Doc.text("a") + Doc.text("b")
+    assert(rightAlready == rightAlready.rightAssociate)
+  }
+  test("rightAssociate is right associated") {
+    forAll { (d: Doc) =>
+      import Doc._
+
+      @tailrec
+      def good(r: Doc): Unit = r match {
+        case Concat(Concat(_, _), _) => fail(s"found a Concat prefex: ${r.representation(true).render(0)}")
+        case Concat(_, rest) => good(rest)
+        case notConcat => ()
+      }
+
+      good(d.rightAssociate)
+    }
+  }
+
   test("character concat works") {
     forAll { (c1: Char, c2: Char) =>
       val got = Doc.char(c1) + Doc.char(c2)
       val expected = Doc.text(new String(Array(c1, c2)))
-      assert((got compare expected) == 0)
+      assert((got compare expected) == 0, s"case of ${c1.toInt} ${c2.toInt}")
     }
 
     // here is a hard case:
@@ -511,7 +535,7 @@ the spaces""")
     implicit val generatorDrivenConfig =
       PropertyCheckConfiguration(minSuccessful = 5000)
 
-    forAll(genDoc, genDoc, unary) { (a, b, f) => law(a, b, f) }
+    forAll(genDoc, genDoc, unaryDepth(8)) { (a, b, f) => law(a, b, f) }
   }
 
   test("Doc.tabulate works in some example cases") {

@@ -11,4 +11,8 @@ package object paiges {
     case Nil => a
     case h :: tail => call(h(a), tail)
   }
+
+  private[paiges] def extract(s: String, part: String): Option[String] =
+    if (s.startsWith(part)) Some(s.substring(part.length))
+    else None
 }
