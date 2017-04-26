@@ -16,8 +16,14 @@ object DocTree {
 
     def split(x: Int): Option[(Option[Bounds], Bounds)] =
       if (contains(x)) {
-        val left = if (x > min) Some(Bounds(min, x)) else None
-        Some((left, Bounds(x, max)))
+        val right = if (x > min) Some(Bounds(min, x)) else None
+        Some((right, Bounds(x, max)))
+      }
+      else None
+
+    def split2(x: Int): Option[Bounds] =
+      if (contains(x)) {
+        Some(Bounds(x, max))
       }
       else None
   }
@@ -61,22 +67,32 @@ object DocTree {
         /**
          * if we can go left, we do, otherwise we go right. So, in the current
          * bounds, there is a threshold for the current node:
+         *
+         * The problem is, pos is only a lower bound. We could be shifted more
+         * to the right due to nesting or concatenation later. So to preserve
+         * the invariant that a == b implies f(a) == f(b) we need to be prepared
+         * for such shifting.
+         *
          * if (w < wmin) go right
          * else go left
          */
         val as = cheat(pos, (indent, a) :: z, bounds)
         val minLeftWidth = fits(pos, as, bounds.max)
-        bounds.split(minLeftWidth) match {
+        bounds.split2(minLeftWidth) match {
           case None =>
             // cannot go left
             loop(pos, (indent, u.bDoc) :: z, bounds)
-          case Some((None, _)) =>
-            // always go left, because bounds.min == minLeftWidth
-            as
-          case Some((Some(rb), lb)) => // note when the width is smaller we go right
-            val left = cheat(pos, (indent, a) :: z, lb)
-            def right = cheat(pos, (indent, u.bDoc) :: z, rb)
+          case Some(b) =>
+            val left = cheat(pos, (indent, a) :: z, b)
+            def right = cheat(pos, (indent, u.bDoc) :: z, bounds)
             docTree(Stream(Split(left, () => right)))
+          // case Some((None, _)) =>
+          //   // always go left, because bounds.min == minLeftWidth
+          //   as
+          // case Some((Some(rb), lb)) => // note when the width is smaller we go right
+          //   val left = cheat(pos, (indent, a) :: z, lb)
+          //   def right = cheat(pos, (indent, u.bDoc) :: z, rb)
+          //   docTree(Stream(Split(left, () => right)))
         }
     }
 
