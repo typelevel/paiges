@@ -11,7 +11,7 @@ class PaigesTest extends FunSuite {
   import Doc.text
 
   implicit val generatorDrivenConfig =
-    PropertyCheckConfiguration(minSuccessful = 500)
+    PropertyCheckConfiguration(minSuccessful = 50000)
 
   test("basic test") {
      assert((text("hello") + text("world")).render(100) == "helloworld")
@@ -131,12 +131,15 @@ the spaces""")
       assert(d.nonEmpty == !d.isEmpty)
     }
   }
-  test("isEmpty compare empty == 0") {
-    forAll { (d: Doc) =>
-      if (d.isEmpty) assert(d.compare(Doc.empty) == 0)
-      else succeed
-    }
-  }
+  // this law is false, you can always render empty, but after nesting not, and thus not be the same
+  // as empty
+  //
+  // test("isEmpty compare empty == 0") {
+  //   forAll { (d: Doc) =>
+  //     if (d.isEmpty) assert(d.compare(Doc.empty) == 0)
+  //     else succeed
+  //   }
+  // }
   test("renders are constant after maxWidth") {
     forAll { (d: Doc, ws: List[Int]) =>
       val m = d.maxWidth
