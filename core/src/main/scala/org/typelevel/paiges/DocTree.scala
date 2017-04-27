@@ -30,6 +30,30 @@ object DocTree {
 
   private[paiges] def toDocTree(d: Doc): DocTree = {
 
+
+    sealed trait PositionState {
+      def +(i: Int): PositionState
+    }
+    case class KnownPos(pos: Int) extends PositionState {
+      def +(i: Int) = KnownPos(pos + i)
+    }
+    case class LowerBounded(min: Int) extends PositionState {
+      def +(i: Int) = LowerBounded(min + i)
+    }
+
+    sealed trait IndentationState {
+      def +(i: Int): IndentationState
+      def posAfterNewLine: PositionState
+    }
+    case class AbsIndent(column: PositionState) extends IndentationState {
+      def +(i: Int) = AbsIndent(column + i)
+      def posAfterNewLine = column
+    }
+    case class RelIndent(width: Int) extends IndentationState {
+      def +(i: Int) = RelIndent(width + i)
+      def posAfterNewLine = LowerBounded(width)
+    }
+
     /**
      * Return the minimum width needed to go down
      * the left branch.
@@ -37,32 +61,49 @@ object DocTree {
      * Note we carry the current minimum (minV) in
      * order to stop early.
      */
-    @tailrec
-    def fits(pos: Int, d: DocTree, minV: Int): Int =
+    // @tailrec
+    // def fits(pos: PositionState, d: DocTree, minV: Int): Int =
+    //   d.unfix match {
+    //     case Stream.Empty => pos min minV// we always can fit by going left
+    //     case Emit(Break(_, _, _)) #:: _ => pos min minV
+    //     case Emit(Str(s)) #:: tail =>
+    //       val nextPos = pos + s.length
+    //       if (nextPos >= minV) minV
+    //       else fits(nextPos, docTree(tail), minV)
+    //     case Split(a, b) #:: _ =>
+    //       val amin = cheatFits(pos, a, minV)
+    //       fits(pos, b(), amin)
+    //   }
+
+    // def cheatFits(pos: PositionState, d: DocTree, minV: Int): Int =
+    //   fits(pos, d, minV)
+
+    def leftBounds(pos: PositionState, d: DocTree, b: Bounds): (Option[(PositionState, Bounds)], Option[(PositionState, Bounds)]) = {
       d.unfix match {
-        case Stream.Empty => pos min minV// we always can fit by going left
-        case Emit(Break(_, _, _)) #:: _ => pos min minV
+        case Stream.Empty => (Some((pos, b)), None)
+        case Emit(Break(_, _, _)) #:: _ => (Some((pos, b)), None)
         case Emit(Str(s)) #:: tail =>
           val nextPos = pos + s.length
-          if (nextPos >= minV) minV
+          if (!nextPos.intersects(b)) (None, Some((pos, b)))
           else fits(nextPos, docTree(tail), minV)
         case Split(a, b) #:: _ =>
           val amin = cheatFits(pos, a, minV)
           fits(pos, b(), amin)
       }
+    }
 
-    def cheatFits(pos: Int, d: DocTree, minV: Int): Int =
-      fits(pos, d, minV)
 
     @tailrec
-    def loop(pos: Int, lst: List[((Int, Boolean),  Doc)], bounds: Bounds): DocTree = lst match {
+    def loop(pos: PositionState, lst: List[(IndentationState,  Doc)], bounds: Bounds): DocTree = lst match {
       case Nil => docTree(Stream.empty)
       case (_, Empty) :: z => loop(pos, z, bounds)
       case (indent, Concat(a, b)) :: z => loop(pos, (indent, a) :: (indent, b) :: z, bounds)
-      case ((i, abs), Nest(j, d)) :: z => loop(pos, (((i + j), abs), d) :: z, bounds)
-      case (_, Align(d)) :: z => loop(pos, ((pos, true), d) :: z, bounds)
+      case (indent, Nest(j, d)) :: z => loop(pos, (indent + j, d) :: z, bounds)
+      case (_, Align(d)) :: z => loop(pos, (AbsIndent(pos), d) :: z, bounds)
       case (_, Text(s)) :: z => docTree(Emit(Str(s)) #:: cheat(pos + s.length, z, bounds).unfix)
-      case ((i, abs), Line(fts)) :: z => docTree(Emit(Break(i, fts, abs)) #:: cheat(i, z, bounds).unfix)
+      case (indent, Line(fts)) :: z =>
+        val b: Break = null //Break(i, fts, abs) from indent
+        docTree(Emit(b) #:: cheat(indent.posAfterNewLine, z, bounds).unfix)
       case (indent, u@Union(a, _)) :: z =>
         /**
          * if we can go left, we do, otherwise we go right. So, in the current
@@ -77,29 +118,25 @@ object DocTree {
          * else go left
          */
         val as = cheat(pos, (indent, a) :: z, bounds)
-        val minLeftWidth = fits(pos, as, bounds.max)
-        bounds.split2(minLeftWidth) match {
-          case None =>
+        leftBounds(pos, as, bounds) match {
+          case (None, None) => sys.error("unreachable")
+          case (None, Some((rp, rb))) =>
             // cannot go left
-            loop(pos, (indent, u.bDoc) :: z, bounds)
-          case Some(b) =>
-            val left = cheat(pos, (indent, a) :: z, b)
-            def right = cheat(pos, (indent, u.bDoc) :: z, bounds)
+            loop(rp, (indent, u.bDoc) :: z, rb)
+          case (Some((lp, lb)), None) =>
+            // cannot go right
+            loop(lp, (indent, a) :: z, lb)
+          case (Some((lp, lb)), Some((rp, rb))) =>
+            val left = cheat(lp, (indent, a) :: z, lb)
+            def right = cheat(rp, (indent, u.bDoc) :: z, rb)
             docTree(Stream(Split(left, () => right)))
-          // case Some((None, _)) =>
-          //   // always go left, because bounds.min == minLeftWidth
-          //   as
-          // case Some((Some(rb), lb)) => // note when the width is smaller we go right
-          //   val left = cheat(pos, (indent, a) :: z, lb)
-          //   def right = cheat(pos, (indent, u.bDoc) :: z, rb)
-          //   docTree(Stream(Split(left, () => right)))
         }
     }
 
-    def cheat(pos: Int, lst: List[((Int, Boolean), Doc)], bounds: Bounds): DocTree =
+    def cheat(pos: PositionState, lst: List[(IndentationState, Doc)], bounds: Bounds): DocTree =
       loop(pos, lst, bounds)
 
-    loop(0, ((0, false), d) :: Nil, Bounds(0, Int.MaxValue))
+    loop(LowerBounded(0), (RelIndent(0), d) :: Nil, Bounds(0, Int.MaxValue))
   }
 
   /**
