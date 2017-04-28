@@ -2,7 +2,7 @@ package org.typelevel.paiges
 
 import scala.annotation.tailrec
 
-private object Chunk {
+private[paiges] object Chunk {
 
   /**
    * Given a width and Doc find the Iterator
