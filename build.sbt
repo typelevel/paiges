@@ -5,8 +5,8 @@ lazy val noPublish = Seq(
 
 lazy val paigesSettings = Seq(
   organization := "org.typelevel",
-  scalaVersion := "2.12.1",
-  crossScalaVersions := Seq("2.10.6", "2.11.8", "2.12.1"),
+  scalaVersion := "2.12.2",
+  crossScalaVersions := Seq("2.10.6", "2.11.11", "2.12.2"),
   libraryDependencies ++= Seq(
     "org.scalatest" %%% "scalatest" % "3.0.1" % Test,
     "org.scalacheck" %%% "scalacheck" % "1.13.5" % Test),
