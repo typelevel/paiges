@@ -34,6 +34,7 @@ lazy val paigesSettings = Seq(
 
   // release stuff
   releaseCrossBuild := true,
+  releasePublishArtifactsAction := PgpKeys.publishSigned.value,
   publishMavenStyle := true,
   publishArtifact in Test := false,
   pomIncludeRepository := Function.const(false),
