@@ -56,6 +56,7 @@ The current Paiges maintainers are:
 
  * [Oscar Boykin](https://github.com/johnynek)
  * [Erik Osheim](https://github.com/non)
+ * [Colt Frederickson](https://github.com/coltfred)
 
 People are expected to follow the [Typelevel Code of Conduct](http://typelevel.org/conduct.html)
 when discussing Paiges on the Github page or other official venues.

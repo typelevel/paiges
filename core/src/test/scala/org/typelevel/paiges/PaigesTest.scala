@@ -368,6 +368,9 @@ the spaces""")
       val expected = Doc.text(new String(Array(c1, c2)))
       assert(got === expected)
     }
+
+    // here is a hard case:
+    assert((Doc.char('a') + Doc.char('\n')) eqv Doc.text("a\n"))
   }
 
   test("lineBreak works as expected") {
