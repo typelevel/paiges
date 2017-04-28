@@ -1,3 +1,5 @@
+import ReleaseTransformations._
+
 lazy val noPublish = Seq(
   publish := {},
   publishLocal := {},
@@ -38,6 +40,19 @@ lazy val paigesSettings = Seq(
   publishMavenStyle := true,
   publishArtifact in Test := false,
   pomIncludeRepository := Function.const(false),
+  releaseProcess := Seq[ReleaseStep](
+    checkSnapshotDependencies,
+    inquireVersions,
+    runClean,
+    runTest,
+    setReleaseVersion,
+    commitReleaseVersion,
+    tagRelease,
+    publishArtifacts,
+    setNextVersion,
+    commitNextVersion,
+    ReleaseStep(action = Command.process("sonatypeReleaseAll", _)),
+    pushChanges),
   publishTo := {
     val nexus = "https://oss.sonatype.org/"
     if (isSnapshot.value)
