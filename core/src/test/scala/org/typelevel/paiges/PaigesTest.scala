@@ -4,22 +4,18 @@ import org.scalatest.FunSuite
 import org.scalatest.prop.PropertyChecks._
 import org.scalacheck.Gen
 import scala.collection.immutable.SortedSet
+import scala.util.Random
 
 object PaigesTest {
   implicit val docEquiv: Equiv[Doc] =
     new Equiv[Doc] {
       def equiv(x: Doc, y: Doc): Boolean = {
-        val r = new scala.util.Random()
         val maxWidth = x.maxWidth max y.maxWidth
-
-        val widths = if (maxWidth == 0) {
-          0 :: Nil
-        } else {
-          0 :: r.nextInt(maxWidth) :: r.nextInt(maxWidth) :: maxWidth :: Nil
-        }
-
-        widths.forall(w => x.render(w) == y.render(w)) &&
-          x.renderWideStream.mkString == y.renderWideStream.mkString
+        def randomWidth(): Int = Random.nextInt(maxWidth)
+        val widths =
+          if (maxWidth == 0) 0 :: Nil
+          else 0 :: randomWidth() :: randomWidth() :: Nil
+        Doc.equivAtWidths(widths).equiv(x, y)
       }
     }
 }

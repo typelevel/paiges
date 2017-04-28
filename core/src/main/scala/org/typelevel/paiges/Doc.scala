@@ -583,13 +583,23 @@ object Doc {
    */
   val lineOrEmpty: Doc = lineBreak.grouped
 
+  /**
+   * Order documents by how they render at the given width.
+   */
   def orderingAtWidth(w: Int): Ordering[Doc] =
     Ordering.by((d: Doc) => d.render(w))
 
-  // implicit val docOrdering: Ordering[Doc] =
-  //   new Ordering[Doc] {
-  //     def compare(x: Doc, y: Doc): Int = x compare y
-  //   }
+  /**
+   * Require documents to be equivalent at all the given widths, as
+   * well as at their "wide" renderings.
+   */
+  def equivAtWidths(widths: List[Int]): Equiv[Doc] =
+    new Equiv[Doc] {
+      def equiv(x: Doc, y: Doc): Boolean = {
+        widths.forall(w => x.render(w) == y.render(w)) &&
+          x.renderWideStream.mkString == y.renderWideStream.mkString
+      }
+    }
 
   private[this] val charTable: Array[Doc] =
     (32 to 126).map { i => Text(i.toChar.toString) }.toArray
