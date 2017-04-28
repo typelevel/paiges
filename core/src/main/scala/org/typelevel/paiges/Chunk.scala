@@ -43,7 +43,7 @@ private[paiges] object Chunk {
         res
       }
     }
-    /**
+    /*
      * Return the length of this line if it fits
      */
     @tailrec
@@ -55,7 +55,7 @@ private[paiges] object Chunk {
             item.isBreak || fits(item.position, item.step)
         }
       }
-    /**
+    /*
      * This is not really tail recursive but many branches are, so
      * we cheat below in non-tail positions
      */
@@ -69,11 +69,11 @@ private[paiges] object Chunk {
       case (i, Doc.Text(s)) :: z => ChunkStream.Item(s, pos + s.length, z, false)
       case (i, Doc.Line(_)) :: z => ChunkStream.Item(null, i, z, true)
       case (i, u@Doc.Union(x, _)) :: z =>
-        /**
+        /*
          * If we can fit the next line from x, we take it.
          */
         val first = cheat(pos, (i, x) :: z)
-        /**
+        /*
          * Note that in Union the left side is always right associated.
          * This means the "fits" branch in rendering
          * always has a right associated Doc which means it is O(w)

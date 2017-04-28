@@ -202,7 +202,7 @@ sealed abstract class Doc extends Product with Serializable {
       case (i, Text(s)) :: z => s #:: cheat(pos + s.length, z)
       case (i, Line(_)) :: z => Chunk.lineToStr(i) #:: cheat(i, z)
       case (i, Union(a, _)) :: z =>
-        /**
+        /*
          * if we are infinitely wide, a always fits
          */
         loop(pos, (i, a) :: z)
@@ -218,7 +218,7 @@ sealed abstract class Doc extends Product with Serializable {
    * return empty
    */
   def repeat(count: Int): Doc = {
-    /**
+    /*
      * only have log depth, so recursion is fine
      * d * (2n + c) = (dn + dn) + c
      */
@@ -362,7 +362,7 @@ sealed abstract class Doc extends Product with Serializable {
    */
   def flatten: Doc = {
 
-    /**
+    /*
      * Note after this, docs are right associated.
      * Also note the left side of a grouped is always
      * flattened, this means the "fits" branch in rendering
@@ -695,7 +695,7 @@ object Doc {
       case Nil => call(x, stack)
       case y :: tail =>
 
-        /**
+        /*
          * The cost of this algorithm c(n) for list of size n.
          * note that c(n) = 2 * c(n-1) + k
          * for some constant.
