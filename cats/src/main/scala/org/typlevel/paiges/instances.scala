@@ -1,6 +1,6 @@
 package org.typelevel.paiges
 
-import cats.kernel.{Order, Monoid}
+import cats.kernel.Monoid
 
 package object instances {
   implicit val paigesDocMonoid: Monoid[Doc] =

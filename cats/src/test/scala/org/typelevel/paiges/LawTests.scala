@@ -3,13 +3,12 @@ package org.typelevel.paiges
 import catalysts.Platform
 import catalysts.macros.TypeTagM // need this import for implicit macros
 
-import cats.kernel.{Eq, Order}
-import cats.kernel.instances.string._
+import cats.kernel.Eq
 import cats.kernel.laws._
 
 import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.Discipline
-import org.scalacheck.{Arbitrary, Cogen}
+import org.scalacheck.Arbitrary
 import org.scalactic.anyvals.{PosZDouble, PosInt, PosZInt}
 import org.scalatest.FunSuite
 import org.scalatest.prop.Configuration

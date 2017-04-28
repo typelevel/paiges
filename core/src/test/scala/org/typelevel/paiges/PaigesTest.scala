@@ -3,14 +3,13 @@ package org.typelevel.paiges
 import org.scalatest.FunSuite
 import org.scalatest.prop.PropertyChecks._
 import org.scalacheck.Gen
-import scala.collection.immutable.SortedSet
 import scala.util.Random
 
 object PaigesTest {
   implicit val docEquiv: Equiv[Doc] =
     new Equiv[Doc] {
       def equiv(x: Doc, y: Doc): Boolean = {
-        val maxWidth = x.maxWidth max y.maxWidth
+        val maxWidth = Integer.max(x.maxWidth, y.maxWidth)
         def randomWidth(): Int = Random.nextInt(maxWidth)
         val widths =
           if (maxWidth == 0) 0 :: Nil
