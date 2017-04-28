@@ -25,8 +25,7 @@ Some selling points of this code:
  2. Competitive performance (e.g. 3-5x slower than `mkString`)
  3. Elegantly handle indentation
  4. Flexible line-wrapping strategies
- 5. Lawful equality and ordering
- 6. Functional cred ;)
+ 5. Functional cred ;)
 
 ## Benchmarks
 

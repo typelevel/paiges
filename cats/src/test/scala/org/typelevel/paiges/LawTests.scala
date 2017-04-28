@@ -3,7 +3,8 @@ package org.typelevel.paiges
 import catalysts.Platform
 import catalysts.macros.TypeTagM // need this import for implicit macros
 
-import cats.kernel.Eq
+import cats.kernel.{Eq, Order}
+import cats.kernel.instances.string._
 import cats.kernel.laws._
 
 import org.typelevel.discipline.Laws
@@ -17,10 +18,13 @@ class LawTests extends LawChecking {
   import org.typelevel.paiges.Generators._
   import org.typelevel.paiges.instances._
 
-  implicit def orderLaws[A: Eq: Cogen: Arbitrary] = OrderLaws[A]
+  implicit val docEq: Eq[Doc] =
+    Eq.instance { (x: Doc, y: Doc) =>
+      PaigesTest.docEquiv.equiv(x, y)
+    }
+
   implicit def groupLaws[A: Eq: Arbitrary] = GroupLaws[A]
 
-  laws[OrderLaws, Doc].check(_.order)
   laws[GroupLaws, Doc].check(_.monoid)
 }
 
