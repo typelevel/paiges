@@ -45,6 +45,15 @@ lazy val paigesSettings = Seq(
       Some("Releases" at nexus + "service/local/staging/deploy/maven2")
   },
   pomExtra := (
+    <url>https://github.com/typelevel/paiges</url>
+    <licenses>
+      <license>
+        <name>Apache 2</name>
+        <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        <distribution>repo</distribution>
+        <comments>A business-friendly OSS license</comments>
+      </license>
+    </licenses>
     <scm>
       <url>git@github.com:typelevel/paiges.git</url>
       <connection>scm:git:git@github.com:typelevel/paiges.git</connection>
