@@ -1,10 +1,49 @@
 # Paiges
 
-## Summary
+## Overview
 
-An implementation of [Wadler's "A Prettier Printer"](http://homepages.inf.ed.ac.uk/wadler/papers/prettier/prettier.pdf).
-This code is a direct port of the code in section 7 of this paper, with an attempt to be idiomatic
-in scala.
+Paiges is an implementation of
+[Wadler's "A Prettier Printer"](http://homepages.inf.ed.ac.uk/wadler/papers/prettier/prettier.pdf).
+
+The library is useful any time you find yourself generating text or
+source code where you'd like to control the length of lines (e.g.
+paragraph wrapping).
+
+The name *Paiges* is a reference to the [Paige compositor](https://en.wikipedia.org/wiki/Paige_Compositor)
+and the fact that it helps you layout pages.
+
+## Quick Start
+
+Paiges supports Scala 2.10, 2.11, and 2.12. It supports both the JVM
+and JS platforms.
+
+To use Paiges in your own project, you can include this snippet in
+your `build.sbt` file:
+
+```scala
+// use this snippet for the JVM
+libraryDependencies += "org.typelevel" %% "paiges-core" % "0.1.0"
+
+// use this snippet for JS, or cross-building
+libraryDependencies += "org.typelevel" %%% "paiges-core" % "0.1.0"
+```
+
+Paiges also provides types to work with Cats via the *paiges-cats*
+module:
+
+```scala
+// use this snippet for the JVM
+libraryDependencies += "org.typelevel" %% "paiges-cats" % "0.1.0"
+
+// use this snippet for JS, or cross-building
+libraryDependencies += "org.typelevel" %%% "paiges-cats" % "0.1.0"
+```
+
+## Description
+
+This code is a direct port of the code in section 7 of this paper,
+with an attempt to be idiomatic in scala while preserving the original
+code's properties, including laziness.
 
 This algorithm is optimal and bounded. From the paper:
 
@@ -16,9 +55,6 @@ This algorithm is optimal and bounded. From the paper:
 > is optimal and bounded, while the layout algorithm presented here
 > has both properties.
 
-The name is a reference to the [Paige compositor](https://en.wikipedia.org/wiki/Paige_Compositor)
-and the fact that it helps you layout pages.
-
 Some selling points of this code:
 
  1. Lazy, O(1) concatenation
@@ -26,6 +62,52 @@ Some selling points of this code:
  3. Elegantly handle indentation
  4. Flexible line-wrapping strategies
  5. Functional cred ;)
+
+## Examples
+
+Here's an example of using Paiges to generate the source code for a
+case class:
+
+```scala
+import org.typelevel.paiges._
+
+/**
+ * Produces a case class given a name and zero-or-more
+ * field/type pairs.
+ */
+def mkCaseClass(name: String, fields: (String, String)*): Doc = {
+  val prefix = Doc.text("case class ") + Doc.text(name) + Doc.char('(')
+  val suffix = Doc.char(')')
+  val types = fields.map { case (k, v) =>
+    Doc.text(k) + Doc.char(':') + Doc.space + Doc.text(v)
+  }
+  val body = Doc.intercalate(Doc.char(',') + Doc.lineOrSpace, types)
+  body.bracketBy(prefix, suffix)
+}
+
+val c = mkCaseClass(
+  "Dog", "name" -> "String", "breed" -> "String",
+  "height" -> "Int", "weight" -> "Int")
+
+c.render(80)
+// case class Dog(name: String, breed: String, height: Int, weight: Int)
+
+c.render(40)
+// case class Dog(
+//   name: String, breed: String,
+//   height: Int, weight: Int
+// )
+
+c.render(20)
+// case class Dog(
+//   name: String,
+//   breed: String,
+//   height: Int,
+//   weight: Int
+// )
+```
+
+For more examples, see the [tutorial](docs/src/main/tut/intro.md).
 
 ## Benchmarks
 
