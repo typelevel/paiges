@@ -370,7 +370,7 @@ the spaces""")
     }
 
     // here is a hard case:
-    assert((Doc.char('a') + Doc.char('\n')) eqv Doc.text("a\n"))
+    assert((Doc.char('a') + Doc.char('\n')) === Doc.text("a\n"))
   }
 
   test("lineBreak works as expected") {
