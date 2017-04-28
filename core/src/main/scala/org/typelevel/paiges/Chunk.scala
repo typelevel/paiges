@@ -2,31 +2,7 @@ package org.typelevel.paiges
 
 import scala.annotation.tailrec
 
-/**
- * This is the second ADT introduced for efficiency reasons
- */
-sealed abstract class Chunk {
-  def str: String
-}
-
 private object Chunk {
-
-  /**
-   * Str represents a string (`s`) to be displayed.
-   *
-   * The string must be non-empty and not contain newlines.
-   */
-  case class Str(str: String) extends Chunk
-
-  /**
-   * Break represents a newline followed by zero-or-more spaces of
-   * indentation.
-   *
-   * The indentation must be non-negative.
-   */
-  case class Break(indent: Int, flattenToSpace: Boolean, absolute: Boolean) extends Chunk {
-    def str: String = lineToStr(indent)
-  }
 
   /**
    * Given a width and Doc find the Iterator

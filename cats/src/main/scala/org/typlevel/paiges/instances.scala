@@ -9,8 +9,8 @@ package object instances {
       def combine(x: Doc, y: Doc): Doc = x + y
     }
 
-  implicit val paigesDocOrder: Order[Doc] =
-    new Order[Doc] {
-      def compare(x: Doc, y: Doc): Int = x compare y
-    }
+  // implicit val paigesDocOrder: Order[Doc] =
+  //   new Order[Doc] {
+  //     def compare(x: Doc, y: Doc): Int = x compare y
+  //   }
 }

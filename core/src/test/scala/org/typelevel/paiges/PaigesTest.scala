@@ -5,10 +5,34 @@ import org.scalatest.prop.PropertyChecks._
 import org.scalacheck.Gen
 import scala.collection.immutable.SortedSet
 
+object PaigesTest {
+  implicit val docEquiv: Equiv[Doc] =
+    new Equiv[Doc] {
+      def equiv(x: Doc, y: Doc): Boolean = {
+        val r = new scala.util.Random()
+        val maxWidth = x.maxWidth max y.maxWidth
+
+        val widths = if (maxWidth == 0) {
+          0 :: Nil
+        } else {
+          0 :: r.nextInt(maxWidth) :: r.nextInt(maxWidth) :: maxWidth :: Nil
+        }
+
+        widths.forall(w => x.render(w) == y.render(w)) &&
+          x.renderWideStream.mkString == y.renderWideStream.mkString
+      }
+    }
+}
+
 class PaigesTest extends FunSuite {
   import Generators._
 
   import Doc.text
+  import PaigesTest.docEquiv
+
+  implicit class EquivSyntax(lhs: Doc) {
+    def ===(rhs: Doc): Boolean = docEquiv.equiv(lhs, rhs)
+  }
 
   implicit val generatorDrivenConfig =
     PropertyCheckConfiguration(minSuccessful = 500)
@@ -59,26 +83,22 @@ the spaces""")
 
   test("(x = y) -> (x.## = y.##)") {
     forAll { (a: Doc, b: Doc) =>
-      if ((a compare b) == 0) assert(a.## == b.##) else succeed
-    }
-  }
-
-  test("a eqv b iff a compare b == 0") {
-    forAll { (a: Doc, b: Doc) =>
-      assert((a eqv b) == (a.compare(b) == 0))
+      assert(a.## == a.##)
+      assert(b.## == b.##)
+      if (a == b) assert(a.## == b.##) else succeed
     }
   }
 
   test("concat is associative") {
-    forAll { (a: Doc, b: Doc, c: Doc, width: Int) =>
-      assert(((a + b) + c).render(width) ==
-        (a + (b + c)).render(width))
+    forAll { (a: Doc, b: Doc, c: Doc) =>
+      assert(((a + b) + c) === (a + (b + c)))
     }
   }
+
   test("empty does not change things") {
-    forAll { (a: Doc, width: Int) =>
-      assert((a + Doc.empty).render(width) == a.render(width))
-      assert((Doc.empty + a).render(width) == a.render(width))
+    forAll { (a: Doc) =>
+      assert((a + Doc.empty) === a)
+      assert((Doc.empty + a) === a)
     }
   }
 
@@ -88,8 +108,8 @@ the spaces""")
       val tn = Doc.text(" ") * n
       val un = Doc.text(" " * n)
 
-      assert(sn eqv tn)
-      assert(tn eqv un)
+      assert(sn === tn)
+      assert(tn === un)
     }
   }
 
@@ -133,7 +153,7 @@ the spaces""")
   }
   test("isEmpty compare empty == 0") {
     forAll { (d: Doc) =>
-      if (d.isEmpty) assert(d.compare(Doc.empty) == 0)
+      if (d.isEmpty) assert(d === Doc.empty)
       else succeed
     }
   }
@@ -146,18 +166,7 @@ the spaces""")
       assert(goodW.forall { w => d.render(w) == maxR })
     }
   }
-  test("if we compare the same we render the same") {
-    forAll { (a: Doc, b: Doc) =>
-      if(a.compare(b) == 0) {
-        val maxR = a.maxWidth max b.maxWidth
-        val allSame = (0 to maxR).forall { w =>
-          a.render(w) == b.render(w)
-        }
-        assert(allSame)
-      }
-      else succeed
-    }
-  }
+
   test("render(w) == render(0) for w <= 0") {
     forAll { (a: Doc, w: Int) =>
       val wNeg = if (w > 0) -w else w
@@ -183,14 +192,14 @@ the spaces""")
      * but that is weaker. Our current comparison algorithm seems
      * to leverage this fact
      */
-    assert(first.compare(second) == 0)
+    assert(first === second)
 
     /**
      * lineOrSpace == (s | n)
      * flatten(lineOrSpace) = s
      * group(lineOrSpace) = (s | (s|n)) == (s | n)
      */
-    assert(Doc.lineOrSpace.grouped.compare(Doc.lineOrSpace) == 0)
+    assert(Doc.lineOrSpace.grouped === Doc.lineOrSpace)
   }
   test("group law") {
     /**
@@ -206,26 +215,26 @@ the spaces""")
       val flatC = c.flatten
       val left = (b.grouped + flatC)
       val right = (b + flatC).grouped
-      assert((left).compare(right) == 0)
-      assert((flatC + b.grouped).compare((flatC + b).grouped) == 0)
+      assert(left === right)
+      assert((flatC + b.grouped) === (flatC + b).grouped)
       // since left == right, we could have used those instead of b:
-      assert((left.grouped + flatC).compare((right + flatC).grouped) == 0)
+      assert((left.grouped + flatC) === (right + flatC).grouped)
     }
   }
   test("flatten(group(a)) == flatten(a)") {
     forAll { (a: Doc) =>
-      assert(a.grouped.flatten.compare(a.flatten) == 0)
+      assert(a.grouped.flatten === a.flatten)
     }
   }
   test("a.flatten == a.flatten.flatten") {
     forAll { (a: Doc) =>
       val aflat = a.flatten
-      assert(aflat.compare(aflat.flatten) == 0)
+      assert(aflat === aflat.flatten)
     }
   }
   test("a.flatten == a.flattenOption.getOrElse(a)") {
     forAll { (a: Doc) =>
-      assert(a.flatten.compare(a.flattenOption.getOrElse(a)) == 0)
+      assert(a.flatten === a.flattenOption.getOrElse(a))
     }
   }
 
@@ -237,7 +246,7 @@ the spaces""")
       case Nest(j, d) => okay(d)
       case Align(d) => okay(d)
       case u@Union(a, _) =>
-        (a.flatten.compare(u.bDoc.flatten) == 0) && okay(a) && okay(u.bDoc)
+        (a.flatten === u.bDoc.flatten) && okay(a) && okay(u.bDoc)
     }
 
     forAll { (a: Doc) => assert(okay(a)) }
@@ -299,95 +308,6 @@ the spaces""")
     assert(map.render(20) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.map("  " + _).mkString("{\n", ",\n", "\n}"))
   }
 
-  test("isSubDoc works correctly: group") {
-    forAll { (d: Doc) =>
-      val f = d.flatten
-      val g = d.grouped
-      assert(f.isSubDocOf(g))
-    }
-  }
-
-  test("isSubDoc works correctly: fill") {
-    forAll { (d0: Doc, d1: Doc, dsLong: List[Doc]) =>
-      // we need at least 2 docs for this law
-      val ds = (d0 :: d1 :: dsLong.take(4))
-      val f = Doc.fill(Doc.lineOrSpace, ds)
-      val g = Doc.intercalate(Doc.space, ds.map(_.flatten))
-      assert(g.isSubDocOf(f))
-    }
-  }
-
-  test("if isSubDoc is true, there is some width that renders the same") {
-    forAll { (d1: Doc, d2: Doc) =>
-      if (d1.isSubDocOf(d2)) {
-        val mx = d1.maxWidth max d2.maxWidth
-        assert((0 to mx).exists { w => d1.render(w) == d2.render(w) })
-      }
-      else succeed
-    }
-  }
-  test("a isSubDocOf b and b isSubDocOf a iff a == b") {
-    forAll { (a: Doc, b: Doc) =>
-      assert(a.isSubDocOf(a))
-      assert(b.isSubDocOf(b))
-      val cmp = a compare b
-      val eq = a.isSubDocOf(b) && b.isSubDocOf(a)
-      if (cmp == 0) assert(eq)
-      else assert(!eq)
-    }
-  }
-  test("setDiff(a, a) == None") {
-    forAll { (a: Doc) =>
-      val atree = DocTree.toDocTree(a)
-      // we should totally empty a tree
-      assert(DocTree.setDiff(atree, atree).isEmpty)
-    }
-  }
-  test("after setDiff isSubDoc is false") {
-    forAll { (a: Doc, b: Doc) =>
-      val atree = DocTree.toDocTree(a)
-      val btree = DocTree.toDocTree(b)
-      if (DocTree.isSubDoc(atree, btree)) {
-        DocTree.setDiff(btree, atree) match {
-          case None =>
-            // If a is a subset of b, and b - a == empty, then a == b
-            assert(a.compare(b) == 0)
-          case Some(diff) =>
-            assert(!DocTree.isSubDoc(atree, diff))
-        }
-      }
-      else {
-        /*
-         * We either have disjoint, overlapping, or btree is a strict subset of atree
-         */
-        DocTree.setDiff(btree, atree) match {
-          case None =>
-            // if we btree is a strict subset of of atree
-            assert(DocTree.isSubDoc(btree, atree))
-          case Some(bMinusA) =>
-            // disjoint or overlapping, so atree and bMinusA are disjoint
-            assert(!DocTree.isSubDoc(atree, bMinusA))
-        }
-      }
-    }
-  }
-
-  test("deunioning removes all unions") {
-    forAll { (d: Doc) =>
-      assert(d.deunioned.forall(_.deunioned.length == 1))
-    }
-  }
-
-  test("if isSubDocOf then deunioned is a subset") {
-    forAll { (a: Doc, b: Doc) =>
-      val da = a.deunioned
-      val db = b.deunioned
-      if (a.isSubDocOf(b)) {
-        assert(SortedSet(da: _*).subsetOf(SortedSet(db: _*)))
-      }
-      else succeed
-    }
-  }
   test("Doc.repeat matches naive implementation") {
     /**
      * comparing large equal documents can be very slow
@@ -398,10 +318,11 @@ the spaces""")
     val smallTree = Gen.choose(0, 3).flatMap(genTree)
     val smallInt = Gen.choose(0, 10)
 
-    def simple(n: Int, d: Doc, acc: Doc): Doc = if(n <= 0) acc else simple(n - 1, d, acc + d)
+    def simple(n: Int, d: Doc, acc: Doc): Doc =
+      if(n <= 0) acc else simple(n - 1, d, acc + d)
 
     forAll(smallTree, smallInt) { (d: Doc, small: Int) =>
-      assert(simple(small, d, Doc.empty).compare(d * small) == 0)
+      assert(simple(small, d, Doc.empty) === (d * small))
     }
   }
   test("(d * a) * b == d * (a * b)") {
@@ -415,7 +336,7 @@ the spaces""")
     val smallInt = Gen.choose(0, 3)
 
     forAll(smallTree, smallInt, smallInt) { (d: Doc, a: Int, b: Int) =>
-      assert(((d * a) * b).compare(d * (a * b)) == 0)
+      assert(((d * a) * b) === (d * (a * b)))
     }
   }
   test("text(s) * n == s * n for identifiers") {
@@ -449,7 +370,7 @@ the spaces""")
     forAll { (c1: Char, c2: Char) =>
       val got = Doc.char(c1) + Doc.char(c2)
       val expected = Doc.text(new String(Array(c1, c2)))
-      assert((got compare expected) == 0)
+      assert(got === expected)
     }
   }
 
@@ -482,29 +403,6 @@ the spaces""")
     assert(doc.render(0) == "1,\n2,\n3")
     assert(doc.render(6) == "1, 2,\n3")
     assert(doc.render(10) == "1, 2, 3")
-  }
-
-  test("a == b implies f(a) == f(b)") {
-    import Doc.docOrdering
-
-    def law(a: Doc, b: Doc, f: Doc => Doc) =
-      if (docOrdering.equiv(a, b)) {
-        assert(docOrdering.equiv(f(a), f(b)), s"${a.representation(true).render(40)}\n\n${b.representation(true).render(40)}")
-      }
-      else ()
-
-    // Here are some hard cases
-    val examples = List(
-      (Doc.line, Doc.lineBreak, { (d: Doc) => d.grouped }),
-      (Doc.lineOrSpace, Doc.lineOrSpace.aligned, { (d: Doc) => d.nested(1) })
-    )
-
-    examples.foreach { case (a, b, f) => law(a, b, f) }
-
-    implicit val generatorDrivenConfig =
-      PropertyCheckConfiguration(minSuccessful = 5000)
-
-    forAll(genDoc, genDoc, unary) { (a, b, f) => law(a, b, f) }
   }
 
   test("Doc.tabulate works in some example cases") {

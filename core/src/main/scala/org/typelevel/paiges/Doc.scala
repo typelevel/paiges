@@ -160,13 +160,6 @@ sealed abstract class Doc extends Product with Serializable {
   def nonEmpty: Boolean = !isEmpty
 
   /**
-   * Returns true if there is a width where these Docs render the same
-   * String; otherwise, returns false.
-   */
-  def isSubDocOf(that: Doc): Boolean =
-    DocTree.isSubDoc(DocTree.toDocTree(this), DocTree.toDocTree(that))
-
-  /**
    * Render this Doc as a String, limiting line lengths to `width` or
    * shorter when possible.
    *
@@ -361,29 +354,6 @@ sealed abstract class Doc extends Product with Serializable {
   }
 
   /**
-   * semantic equivalence of Documents (not structural).
-   * a eqv b implies a compare b == 0
-   */
-  def eqv(that: Doc): Boolean =
-    (this eq that) || (compare(that) == 0)
-
-  /**
-   * Compare two Docs by finding the first rendering where the strings
-   * produced differ (if any).
-   *
-   * Note that `==` on Docs uses structural equality, whereas this
-   * method will return 0 in cases where Docs are not structurally
-   * equal but are semantically-equal (they will always render to the
-   * same string for any width).
-   *
-   * This method can be very expensive in some cases, especially the
-   * above-mentioned case where Docs are not structurally equal but
-   * are equivalent.
-   */
-  def compare(that: Doc): Int =
-    DocTree.compareTree(DocTree.toDocTree(this), DocTree.toDocTree(that))
-
-  /**
    * Convert this Doc to a single-line representation.
    *
    * All newlines are replaced with spaces (and optional indentation
@@ -505,16 +475,6 @@ sealed abstract class Doc extends Product with Serializable {
 
     loop(0, (0, this) :: Nil, 0)
   }
-
-  /**
-   * Return a stream of document which represent all possible
-   * renderings.
-   *
-   * Each document in this stream is guaranteed to render the same
-   * way, no matter what width is used.
-   */
-  def deunioned: Stream[Doc] =
-    DocTree.deunioned(DocTree.toDocTree(this))
 }
 
 object Doc {
@@ -623,10 +583,13 @@ object Doc {
    */
   val lineOrEmpty: Doc = lineBreak.grouped
 
-  implicit val docOrdering: Ordering[Doc] =
-    new Ordering[Doc] {
-      def compare(x: Doc, y: Doc): Int = x compare y
-    }
+  def orderingAtWidth(w: Int): Ordering[Doc] =
+    Ordering.by((d: Doc) => d.render(w))
+
+  // implicit val docOrdering: Ordering[Doc] =
+  //   new Ordering[Doc] {
+  //     def compare(x: Doc, y: Doc): Int = x compare y
+  //   }
 
   private[this] val charTable: Array[Doc] =
     (32 to 126).map { i => Text(i.toChar.toString) }.toArray
