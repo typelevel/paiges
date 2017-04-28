@@ -146,3 +146,8 @@ lazy val docs = project.in(file("docs"))
   .settings(paigesSettings: _*)
   .settings(noPublish: _*)
   .settings(tutSettings: _*)
+  .settings(tutScalacOptions := {
+    val testOptions = scalacOptions.in(test).value
+    val unwantedOptions = Set("-Ywarn-unused-import", "-Xfatal-warnings")
+    testOptions.filterNot(unwantedOptions)
+  })
