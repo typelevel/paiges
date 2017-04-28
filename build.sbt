@@ -30,7 +30,43 @@ lazy val paigesSettings = Seq(
   // since all imports are reported as being unused (and then become
   // fatal errors).
   scalacOptions in (Compile, console) ~= {_.filterNot("-Ywarn-unused-import" == _)},
-  scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value)
+  scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value,
+
+  // release stuff
+  releaseCrossBuild := true,
+  publishMavenStyle := true,
+  publishArtifact in Test := false,
+  pomIncludeRepository := Function.const(false),
+  publishTo := {
+    val nexus = "https://oss.sonatype.org/"
+    if (isSnapshot.value)
+      Some("Snapshots" at nexus + "content/repositories/snapshots")
+    else
+      Some("Releases" at nexus + "service/local/staging/deploy/maven2")
+  },
+  pomExtra := (
+    <scm>
+      <url>git@github.com:typelevel/paiges.git</url>
+      <connection>scm:git:git@github.com:typelevel/paiges.git</connection>
+    </scm>
+    <developers>
+      <developer>
+        <id>johnynek</id>
+        <name>Oscar Boykin</name>
+        <url>http://github.com/johnynek/</url>
+      </developer>
+      <developer>
+        <id>coltfred</id>
+        <name>Colt Frederickson</name>
+        <url>http://github.com/coltfred/</url>
+      </developer>
+      <developer>
+        <id>non</id>
+        <name>Erik Osheim</name>
+        <url>http://github.com/non/</url>
+      </developer>
+    </developers>
+  ))
 
 
 lazy val commonJvmSettings = Seq(
