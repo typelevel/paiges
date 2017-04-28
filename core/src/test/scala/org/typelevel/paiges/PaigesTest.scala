@@ -499,7 +499,8 @@ the spaces""")
     // Here are some hard cases
     val examples = List(
       (Doc.line, Doc.lineBreak, { (d: Doc) => d.grouped }),
-      (Doc.lineOrSpace, Doc.lineOrSpace.aligned, { (d: Doc) => d.nested(1) })
+      (Doc.lineOrSpace, Doc.lineOrSpace.aligned, { (d: Doc) => d.nested(1) }),
+      (Doc.lineOrSpace + Doc.lineOrEmpty, Doc.lineOrSpace, { (d: Doc) => d.nested(1) })
     )
 
     examples.foreach { case (a, b, f) => law(a, b, f) }
