@@ -3,7 +3,6 @@ package org.typelevel.paiges
 import org.scalatest.FunSuite
 import org.scalatest.prop.PropertyChecks._
 import org.scalacheck.Gen
-import scala.collection.immutable.SortedSet
 import scala.util.Random
 
 object PaigesTest {
