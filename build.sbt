@@ -31,7 +31,7 @@ lazy val paigesSettings = Seq(
   // HACK: without these lines, the console is basically unusable,
   // since all imports are reported as being unused (and then become
   // fatal errors).
-  scalacOptions in (Compile, console) ~= {_.filterNot("-Ywarn-unused-import" == _)},
+  scalacOptions in (Compile, console) ~= {_.filterNot("-Xlint" == _)},
   scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value,
 
   // release stuff
