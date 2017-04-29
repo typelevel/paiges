@@ -105,13 +105,19 @@ sealed abstract class Doc extends Product with Serializable {
     lineOrSpace(Doc.text(that))
 
   /**
-   * Bookend this Doc between the given Docs, separated by newlines
-   * and indentation (if space permits) or spaces otherwise.
+   * Bookend this Doc between the given Docs.
    *
-   * By default, the indentation is two spaces.
+   * If the documents (when flattened) all fit on one line, then
+   * newlines will be collapsed, spaces will be added if requested,
+   * and the document will render on one line.
+   *
+   * Otherwise, newlines will be used on either side of this document,
+   * and the requested level of indentation will be added as well.
    */
-  def bracketBy(left: Doc, right: Doc, indent: Int = 2): Doc =
-    Concat(left, Concat(Concat(Doc.line, this).nested(indent), Concat(Doc.line, right)).grouped)
+  def bracketBy(left: Doc, right: Doc, indent: Int = 2, spaces: Boolean = true): Doc = {
+    val line = if (spaces) Doc.line else Doc.lineBreak
+    Concat(left, Concat(Concat(line, this).nested(indent), Concat(line, right)).grouped)
+  }
 
   /**
    * Treat this Doc as a group that can be compressed.
