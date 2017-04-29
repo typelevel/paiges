@@ -298,9 +298,14 @@ the spaces""")
   test("test json map example") {
     val kvs = (0 to 20).map { i => text("\"%s\": %s".format(s"key$i", i)) }
     val parts = Doc.fill(Doc.comma + Doc.lineOrSpace, kvs)
+
     val map = parts.bracketBy(Doc.text("{"), Doc.text("}"))
     assert(map.render(1000) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.mkString("{ ", ", ", " }"))
     assert(map.render(20) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.map("  " + _).mkString("{\n", ",\n", "\n}"))
+
+    val map2 = parts.bracketBy(Doc.text("{"), Doc.text("}"), spaces = false)
+    assert(map2.render(1000) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.mkString("{", ", ", "}"))
+    assert(map2.render(20) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.map("  " + _).mkString("{\n", ",\n", "\n}"))
   }
 
   test("Doc.repeat matches naive implementation") {

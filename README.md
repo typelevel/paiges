@@ -81,8 +81,8 @@ def mkCaseClass(name: String, fields: (String, String)*): Doc = {
   val types = fields.map { case (k, v) =>
     Doc.text(k) + Doc.char(':') + Doc.space + Doc.text(v)
   }
-  val body = Doc.intercalate(Doc.char(',') + Doc.lineOrSpace, types)
-  body.bracketBy(prefix, suffix)
+  val body = Doc.intercalate(Doc.char(',') + Doc.line, types)
+  body.bracketBy(prefix, suffix, spaces = false)
 }
 
 val c = mkCaseClass(
@@ -92,13 +92,7 @@ val c = mkCaseClass(
 c.render(80)
 // case class Dog(name: String, breed: String, height: Int, weight: Int)
 
-c.render(40)
-// case class Dog(
-//   name: String, breed: String,
-//   height: Int, weight: Int
-// )
-
-c.render(20)
+c.render(60)
 // case class Dog(
 //   name: String,
 //   breed: String,
