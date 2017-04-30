@@ -173,6 +173,6 @@ lazy val docs = project.in(file("docs"))
   .settings(tutSettings: _*)
   .settings(tutScalacOptions := {
     val testOptions = scalacOptions.in(test).value
-    val unwantedOptions = Set("-Ywarn-unused-import", "-Xfatal-warnings")
+    val unwantedOptions = Set("-Xlint", "-Xfatal-warnings")
     testOptions.filterNot(unwantedOptions)
   })
