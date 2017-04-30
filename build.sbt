@@ -93,8 +93,9 @@ lazy val paigesSettings = Seq(
         <url>http://github.com/non/</url>
       </developer>
     </developers>
-  )) ++ mimaDefaultSettings
-
+  ),
+  coverageMinimum := 60,
+  coverageFailOnMinimum := false) ++ mimaDefaultSettings
 
 def previousArtifact(proj: String) =
   "org.typelevel" %% s"paiges-$proj" % "0.1.0"
@@ -143,6 +144,7 @@ lazy val core = crossProject.crossType(CrossType.Pure)
   .settings(mimaPreviousArtifacts := Set(previousArtifact("core")))
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings:_*)
+  .jsSettings(coverageEnabled := false)
   .jvmSettings(commonJvmSettings:_*)
 
 lazy val coreJVM = core.jvm
@@ -160,6 +162,7 @@ lazy val cats = crossProject.crossType(CrossType.Pure)
   .settings(mimaPreviousArtifacts := Set(previousArtifact("cats")))
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings:_*)
+  .jsSettings(coverageEnabled := false)
   .jvmSettings(commonJvmSettings:_*)
 
 lazy val catsJVM = cats.jvm
@@ -170,6 +173,7 @@ lazy val benchmark = project.in(file("benchmark"))
   .settings(name := "paiges-benchmark")
   .settings(paigesSettings: _*)
   .settings(noPublish: _*)
+  .settings(coverageEnabled := false)
   .enablePlugins(JmhPlugin)
 
 lazy val docs = project.in(file("docs"))
