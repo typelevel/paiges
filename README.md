@@ -82,7 +82,7 @@ def mkCaseClass(name: String, fields: (String, String)*): Doc = {
     Doc.text(k) + Doc.char(':') + Doc.space + Doc.text(v)
   }
   val body = Doc.intercalate(Doc.char(',') + Doc.line, types)
-  body.bracketBy(prefix, suffix, spaces = false)
+  body.tightBracketBy(prefix, suffix)
 }
 
 val c = mkCaseClass(
