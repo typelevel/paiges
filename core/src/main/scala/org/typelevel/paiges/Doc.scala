@@ -108,16 +108,33 @@ sealed abstract class Doc extends Product with Serializable {
    * Bookend this Doc between the given Docs.
    *
    * If the documents (when flattened) all fit on one line, then
-   * newlines will be collapsed, spaces will be added if requested,
-   * and the document will render on one line.
+   * newlines will be collapsed, spaces will be added,
+   * and the document will render on one line. If you do not want
+   * a space, see tightBracketBy
    *
    * Otherwise, newlines will be used on either side of this document,
    * and the requested level of indentation will be added as well.
    */
-  def bracketBy(left: Doc, right: Doc, indent: Int = 2, spaces: Boolean = true): Doc = {
-    val line = if (spaces) Doc.line else Doc.lineBreak
-    Concat(left, Concat(Concat(line, this).nested(indent), Concat(line, right)).grouped)
-  }
+  def bracketBy(left: Doc, right: Doc, indent: Int = 2): Doc =
+    Concat(left,
+      Concat(Concat(Doc.line, this).nested(indent),
+      Concat(Doc.line, right)).grouped)
+
+  /**
+   * Bookend this Doc between the given Docs.
+   *
+   * If the documents (when flattened) all fit on one line, then
+   * newlines will be collapsed, without a space
+   * and the document will render on one line. If you want
+   * the newline to collapse to a space, see bracketBy.
+   *
+   * Otherwise, newlines will be used on either side of this document,
+   * and the requested level of indentation will be added as well.
+   */
+  def tightBracketBy(left: Doc, right: Doc, indent: Int = 2): Doc =
+    Concat(left,
+      Concat(Concat(Doc.lineBreak, this).nested(indent),
+      Concat(Doc.lineBreak, right)).grouped)
 
   /**
    * Treat this Doc as a group that can be compressed.

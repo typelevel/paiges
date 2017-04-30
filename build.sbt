@@ -1,5 +1,7 @@
 import ReleaseTransformations._
 
+import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
+
 lazy val noPublish = Seq(
   publish := {},
   publishLocal := {},
@@ -91,8 +93,11 @@ lazy val paigesSettings = Seq(
         <url>http://github.com/non/</url>
       </developer>
     </developers>
-  ))
+  )) ++ mimaDefaultSettings
 
+
+def previousArtifact(proj: String) =
+  "org.typelevel" %% s"paiges-$proj" % "0.1.0"
 
 lazy val commonJvmSettings = Seq(
   testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oDF"))
@@ -135,6 +140,7 @@ lazy val core = crossProject.crossType(CrossType.Pure)
   .settings(name := "paiges-core")
   .settings(moduleName := "paiges-core")
   .settings(paigesSettings: _*)
+  .settings(mimaPreviousArtifacts := Set(previousArtifact("core")))
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings:_*)
   .jvmSettings(commonJvmSettings:_*)
@@ -151,6 +157,7 @@ lazy val cats = crossProject.crossType(CrossType.Pure)
   .settings(libraryDependencies ++= Seq(
     "org.typelevel" %%% "cats-core" % "0.9.0",
     "org.typelevel" %%% "cats-kernel-laws" % "0.9.0" % Test))
+  .settings(mimaPreviousArtifacts := Set(previousArtifact("cats")))
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings:_*)
   .jvmSettings(commonJvmSettings:_*)
