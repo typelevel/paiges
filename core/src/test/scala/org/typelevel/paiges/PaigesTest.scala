@@ -17,17 +17,16 @@ object PaigesTest {
         Doc.equivAtWidths(widths).equiv(x, y)
       }
     }
-}
-
-class PaigesTest extends FunSuite {
-  import Generators._
-
-  import Doc.text
-  import PaigesTest.docEquiv
 
   implicit class EquivSyntax(lhs: Doc) {
     def ===(rhs: Doc): Boolean = docEquiv.equiv(lhs, rhs)
   }
+}
+
+class PaigesTest extends FunSuite {
+  import Generators._
+  import Doc.text
+  import PaigesTest._
 
   implicit val generatorDrivenConfig =
     PropertyCheckConfiguration(minSuccessful = 500)

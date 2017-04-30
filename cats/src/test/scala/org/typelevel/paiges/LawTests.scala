@@ -3,8 +3,12 @@ package org.typelevel.paiges
 import catalysts.Platform
 import catalysts.macros.TypeTagM // need this import for implicit macros
 
+import cats.Cartesian
+import cats.functor.Contravariant
 import cats.kernel.Eq
 import cats.kernel.laws._
+import cats.laws.discipline.{CartesianTests, ContravariantTests, SerializableTests}
+import cats.laws.discipline.eq.catsLawsEqForFn1
 
 import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.Discipline
@@ -24,7 +28,23 @@ class LawTests extends LawChecking {
 
   implicit def groupLaws[A: Eq: Arbitrary] = GroupLaws[A]
 
+  implicit def arbitraryForDocument[A]: Arbitrary[Document[A]] =
+    Arbitrary(Document.useToString[A])
+
+  implicit def eqForDocument[A: Arbitrary]: Eq[Document[A]] =
+    Eq.by[Document[A], A => Doc](inst => (a: A) => inst.document(a))
+
   laws[GroupLaws, Doc].check(_.monoid)
+
+  checkAll("Contravariant[Document]", ContravariantTests[Document].contravariant[Int, Int, Int])
+  checkAll("Contravariant[Document]", SerializableTests.serializable(Contravariant[Document]))
+
+  {
+    implicit val cartesianDocument: Cartesian[Document] =
+      Document.cartesianDocument(Doc.char(','))
+    checkAll("Cartesian[Document]", CartesianTests[Document].cartesian[Int, Int, Int])
+    checkAll("Cartesian[Document]", SerializableTests.serializable(Cartesian[Document]))
+  }
 }
 
 abstract class LawChecking extends FunSuite with Configuration with Discipline {

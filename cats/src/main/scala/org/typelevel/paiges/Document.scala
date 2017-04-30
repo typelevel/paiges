@@ -35,8 +35,9 @@ object Document {
   implicit val documentDouble: Document[Double] = useToString[Double]
 
   def documentIterable[A](name: String)(implicit ev: Document[A]): Document[Iterable[A]] =
-    Document.instance { s =>
-      (Doc.text(name) :+ "(").aligned + Doc.fill(Doc.comma + Doc.line, s.map(ev.document)) :+ ")"
+    Document.instance { xs =>
+      val body = Doc.fill(Doc.comma + Doc.line, xs.map(ev.document))
+      body.tightBracketBy(Doc.text(name) :+ "(", Doc.char(')'))
     }
 
   /**
