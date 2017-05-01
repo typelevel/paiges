@@ -89,6 +89,31 @@ the spaces""")
     }
   }
 
+  test("line is associative") {
+    forAll { (a: Doc, b: Doc, c: Doc) =>
+      assert(a.line(b).line(c) === a.line(b.line(c)))
+    }
+  }
+
+  test("lineOrSpace is associative") {
+    forAll { (a: Doc, b: Doc, c: Doc) =>
+      assert(a.lineOrSpace(b).lineOrSpace(c) === a.lineOrSpace(b.lineOrSpace(c)))
+    }
+  }
+
+  test("writeTo works") {
+    import java.io._
+    forAll { (doc: Doc, w: Int) =>
+      val baos = new ByteArrayOutputStream()
+      val pw = new PrintWriter(baos)
+      doc.writeTo(w, pw)
+      pw.close()
+      val s1 = baos.toString("UTF-8")
+      val s2 = doc.render(w)
+      assert(s1 == s2)
+    }
+  }
+
   test("empty does not change things") {
     forAll { (a: Doc) =>
       assert((a + Doc.empty) === a)
@@ -421,5 +446,27 @@ the spaces""")
                      |                                   callItem(z)""".stripMargin
 
     assert(Doc.tabulate(' ', " => ", caseMatch.map { case (s, d) => ("case " + s, d) }).render(20) == expected)
+  }
+
+  test("abbreviated Doc.tabulate works in an example case") {
+
+    val pairs = List(
+      "alpha: " -> Doc.text("the first item in the list"),
+      "beta: " -> Doc.text("another item;") / Doc.text("this one is longer"),
+      "gamma: " -> Doc.text("a third, uninteresting case"),
+      "delta: " -> Doc.text("a fourth,") / (Doc.text("multiline,") / Doc.text("indented")).nested(2) / Doc.text("case"),
+      "epsilon: " -> Doc.text("the ultimate case")
+    )
+
+    val expected = """alpha:   the first item in the list
+                     |beta:    another item;
+                     |         this one is longer
+                     |gamma:   a third, uninteresting case
+                     |delta:   a fourth,
+                     |         multiline,
+                     |           indented
+                     |         case
+                     |epsilon: the ultimate case""".stripMargin
+    assert(Doc.tabulate(pairs).render(40) == expected)
   }
 }
