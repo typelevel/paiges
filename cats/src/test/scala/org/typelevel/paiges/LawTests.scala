@@ -17,7 +17,7 @@ import org.scalactic.anyvals.{PosZDouble, PosInt, PosZInt}
 import org.scalatest.FunSuite
 import org.scalatest.prop.Configuration
 
-class LawTests extends LawChecking {
+class LawTests extends LawChecking with CatsDocument {
   import org.typelevel.paiges.Generators._
   import org.typelevel.paiges.instances._
 
@@ -41,7 +41,7 @@ class LawTests extends LawChecking {
 
   {
     implicit val cartesianDocument: Cartesian[Document] =
-      Document.cartesianDocument(Doc.char(','))
+      CatsDocument.cartesianDocument(Doc.char(','))
     checkAll("Cartesian[Document]", CartesianTests[Document].cartesian[Int, Int, Int])
     checkAll("Cartesian[Document]", SerializableTests.serializable(Cartesian[Document]))
   }

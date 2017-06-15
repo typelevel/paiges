@@ -97,8 +97,14 @@ lazy val paigesSettings = Seq(
   coverageMinimum := 60,
   coverageFailOnMinimum := false) ++ mimaDefaultSettings
 
-def previousArtifact(proj: String) =
-  "org.typelevel" %% s"paiges-$proj" % "0.1.0"
+def previousArtifact(version: String, proj: String) = {
+  val regex = "0\\.([0-9]+)\\.[0-9]+(-SNAPSHOT)?".r
+  version match {
+    case regex("1", _) => Set("org.typelevel" %% s"paiges-$proj" % "0.1.0")
+    case regex("2", _) => Set.empty[ModuleID]
+    case _ => throw new RuntimeException(s"Unexpected version: ${version}")
+  }
+}
 
 lazy val commonJvmSettings = Seq(
   testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oDF"))
@@ -141,7 +147,7 @@ lazy val core = crossProject.crossType(CrossType.Pure)
   .settings(name := "paiges-core")
   .settings(moduleName := "paiges-core")
   .settings(paigesSettings: _*)
-  .settings(mimaPreviousArtifacts := Set(previousArtifact("core")))
+  .settings(mimaPreviousArtifacts := previousArtifact(version.value, "core"))
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings:_*)
   .jsSettings(coverageEnabled := false)
@@ -159,7 +165,7 @@ lazy val cats = crossProject.crossType(CrossType.Pure)
   .settings(libraryDependencies ++= Seq(
     "org.typelevel" %%% "cats-core" % "0.9.0",
     "org.typelevel" %%% "cats-laws" % "0.9.0" % Test))
-  .settings(mimaPreviousArtifacts := Set(previousArtifact("cats")))
+  .settings(mimaPreviousArtifacts := previousArtifact(version.value, "cats"))
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings:_*)
   .jsSettings(coverageEnabled := false)
