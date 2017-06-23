@@ -49,4 +49,19 @@ object Document {
   object FromToString extends Document[Any] {
     def document(any: Any): Doc = Doc.text(any.toString)
   }
+
+  trait Ops[A] {
+    def instance: Document[A]
+    def self: A
+    def doc: Doc = instance.document(self)
+  }
+
+  trait ToDocumentOps {
+    implicit def toDocumentOps[A](target: A)(implicit tc: Document[A]): Ops[A] = new Ops[A] {
+      val instance: Document[A] = tc
+      val self: A = target
+    }
+  }
+
+  object ops extends ToDocumentOps
 }
