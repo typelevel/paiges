@@ -426,7 +426,7 @@ sealed abstract class Doc extends Product with Serializable {
     if (res._2) Some(res._1) else None
   }
 
-  // return the flattenen doc, and if it is different
+  // return the flattened doc, and if it is different
   private def flattenBoolean: (Doc, Boolean) = {
 
     type DB = (Doc, Boolean)
