@@ -825,6 +825,14 @@ object Doc {
     else foldDocs(ds) { (a, b) => Concat(a, Concat(sep, b)) }
 
   /**
+   * Concatenate the given documents together.
+   *
+   * `cat(ds)` is equivalent to `ds.foldLeft(empty)(_ + _)`
+   */
+  def cat(ds: Iterable[Doc]): Doc =
+    intercalate(empty, ds)
+
+  /**
    * Concatenate the given documents together, delimited by spaces.
    */
   def spread(ds: Iterable[Doc]): Doc =

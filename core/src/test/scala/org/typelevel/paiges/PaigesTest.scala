@@ -469,4 +469,8 @@ the spaces""")
                      |epsilon: the ultimate case""".stripMargin
     assert(Doc.tabulate(pairs).render(40) == expected)
   }
+
+  test("cat") {
+    assert(Doc.cat(List("1", "2", "3") map Doc.text).render(80) == "123")
+  }
 }
