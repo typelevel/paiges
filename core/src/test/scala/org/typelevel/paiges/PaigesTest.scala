@@ -152,8 +152,11 @@ the spaces""")
 
   test("space works as expected") {
     forAll { (a: String, b: String) =>
-      assert((text(a) space b).render(0) ==
-        s"$a $b")
+      val res = s"$a $b"
+      assert((text(a) space b).render(0) == res)
+      assert((text(a) & text(b)).render(0) == res)
+      assert((text(a) :& b).render(0) == res)
+      assert((a &: text(b)).render(0) == res)
     }
   }
 

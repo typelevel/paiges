@@ -91,6 +91,28 @@ sealed abstract class Doc extends Product with Serializable {
     this.space(Doc.text(that))
 
   /**
+   * Append the given Doc to this one, separated by a space.
+   */
+  def &(that: Doc): Doc =
+    this space that
+
+  /**
+   * Append the given String to this Doc, separated by a space.
+   *
+   * The expression `str &: d` is equivalent to `Doc.text(str) & d`.
+   */
+  def &:(that: String): Doc =
+    Doc.text(that) space this
+
+  /**
+   * Append the given String to this Doc, separated by a space.
+   *
+   * The expression `d :& str` is equivalent to `d & Doc.text(str)`.
+   */
+  def :&(that: String): Doc =
+    this space Doc.text(that)
+
+  /**
    * Append the given Doc to this one, using a space (if there is
    * enough room), or a newline otherwise.
    */
