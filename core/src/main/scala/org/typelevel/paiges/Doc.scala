@@ -204,6 +204,15 @@ sealed abstract class Doc extends Product with Serializable {
    */
   def nonEmpty: Boolean = !isEmpty
 
+  private def renderGen(width: Int, trim: Boolean): String = {
+    val bldr = new StringBuilder
+    val it = Chunk.best(width, this, trim)
+    while (it.hasNext) {
+      bldr.append(it.next)
+    }
+    bldr.toString
+  }
+
   /**
    * Render this Doc as a String, limiting line lengths to `width` or
    * shorter when possible.
@@ -212,14 +221,19 @@ sealed abstract class Doc extends Product with Serializable {
    * longer than `width` -- it just attempts to keep lines within this
    * length when possible.
    */
-  def render(width: Int): String = {
-    val bldr = new StringBuilder
-    val it = Chunk.best(width, this)
-    while (it.hasNext) {
-      bldr.append(it.next)
-    }
-    bldr.toString
-  }
+  def render(width: Int): String = renderGen(width, false)
+
+  /**
+   * Render this Doc as a String, limiting line lengths to `width` or
+   * shorter when possible.
+   *
+   * Note that this method does not guarantee there are no lines
+   * longer than `width` -- it just attempts to keep lines within this
+   * length when possible.
+   *
+   * Lines consisting of only indentation are represented by the empty string.
+   */
+  def renderTrim(width: Int): String = renderGen(width, true)
 
   /**
    * Render this Doc as a stream of strings, treating `width` in the
@@ -229,7 +243,19 @@ sealed abstract class Doc extends Product with Serializable {
    * `d.render(w)`.
    */
   def renderStream(width: Int): Stream[String] =
-    Chunk.best(width, this).toStream
+    Chunk.best(width, this, false).toStream
+
+  /**
+   * Render this Doc as a stream of strings, treating `width` in the
+   * same way as `render` does.
+   *
+   * The expression `d.renderStream(w).mkString` is equivalent to
+   * `d.render(w)`.
+   *
+   * Lines consisting of only indentation are represented by the empty string.
+   */
+  def renderStreamTrim(width: Int): Stream[String] =
+    Chunk.best(width, this, true).toStream
 
   /**
    * Render this Doc as a stream of strings, using
@@ -284,7 +310,7 @@ sealed abstract class Doc extends Product with Serializable {
   }
 
   /**
-   * Nest appends spaces to any newlines ocurring within this Doc.
+   * Nest appends spaces to any newlines occurring within this Doc.
    *
    * The effect of this is cumulative. For example, the expression
    * `x.nested(1).nested(2)` is equivalent to `x.nested(3)`.
@@ -308,6 +334,13 @@ sealed abstract class Doc extends Product with Serializable {
    */
   def aligned: Doc = Align(this)
 
+  private def writeToGen(width: Int, pw: PrintWriter, trim: Boolean): Unit = {
+    val it = Chunk.best(width, this, trim)
+    while(it.hasNext) {
+      pw.append(it.next)
+    }
+  }
+
   /**
    * Render this Doc at the given `width`, and write it to the given
    * PrintWriter.
@@ -318,12 +351,23 @@ sealed abstract class Doc extends Product with Serializable {
    * This method does not close `pw` or have any side-effects other
    * than the actual writing.
    */
-  def writeTo(width: Int, pw: PrintWriter): Unit = {
-    val it = Chunk.best(width, this)
-    while(it.hasNext) {
-      pw.append(it.next)
-    }
-  }
+  def writeTo(width: Int, pw: PrintWriter): Unit =
+    writeToGen(width, pw, false)
+
+  /**
+   * Render this Doc at the given `width`, and write it to the given
+   * PrintWriter.
+   *
+   * The expression `x.writeTo(w, pw)` is equivalent to
+   * `pw.print(x.render(w))`, but will usually be much more efficient.
+   *
+   * This method does not close `pw` or have any side-effects other
+   * than the actual writing.
+   *
+   * Lines consisting only of indentation are represented by the empty string.
+   */
+  def writeToTrim(width: Int, pw: PrintWriter): Unit =
+    writeToGen(width, pw, true)
 
   /**
    * Compute a hash code for this Doc.
@@ -882,7 +926,7 @@ object Doc {
    *
    * @param fill the character used to fill the columns to make the values aligned (i.e. ' ' or '.')
    * @param rightSep a string append left to the left of the value. Intended for use with bullets on values
-   * @param kv a List of key, value pairs to put in a table.
+   * @param rows a List of key, value pairs to put in a table.
    */
   def tabulate(fill: Char, rightSep: String, rows: Iterable[(String, Doc)]): Doc =
     if (rows.isEmpty) empty

@@ -7,17 +7,23 @@ private[paiges] object Chunk {
   /**
    * Given a width and Doc find the Iterator
    * of Chunks.
+   *
+   * A `trim` document is one where all lines consisting entirely of indentation are
+   * represented by the empty string.  Note that this does *not* in general include lines consisting
+   * solely of whitespace.  E.g. Doc.text(" ") will always insert a space, regardless
+   * of whether the document is trimmed or not.
    */
-  def best(w: Int, d: Doc): Iterator[String] = {
+  def best(w: Int, d: Doc, trim: Boolean): Iterator[String] = {
 
     val nonNegW = w max 0
 
     sealed abstract class ChunkStream
     object ChunkStream {
       case object Empty extends ChunkStream
-      case class Item(str: String, position: Int, stack: List[(Int, Doc)], isBreak: Boolean) extends ChunkStream {
+      case class Item(str: String, position: Int, cache: ChunkStream, stack: List[(Int, Doc)], isBreak: Boolean) extends ChunkStream {
+        def isLine: Boolean = str == null
         def stringChunk: String = if (isBreak) lineToStr(position) else str
-        private[this] var next: ChunkStream = null
+        private[this] var next: ChunkStream = cache
         def step: ChunkStream = {
           // do a cheap local computation.
           // lazy val is thread-safe, but more expensive
@@ -66,8 +72,19 @@ private[paiges] object Chunk {
       case (i, Doc.Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z)
       case (i, Doc.Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
       case (_, Doc.Align(d)) :: z => loop(pos, (pos, d) :: z)
-      case (i, Doc.Text(s)) :: z => ChunkStream.Item(s, pos + s.length, z, false)
-      case (i, Doc.Line(_)) :: z => ChunkStream.Item(null, i, z, true)
+      case (i, Doc.Text(s)) :: z => ChunkStream.Item(s, pos + s.length, null, z, false)
+      case (i, Doc.Line(_)) :: z =>
+        if (!trim) {
+          ChunkStream.Item(null, i, null, z, true)
+        } else {
+          // Look ahead to the next token.  If it's a line, left-flush this line.
+          val lookahead = cheat(pos, z)
+          lookahead match {
+            case ChunkStream.Empty => ChunkStream.Item(null, 0, lookahead, z, true)
+            case item: ChunkStream.Item if item.isLine => ChunkStream.Item(null, 0, lookahead, z, true)
+            case _ => ChunkStream.Item(null, i, lookahead, z, true)
+          }
+        }
       case (i, u@Doc.Union(x, _)) :: z =>
         /*
          * If we can fit the next line from x, we take it.
