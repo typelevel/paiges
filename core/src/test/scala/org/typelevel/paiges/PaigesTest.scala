@@ -114,6 +114,19 @@ the spaces""")
     }
   }
 
+  test("writeToTrim works") {
+    import java.io._
+    forAll { (doc: Doc, w: Int) =>
+      val baos = new ByteArrayOutputStream()
+      val pw = new PrintWriter(baos)
+      doc.writeToTrim(w, pw)
+      pw.close()
+      val s1 = baos.toString("UTF-8")
+      val s2 = doc.renderTrim(w)
+      assert(s1 == s2)
+    }
+  }
+
   test("empty does not change things") {
     forAll { (a: Doc) =>
       assert((a + Doc.empty) === a)
@@ -142,6 +155,34 @@ the spaces""")
     forAll(Gen.frequency((10, Gen.identifier), (1, Gen.const(" "))), Gen.choose(0, 100)) { (s, w) =>
       assert(Doc.split(s, s.r, Doc.text(s)).render(w) == s)
     }
+  }
+
+  test("dangling space 1") {
+    val d = Doc.stack(
+      List(
+        Doc.text("a"),
+        Doc.text("b"),
+        Doc.empty
+      )
+    ).nested(2)
+    val expected = "a\n  b\n"
+    assert(d.renderTrim(100) == expected)
+    assert(d.renderStreamTrim(100).mkString == expected)
+  }
+
+  test("dangling space 2") {
+    val d = Doc.stack(
+      List(
+        Doc.empty,
+        Doc.text("a"),
+        Doc.empty,
+        Doc.empty,
+        Doc.text("b")
+      )
+    ).nested(2)
+    val expected = "\n  a\n\n\n  b"
+    assert(d.renderTrim(100) == expected)
+    assert(d.renderStreamTrim(100).mkString == expected)
   }
 
   test("(a /: b)  works as expected") {
