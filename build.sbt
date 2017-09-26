@@ -98,7 +98,8 @@ lazy val paigesSettings = Seq(
   coverageFailOnMinimum := false) ++ mimaDefaultSettings
 
 def previousArtifact(version: String, proj: String) = {
-  val regex = "0\\.([0-9]+)\\.[0-9]+(-SNAPSHOT)?".r
+  // the "-dbuild..." part is for Scala community build friendliness
+  val regex = "0\\.([0-9]+)\\.[0-9]+(-SNAPSHOT|-dbuild[a-z0-9]*)?".r
   version match {
     case regex("1", _) => Set("org.typelevel" %% s"paiges-$proj" % "0.1.0")
     case regex("2", _) => Set.empty[ModuleID]
