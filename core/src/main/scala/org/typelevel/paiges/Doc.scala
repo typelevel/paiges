@@ -754,10 +754,10 @@ object Doc {
   }
 
   /**
-   *  Convert a string into a doc verbatim, preserving newlines.
+   * Convert a string into a doc verbatim, preserving newlines.
    *
-   *  Newlines will not be flattened despite .grouped and don't get
-   *  indentation despite .nested.
+   * Newlines will not be flattened despite .grouped and don't get
+   * indentation despite .nested.
    */
   def literal(str: String): Doc = {
     if (str == "") Empty
