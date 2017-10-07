@@ -73,6 +73,9 @@ private[paiges] object Chunk {
       case (i, Doc.Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
       case (_, Doc.Align(d)) :: z => loop(pos, (pos, d) :: z)
       case (i, Doc.Text(s)) :: z => ChunkStream.Item(s, pos + s.length, null, z, false)
+      case (_, l@Doc.Literal(s)) :: z =>
+        // isBreak=false because literal newlines have no indentation.
+        ChunkStream.Item(s, l.pos, null, z, false)
       case (i, Doc.Line(_)) :: z =>
         if (!trim) {
           ChunkStream.Item(null, i, null, z, true)

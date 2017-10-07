@@ -13,7 +13,7 @@ import scala.util.matching.Regex
  */
 sealed abstract class Doc extends Product with Serializable {
 
-  import Doc.{ Align, Empty, Text, Line, Nest, Concat, Union }
+  import Doc.{ Align, Empty, Text, Literal, Line, Nest, Concat, Union }
 
   /**
    * Append the given Doc to this one.
@@ -191,6 +191,8 @@ sealed abstract class Doc extends Product with Serializable {
         case Text(s) =>
           // shouldn't be empty by construction, but defensive
           s.isEmpty && loop(Empty, stack)
+        case Literal(s) =>
+          s.isEmpty && loop(Empty, stack)
         case Line(_) => false
         case Union(flattened, _) =>
           // flattening cannot change emptiness
@@ -271,6 +273,7 @@ sealed abstract class Doc extends Product with Serializable {
       case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
       case (i, Align(d)) :: z => loop(pos, (pos, d) :: z)
       case (i, Text(s)) :: z => s #:: cheat(pos + s.length, z)
+      case (i, l@Literal(s)) :: z => s #:: cheat(l.pos, z)
       case (i, Line(_)) :: z => Chunk.lineToStr(i) #:: cheat(i, z)
       case (i, Union(a, _)) :: z =>
         /*
@@ -422,6 +425,8 @@ sealed abstract class Doc extends Product with Serializable {
                   loop(tail, s"Line($f)" +: suffix)
                 case Text(s) =>
                   loop(tail, "Text(" +: s +: ")" +: suffix)
+                case Literal(s) =>
+                  loop(tail, "Literal(" +: s.replace('\n', '¶') +: ")" +: suffix)
                 case Nest(i, d) =>
                   loop(Left(d) :: Right(", ") :: Right(i.toString) :: Right("Nest(") :: tail, ")" +: suffix)
                 case Align(d) =>
@@ -446,8 +451,9 @@ sealed abstract class Doc extends Product with Serializable {
    * Convert this Doc to a single-line representation.
    *
    * All newlines are replaced with spaces (and optional indentation
-   * is ignored). The resulting Doc will never render any newlines, no
-   * matter what width is used.
+   * is ignored). The resulting Doc will never render any newlines for text
+   * docs, no matter what width is used. Newlines inside literal docs
+   * continue to be rendered as newlines.
    */
   def flatten: Doc = {
 
@@ -464,7 +470,7 @@ sealed abstract class Doc extends Product with Serializable {
     @tailrec
     def loop(h: Doc, stack: List[Doc], front: List[Doc]): Doc =
       h match {
-        case Empty | Text(_) =>
+        case Empty | Text(_) | Literal(_) =>
           stack match {
             case Nil => finish(h, front)
             case x :: xs => loop(x, xs, h :: front)
@@ -505,7 +511,7 @@ sealed abstract class Doc extends Product with Serializable {
     @tailrec
     def loop(h: DB, stack: List[DB], front: List[DB]): DB =
       h._1 match {
-        case Empty | Text(_) =>
+        case Empty | Text(_) | Literal(_) =>
           stack match {
             case Nil => finish(h, front)
             case x :: xs => loop(x, xs, h :: front)
@@ -556,6 +562,7 @@ sealed abstract class Doc extends Product with Serializable {
       case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z, max)
       case (i, Align(d)) :: z => loop(pos, (pos, d) :: z, max)
       case (i, Text(s)) :: z => loop(pos + s.length, z, max)
+      case (i, l@Literal(_)) :: z => loop(l.pos, z, max)
       case (i, Line(_)) :: z => loop(i, z, math.max(max, pos))
       case (i, Union(a, _)) :: z =>
         // we always go left, take the widest branch
@@ -585,6 +592,15 @@ object Doc {
    * The string must not be empty, and may not contain newlines.
    */
   private[paiges] case class Text(str: String) extends Doc
+
+  /**
+   * Same as Text except the string must contain a newline.
+   *
+   * Newlines don't flatten and don't get indentation.
+   */
+  private[paiges] case class Literal(str: String) extends Doc {
+    lazy val pos: Int = str.length - str.lastIndexOf('\n') - 1
+  }
 
   /**
    * Represents a concatenation of two documents.
@@ -735,6 +751,18 @@ object Doc {
     }
     else if (str.indexOf('\n') < 0) Text(str)
     else parse(str.length - 1, str.length, Empty)
+  }
+
+  /**
+   * Convert a string into a doc verbatim, preserving newlines.
+   *
+   * Newlines will not be flattened despite .grouped and don't get
+   * indentation despite .nested.
+   */
+  def literal(str: String): Doc = {
+    if (str == "") Empty
+    else if (str.indexOf('\n') < 0) text(str)
+    else Literal(str)
   }
 
   /**

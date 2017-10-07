@@ -304,7 +304,7 @@ the spaces""")
   test("the left and right side of a union are the same after flattening") {
     import Doc._
     def okay(d: Doc): Boolean = d match {
-      case Empty | Text(_) | Line(_) => true
+      case Empty | Text(_) | Line(_) | Literal(_) => true
       case Concat(a, b) => okay(a) && okay(b)
       case Nest(j, d) => okay(d)
       case Align(d) => okay(d)
@@ -322,6 +322,7 @@ the spaces""")
       case Line(_) => (true, 0)
       case Empty => (false, 0)
       case Text(s) => (false, s.length)
+      case l@Literal(_) => (false, l.pos)
       case Nest(j, d) => nextLineLength(d) // nesteding only matters AFTER the next line
       case Align(d) => nextLineLength(d) // aligning only matters AFTER the next line
       case Concat(a, b) =>
@@ -334,7 +335,7 @@ the spaces""")
     }
 
     def okay(d: Doc): Boolean = d match {
-      case Empty | Text(_) | Line(_) => true
+      case Empty | Text(_) | Line(_) | Literal(_) => true
       case Nest(j, d) => okay(d)
       case Align(d) => okay(d)
       case Concat(a, b) => okay(a) && okay(b)
