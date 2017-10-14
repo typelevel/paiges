@@ -199,6 +199,15 @@ the spaces""")
     assert(d.renderStreamTrim(100).mkString == expected)
   }
 
+  test("renderTrim trims a single line") {
+    import Doc._
+    val d = Text("a   ")
+    val expected = "a"
+    assert(d.renderTrim(100) == expected)
+    assert(d.renderTrim(100) == slowRenderTrim(d, 100))
+    assert(d.renderStreamTrim(100).mkString == expected)
+  }
+
   test("renderStreamTrim and renderTrim are consistent") {
     forAll { (d: Doc, width0: Int) =>
       val width = width0 & 0xFFF
@@ -211,7 +220,6 @@ the spaces""")
     forAll { (d: Doc) =>
       val trim = d.renderTrim(100)
       val slowTrim = slowRenderTrim(d, 100)
-
       assert(trim == slowTrim, s"input=${d.representation().render(100)}")
     }
   }
