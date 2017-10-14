@@ -158,7 +158,7 @@ the spaces""")
   }
 
   def slowRenderTrim(d: Doc, width: Int): String = {
-    val parts = d.render(100).split("\n", -1).toList
+    val parts = d.render(width).split("\n", -1).toList
     parts match {
       case Nil => sys.error("unreachable")
       case other =>
