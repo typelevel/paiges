@@ -7,11 +7,6 @@ private[paiges] object Chunk {
   /**
    * Given a width and Doc find the Iterator
    * of Chunks.
-   *
-   * A `trim` document is one where all lines consisting entirely of indentation are
-   * represented by the empty string.  Note that this does *not* in general include lines consisting
-   * solely of whitespace.  E.g. Doc.text(" ") will always insert a space, regardless
-   * of whether the document is trimmed or not.
    */
   def best(w: Int, d: Doc, trim: Boolean): Iterator[String] = {
 
@@ -20,10 +15,10 @@ private[paiges] object Chunk {
     sealed abstract class ChunkStream
     object ChunkStream {
       case object Empty extends ChunkStream
-      case class Item(str: String, position: Int, cache: ChunkStream, stack: List[(Int, Doc)], isBreak: Boolean) extends ChunkStream {
+      case class Item(str: String, position: Int, stack: List[(Int, Doc)], isBreak: Boolean) extends ChunkStream {
         def isLine: Boolean = str == null
         def stringChunk: String = if (isBreak) lineToStr(position) else str
-        private[this] var next: ChunkStream = cache
+        private[this] var next: ChunkStream = _
         def step: ChunkStream = {
           // do a cheap local computation.
           // lazy val is thread-safe, but more expensive
@@ -49,6 +44,46 @@ private[paiges] object Chunk {
         res
       }
     }
+
+    class TrimChunkIterator(var current: ChunkStream) extends Iterator[String] {
+      private val lineCombiner = new TrimChunkIterator.LineCombiner
+      def hasNext: Boolean = current != ChunkStream.Empty || lineCombiner.nonEmpty
+      def next: String = current match {
+        case ChunkStream.Empty => lineCombiner.finalLine()
+        case item: ChunkStream.Item =>
+          current = item.step
+          lineCombiner.addItem(item) getOrElse next
+      }
+    }
+
+    object TrimChunkIterator {
+      class LineCombiner {
+        private var line: StringBuilder = new StringBuilder
+        def nonEmpty: Boolean = line.nonEmpty
+        def finalLine(): String = {
+          val res = line.toString
+          line = new StringBuilder
+          LineCombiner.trim(res)
+        }
+        def addItem(item: ChunkStream.Item): Option[String] =
+          if (item.isBreak) {
+            val v = LineCombiner.trim(line.toString)
+            line = new StringBuilder(lineToStr(item.position))
+            Some(v)
+          } else {
+            line.append(item.str)
+            None
+          }
+      }
+      object LineCombiner {
+        private def trim(s: String) = {
+          var ind = s.length
+          while (ind >= 1 && s.charAt(ind - 1) == ' ') ind = ind - 1
+          s.substring(0, ind)
+        }
+      }
+    }
+
     /*
      * Return the length of this line if it fits
      */
@@ -72,19 +107,8 @@ private[paiges] object Chunk {
       case (i, Doc.Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z)
       case (i, Doc.Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
       case (_, Doc.Align(d)) :: z => loop(pos, (pos, d) :: z)
-      case (i, Doc.Text(s)) :: z => ChunkStream.Item(s, pos + s.length, null, z, false)
-      case (i, Doc.Line(_)) :: z =>
-        if (!trim) {
-          ChunkStream.Item(null, i, null, z, true)
-        } else {
-          // Look ahead to the next token.  If it's a line, left-flush this line.
-          val lookahead = cheat(pos, z)
-          lookahead match {
-            case ChunkStream.Empty => ChunkStream.Item(null, 0, lookahead, z, true)
-            case item: ChunkStream.Item if item.isLine => ChunkStream.Item(null, 0, lookahead, z, true)
-            case _ => ChunkStream.Item(null, i, lookahead, z, true)
-          }
-        }
+      case (i, Doc.Text(s)) :: z => ChunkStream.Item(s, pos + s.length, z, false)
+      case (i, Doc.Line(_)) :: z => ChunkStream.Item(null, i, z, true)
       case (i, u@Doc.Union(x, _)) :: z =>
         /*
          * If we can fit the next line from x, we take it.
@@ -103,7 +127,8 @@ private[paiges] object Chunk {
     def cheat(pos: Int, lst: List[(Int, Doc)]) =
       loop(pos, lst)
 
-    new ChunkIterator(loop(0, (0, d) :: Nil))
+    val stream = loop(0, (0, d) :: Nil)
+    if (trim) new TrimChunkIterator(stream) else new ChunkIterator(stream)
   }
 
   private[this] final val indentMax = 100
