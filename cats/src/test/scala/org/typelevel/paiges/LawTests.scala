@@ -3,11 +3,11 @@ package org.typelevel.paiges
 import catalysts.Platform
 import catalysts.macros.TypeTagM // need this import for implicit macros
 
-import cats.Cartesian
-import cats.functor.Contravariant
-import cats.kernel.Eq
-import cats.kernel.laws._
-import cats.laws.discipline.{CartesianTests, ContravariantTests, SerializableTests}
+import cats.Semigroupal
+import cats.Contravariant
+import cats.kernel.{Eq, Monoid}
+import cats.laws.discipline.{SemigroupalTests, ContravariantTests, SerializableTests}
+import cats.kernel.laws.discipline.MonoidTests
 import cats.laws.discipline.eq.catsLawsEqForFn1
 
 import org.typelevel.discipline.Laws
@@ -26,7 +26,7 @@ class LawTests extends LawChecking with CatsDocument {
       PaigesTest.docEquiv.equiv(x, y)
     }
 
-  implicit def groupLaws[A: Eq: Arbitrary] = GroupLaws[A]
+  implicit def monoidTests[A: Eq: Arbitrary: Monoid] = MonoidTests[A]
 
   implicit def arbitraryForDocument[A]: Arbitrary[Document[A]] =
     Arbitrary(Document.useToString[A])
@@ -34,16 +34,16 @@ class LawTests extends LawChecking with CatsDocument {
   implicit def eqForDocument[A: Arbitrary]: Eq[Document[A]] =
     Eq.by[Document[A], A => Doc](inst => (a: A) => inst.document(a))
 
-  laws[GroupLaws, Doc].check(_.monoid)
+  laws[MonoidTests, Doc].check(_.monoid)
 
   checkAll("Contravariant[Document]", ContravariantTests[Document].contravariant[Int, Int, Int])
   checkAll("Contravariant[Document]", SerializableTests.serializable(Contravariant[Document]))
 
   {
-    implicit val cartesianDocument: Cartesian[Document] =
-      CatsDocument.cartesianDocument(Doc.char(','))
-    checkAll("Cartesian[Document]", CartesianTests[Document].cartesian[Int, Int, Int])
-    checkAll("Cartesian[Document]", SerializableTests.serializable(Cartesian[Document]))
+    implicit val semigroupalDocument: Semigroupal[Document] =
+      CatsDocument.semigroupalDocument(Doc.char(','))
+    checkAll("Semigroupal[Document]", SemigroupalTests[Document].semigroupal[Int, Int, Int])
+    checkAll("Semigroupal[Document]", SerializableTests.serializable(Semigroupal[Document]))
   }
 }
 
