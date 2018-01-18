@@ -164,8 +164,8 @@ lazy val cats = crossProject.crossType(CrossType.Pure)
   .settings(moduleName := "paiges-cats")
   .settings(paigesSettings: _*)
   .settings(libraryDependencies ++= Seq(
-    "org.typelevel" %%% "cats-core" % "0.9.0",
-    "org.typelevel" %%% "cats-laws" % "0.9.0" % Test))
+    "org.typelevel" %%% "cats-core" % "1.0.1",
+    "org.typelevel" %%% "cats-laws" % "1.0.1" % Test))
   .settings(mimaPreviousArtifacts := previousArtifact(version.value, "cats"))
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings:_*)
