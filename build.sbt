@@ -9,8 +9,8 @@ lazy val noPublish = Seq(
 
 lazy val paigesSettings = Seq(
   organization := "org.typelevel",
-  scalaVersion := "2.12.2",
-  crossScalaVersions := Seq("2.10.6", "2.11.11", "2.12.2"),
+  scalaVersion := "2.12.4",
+  crossScalaVersions := Seq("2.10.7", "2.11.12", "2.12.4"),
   libraryDependencies ++= Seq(
     "org.scalatest" %%% "scalatest" % "3.0.1" % Test,
     "org.scalacheck" %%% "scalacheck" % "1.13.5" % Test),
@@ -53,7 +53,7 @@ lazy val paigesSettings = Seq(
     publishArtifacts,
     setNextVersion,
     commitNextVersion,
-    ReleaseStep(action = Command.process("sonatypeReleaseAll", _)),
+    releaseStepCommand("sonatypeReleaseAll"),
     pushChanges),
   publishTo := {
     val nexus = "https://oss.sonatype.org/"
@@ -113,8 +113,7 @@ lazy val commonJvmSettings = Seq(
 lazy val commonJsSettings = Seq(
   scalaJSStage in Global := FastOptStage,
   parallelExecution := false,
-  requiresDOM := false,
-  jsEnv := NodeJSEnv().value,
+  jsEnv := new org.scalajs.jsenv.nodejs.NodeJSEnv(),
   // batch mode decreases the amount of memory needed to compile scala.js code
   scalaJSOptimizerOptions := scalaJSOptimizerOptions.value.withBatchMode(scala.sys.env.get("TRAVIS").isDefined))
 
@@ -188,8 +187,8 @@ lazy val docs = project.in(file("docs"))
   .settings(name := "paiges-docs")
   .settings(paigesSettings: _*)
   .settings(noPublish: _*)
-  .settings(tutSettings: _*)
-  .settings(tutScalacOptions := {
+  .enablePlugins(TutPlugin)
+  .settings(scalacOptions in Tut := {
     val testOptions = scalacOptions.in(test).value
     val unwantedOptions = Set("-Xlint", "-Xfatal-warnings")
     testOptions.filterNot(unwantedOptions)

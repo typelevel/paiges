@@ -1,47 +1,46 @@
 matrix:
   include:
-    - scala: 2.10.6
+    - scala: 2.10.7
       language: scala
       jdk: oraclejdk8
       env: PLATFORM="jvm"
-      script: sbt coverage coreJVM/test catsJVM/test docs/tut doc mimaReportBinaryIssues coverageReport && codecov
+      script: sbt "++ ${TRAVIS_SCALA_VERSION}!" coverage coreJVM/test catsJVM/test docs/tut doc mimaReportBinaryIssues coverageReport && codecov
 
-    - scala: 2.10.6
+    - scala: 2.10.7
       language: scala
       jdk: oraclejdk8
       env: PLATFORM="js"
-      script: sbt coreJS/test catsJS/test
+      script: sbt "++ ${TRAVIS_SCALA_VERSION}!" coreJS/test catsJS/test
 
-    - scala: 2.11.8
+    - scala: 2.11.12
       language: scala
       jdk: oraclejdk8
       env: PLATFORM="jvm"
-      script: sbt coverage coreJVM/test catsJVM/test docs/tut doc mimaReportBinaryIssues coverageReport && codecov
+      script: sbt "++ ${TRAVIS_SCALA_VERSION}!" coverage coreJVM/test catsJVM/test docs/tut doc mimaReportBinaryIssues coverageReport && codecov
 
-    - scala: 2.11.8
+    - scala: 2.11.12
       language: scala
       jdk: oraclejdk8
       env: PLATFORM="js"
-      script: sbt coreJS/test catsJS/test doc
+      script: sbt "++ ${TRAVIS_SCALA_VERSION}!" coreJS/test catsJS/test doc
 
-    - scala: 2.12.1
+    - scala: 2.12.4
       language: scala
       jdk: oraclejdk8
       env: PLATFORM="jvm"
-      script: sbt coverage coreJVM/test catsJVM/test docs/tut doc mimaReportBinaryIssues coverageReport && codecov
+      script: sbt "++ ${TRAVIS_SCALA_VERSION}!" coverage coreJVM/test catsJVM/test docs/tut doc mimaReportBinaryIssues coverageReport && codecov
 
-    - scala: 2.12.1
+    - scala: 2.12.4
       language: scala
       jdk: oraclejdk8
       env: PLATFORM="js"
-      script: sbt coreJS/test catsJS/test
+      script: sbt "++ ${TRAVIS_SCALA_VERSION}!" coreJS/test catsJS/test
 
 install:
  - pip install --user codecov
 
 cache:
   directories:
-  - $HOME/.sbt/0.13/dependency
   - $HOME/.sbt/boot/scala*
   - $HOME/.sbt/launchers
   - $HOME/.ivy2/cache
