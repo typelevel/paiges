@@ -24,13 +24,13 @@ matrix:
       env: PLATFORM="js"
       script: sbt "++ ${TRAVIS_SCALA_VERSION}!" coreJS/test catsJS/test doc
 
-    - scala: 2.12.4
+    - scala: 2.12.6
       language: scala
       jdk: oraclejdk8
       env: PLATFORM="jvm"
       script: sbt "++ ${TRAVIS_SCALA_VERSION}!" coverage coreJVM/test catsJVM/test docs/tut doc mimaReportBinaryIssues coverageReport && codecov
 
-    - scala: 2.12.4
+    - scala: 2.12.6
       language: scala
       jdk: oraclejdk8
       env: PLATFORM="js"
