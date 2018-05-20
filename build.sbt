@@ -9,10 +9,10 @@ lazy val noPublish = Seq(
 
 lazy val paigesSettings = Seq(
   organization := "org.typelevel",
-  scalaVersion := "2.12.4",
-  crossScalaVersions := Seq("2.10.7", "2.11.12", "2.12.4"),
+  scalaVersion := "2.12.6",
+  crossScalaVersions := Seq("2.10.7", "2.11.12", "2.12.6"),
   libraryDependencies ++= Seq(
-    "org.scalatest" %%% "scalatest" % "3.0.1" % Test,
+    "org.scalatest" %%% "scalatest" % "3.0.5" % Test,
     "org.scalacheck" %%% "scalacheck" % "1.13.5" % Test),
   scalacOptions ++= Seq(
     "-deprecation",
@@ -163,8 +163,8 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform).crossType(CrossType.Pure)
   .settings(moduleName := "paiges-cats")
   .settings(paigesSettings: _*)
   .settings(libraryDependencies ++= Seq(
-    "org.typelevel" %%% "cats-core" % "1.0.1",
-    "org.typelevel" %%% "cats-laws" % "1.0.1" % Test))
+    "org.typelevel" %%% "cats-core" % "1.1.0",
+    "org.typelevel" %%% "cats-laws" % "1.1.0" % Test))
   .settings(mimaPreviousArtifacts := previousArtifact(version.value, "cats"))
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings:_*)
