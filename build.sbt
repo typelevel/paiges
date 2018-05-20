@@ -1,5 +1,5 @@
 import ReleaseTransformations._
-
+import sbtcrossproject.{crossProject, CrossType}
 import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
 
 lazy val noPublish = Seq(
@@ -142,7 +142,7 @@ lazy val paigesJS = project
   .dependsOn(coreJS, catsJS)
   .enablePlugins(ScalaJSPlugin)
 
-lazy val core = crossProject.crossType(CrossType.Pure)
+lazy val core = crossProject(JSPlatform, JVMPlatform).crossType(CrossType.Pure)
   .in(file("core"))
   .settings(name := "paiges-core")
   .settings(moduleName := "paiges-core")
@@ -156,7 +156,7 @@ lazy val core = crossProject.crossType(CrossType.Pure)
 lazy val coreJVM = core.jvm
 lazy val coreJS = core.js
 
-lazy val cats = crossProject.crossType(CrossType.Pure)
+lazy val cats = crossProject(JSPlatform, JVMPlatform).crossType(CrossType.Pure)
   .in(file("cats"))
   .dependsOn(core % "compile->compile;test->test")
   .settings(name := "paiges-cats")
