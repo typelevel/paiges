@@ -24,6 +24,15 @@ matrix:
       env: PLATFORM="js"
       script: sbt "++ ${TRAVIS_SCALA_VERSION}!" coreJS/test catsJS/test doc
 
+    - scala: 2.11.12
+      language: scala
+      jdk: oraclejdk8
+      env: PLATFORM="native"
+      sudo: required
+      before_install:
+      - curl https://raw.githubusercontent.com/scala-native/scala-native/d1b17c78b7e1a/scripts/travis_setup.sh | bash -
+      script: sbt "++ ${TRAVIS_SCALA_VERSION}!" coreNative/test
+
     - scala: 2.12.6
       language: scala
       jdk: oraclejdk8

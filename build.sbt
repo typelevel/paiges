@@ -7,13 +7,12 @@ lazy val noPublish = Seq(
   publishLocal := {},
   publishArtifact := false)
 
+val Scala211 = "2.11.12"
+
 lazy val paigesSettings = Seq(
   organization := "org.typelevel",
   scalaVersion := "2.12.6",
-  crossScalaVersions := Seq("2.10.7", "2.11.12", "2.12.6"),
-  libraryDependencies ++= Seq(
-    "org.scalatest" %%% "scalatest" % "3.0.5" % Test,
-    "org.scalacheck" %%% "scalacheck" % "1.13.5" % Test),
+  crossScalaVersions := Seq("2.10.7", Scala211, "2.12.6"),
   scalacOptions ++= Seq(
     "-deprecation",
     "-encoding", "UTF-8",
@@ -142,7 +141,7 @@ lazy val paigesJS = project
   .dependsOn(coreJS, catsJS)
   .enablePlugins(ScalaJSPlugin)
 
-lazy val core = crossProject(JSPlatform, JVMPlatform).crossType(CrossType.Pure)
+lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform).crossType(CrossType.Pure)
   .in(file("core"))
   .settings(name := "paiges-core")
   .settings(moduleName := "paiges-core")
@@ -152,9 +151,27 @@ lazy val core = crossProject(JSPlatform, JVMPlatform).crossType(CrossType.Pure)
   .jsSettings(commonJsSettings:_*)
   .jsSettings(coverageEnabled := false)
   .jvmSettings(commonJvmSettings:_*)
+  .platformsSettings(JVMPlatform, JSPlatform)(
+    libraryDependencies ++= Seq(
+      "org.scalatest" %%% "scalatest" % "3.0.5" % Test,
+      "org.scalacheck" %%% "scalacheck" % "1.13.5" % Test
+    )
+  )
+  .nativeSettings(
+    scalaVersion := Scala211,
+    crossScalaVersions := Seq(Scala211),
+    nativeLinkStubs := true,
+    sources in Test ~= {
+      _.filter(f => Set("JsonTest.scala", "PaigesTest.scala").contains(f.getName))
+    },
+    libraryDependencies ++= Seq(
+      "org.scalatest" %%% "scalatest" % "3.2.0-SNAP10" % Test
+    )
+  )
 
 lazy val coreJVM = core.jvm
 lazy val coreJS = core.js
+lazy val coreNative = core.native
 
 lazy val cats = crossProject(JSPlatform, JVMPlatform).crossType(CrossType.Pure)
   .in(file("cats"))

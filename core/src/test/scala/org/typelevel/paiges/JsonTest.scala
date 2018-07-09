@@ -23,8 +23,11 @@ object Json {
   case class JString(str: String) extends Json {
     def toDoc = text("\"%s\"".format(escape(str)))
   }
-  case class JNumber(toDouble: Double) extends Json {
+  case class JDouble(toDouble: Double) extends Json {
     def toDoc = str(toDouble)
+  }
+  case class JInt(toInt: Int) extends Json {
+    def toDoc = str(toInt)
   }
   case class JBool(toBoolean: Boolean) extends Json {
     def toDoc = str(toBoolean)
@@ -53,11 +56,10 @@ class JsonTest extends FunSuite {
   import Json._
 
   test("test nesteded array json example") {
-    val inner = JArray((1 to 20).map { i => JNumber(i.toDouble) }.toVector)
+    val inner = JArray((1 to 20).map { i => JInt(i) }.toVector)
     val outer = JArray(Vector(inner, inner, inner))
 
-    if (1.0.toString == "1") {
-      assert(outer.toDoc.render(20) == """[
+    assert(outer.toDoc.render(20) == """[
   [ 1, 2, 3, 4, 5,
     6, 7, 8, 9, 10,
     11, 12, 13, 14,
@@ -73,37 +75,5 @@ class JsonTest extends FunSuite {
     11, 12, 13, 14,
     15, 16, 17, 18,
     19, 20 ] ]""")
-
-
-    } else {
-      assert(outer.toDoc.render(20) == """[
-  [ 1.0, 2.0, 3.0,
-    4.0, 5.0, 6.0,
-    7.0, 8.0, 9.0,
-    10.0, 11.0,
-    12.0, 13.0,
-    14.0, 15.0,
-    16.0, 17.0,
-    18.0, 19.0,
-    20.0 ],
-  [ 1.0, 2.0, 3.0,
-    4.0, 5.0, 6.0,
-    7.0, 8.0, 9.0,
-    10.0, 11.0,
-    12.0, 13.0,
-    14.0, 15.0,
-    16.0, 17.0,
-    18.0, 19.0,
-    20.0 ],
-  [ 1.0, 2.0, 3.0,
-    4.0, 5.0, 6.0,
-    7.0, 8.0, 9.0,
-    10.0, 11.0,
-    12.0, 13.0,
-    14.0, 15.0,
-    16.0, 17.0,
-    18.0, 19.0,
-    20.0 ] ]""")
-    }
   }
 }
