@@ -107,7 +107,7 @@ def previousArtifact(version: String, proj: String) = {
 }
 
 lazy val commonJvmSettings = Seq(
-  testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oDF"))
+  testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oD"))
 
 lazy val commonJsSettings = Seq(
   scalaJSStage in Global := FastOptStage,
