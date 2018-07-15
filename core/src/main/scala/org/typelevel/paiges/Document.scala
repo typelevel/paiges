@@ -33,7 +33,7 @@ object Document {
 
   def documentIterable[A](name: String)(implicit ev: Document[A]): Document[Iterable[A]] =
     Document.instance { xs =>
-      val body = Doc.fill(Doc.comma + Doc.line, xs.map(ev.document))
+      val body = Doc.fill(Doc.comma + Doc.line, xs.map(ev.document)).get /* ??? */
       body.tightBracketBy(Doc.text(name) :+ "(", Doc.char(')'))
     }
 

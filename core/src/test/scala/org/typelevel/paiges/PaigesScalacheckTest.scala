@@ -173,7 +173,7 @@ class PaigesScalacheckTest extends FunSuite {
      * flatten(c) + b.grouped == (flatten(c) + b).grouped
      */
     forAll { (b: Doc, c: Doc) =>
-      val flatC = c.flatten
+      val flatC = c.flatten.get
       val left = (b.grouped + flatC)
       val right = (b + flatC).grouped
       assert(left === right)
@@ -184,18 +184,18 @@ class PaigesScalacheckTest extends FunSuite {
   }
   test("flatten(group(a)) == flatten(a)") {
     forAll { (a: Doc) =>
-      assert(a.grouped.flatten === a.flatten)
+      assert(a.grouped.flatten.get === a.flatten.get)
     }
   }
   test("a.flatten == a.flatten.flatten") {
     forAll { (a: Doc) =>
-      val aflat = a.flatten
-      assert(aflat === aflat.flatten)
+      val aflat = a.flatten.get
+      assert(aflat === aflat.flatten.get)
     }
   }
   test("a.flatten == a.flattenOption.getOrElse(a)") {
     forAll { (a: Doc) =>
-      assert(a.flatten === a.flattenOption.getOrElse(a))
+      assert(a.flatten.get === a.flattenOption.getOrElse(a))
     }
   }
 
@@ -207,7 +207,7 @@ class PaigesScalacheckTest extends FunSuite {
       case Nest(j, d) => okay(d)
       case Align(d) => okay(d)
       case u@Union(a, _) =>
-        (a.flatten === u.bDoc.flatten) && okay(a) && okay(u.bDoc)
+        (a.flatten.get === u.bDoc.flatten.get) && okay(a) && okay(u.bDoc)
     }
 
     forAll { (a: Doc) => assert(okay(a)) }

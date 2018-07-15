@@ -18,6 +18,8 @@ object Generators {
     (1, Doc.empty),
     (1, Doc.space),
     (1, Doc.line),
+//    (1, Doc.line2),
+//    (1, Doc.line3),
     (1, Doc.lineBreak),
     (1, Doc.lineOrSpace),
     (10, asciiString.map(text(_))),
@@ -43,7 +45,7 @@ object Generators {
   val folds: Gen[(List[Doc] => Doc)] =
     Gen.oneOf(
     doc0Gen.map { sep =>
-      { ds: List[Doc] => Doc.fill(sep, ds.take(8)) }
+      { ds: List[Doc] => Doc.fill(sep, ds.take(8)).get }
     },
     Gen.const({ ds: List[Doc] => Doc.spread(ds) }),
     Gen.const({ ds: List[Doc] => Doc.stack(ds) }))
