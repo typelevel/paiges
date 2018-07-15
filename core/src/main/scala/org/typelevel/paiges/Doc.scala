@@ -814,7 +814,7 @@ object Doc {
             // flaty == y but reassociated
             def cont(resty: Doc) = {
               val first = Concat(flatx, Concat(flatSep, resty))
-              val second = Concat(x, Concat(sep, resty))
+              def second = Concat(x, Concat(sep, resty))
               // note that first != second
               Union(first, () => second)
             }
