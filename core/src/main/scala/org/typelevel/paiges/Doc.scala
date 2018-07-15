@@ -443,44 +443,6 @@ sealed abstract class Doc extends Product with Serializable {
   }
 
   /**
-   * Convert this Doc to a single-line representation.
-   *
-   * All newlines are replaced with spaces (and optional indentation
-   * is ignored). The resulting Doc will never render any newlines, no
-   * matter what width is used.
-   */
-  def flatten: Doc = {
-
-    /*
-     * Note after this, docs are right associated.
-     * Also note the left side of a grouped is always
-     * flattened, this means the "fits" branch in rendering
-     * always has a right associated Doc which means it is O(w)
-     * to find if you can fit in width w.
-     */
-    def finish(d: Doc, front: List[Doc]): Doc =
-      front.foldLeft(d) { (res, f) => Concat(f, res) }
-
-    @tailrec
-    def loop(h: Doc, stack: List[Doc], front: List[Doc]): Doc =
-      h match {
-        case Empty | Text(_) =>
-          stack match {
-            case Nil => finish(h, front)
-            case x :: xs => loop(x, xs, h :: front)
-          }
-        case l@Line(_) =>
-          val next = l.asFlatDoc
-          loop(next, stack, front)
-        case Nest(i, d) => loop(d, stack, front) // no Line, so Nest is irrelevant
-        case Align(d) => loop(d, stack, front) // no Line, so Align is irrelevant
-        case Union(a, _) => loop(a, stack, front) // invariant: flatten(union(a, b)) == flatten(a)
-        case Concat(a, b) => loop(a, b :: stack, front)
-      }
-    loop(this, Nil, Nil)
-  }
-
-  /**
    * This method is similar to flatten, but returns None if no
    * flattening was needed (i.e. if no newlines or unions were present).
    *
@@ -491,6 +453,8 @@ sealed abstract class Doc extends Product with Serializable {
     val res = flattenBoolean
     if (res._2) Some(res._1) else None
   }
+
+  def flatten = flattenOption getOrElse this
 
   // return the flattened doc, and if it is different
   private def flattenBoolean: (Doc, Boolean) = {
