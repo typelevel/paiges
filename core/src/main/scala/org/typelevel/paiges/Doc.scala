@@ -165,9 +165,11 @@ sealed abstract class Doc extends Product with Serializable {
    * is enough room. Otherwise, the Doc will be rendered as-is.
    */
   def grouped: Doc = {
-    val (flattened, changed) = flattenBoolean
-    if (changed) Union(flattened, () => this)
-    else flattened
+    flattenBoolean.fold(this) {
+      case (flattened, changed) =>
+        if (changed) Union(flattened, () => this)
+        else flattened
+    }
   }
 
   /**
@@ -449,7 +451,7 @@ sealed abstract class Doc extends Product with Serializable {
    * is ignored). The resulting Doc will never render any newlines, no
    * matter what width is used.
    */
-  def flatten: Doc = {
+  def flatten: Option[Doc] = {
 
     /*
      * Note after this, docs are right associated.
@@ -462,16 +464,17 @@ sealed abstract class Doc extends Product with Serializable {
       front.foldLeft(d) { (res, f) => Concat(f, res) }
 
     @tailrec
-    def loop(h: Doc, stack: List[Doc], front: List[Doc]): Doc =
+    def loop(h: Doc, stack: List[Doc], front: List[Doc]): Option[Doc] =
       h match {
         case Empty | Text(_) =>
           stack match {
-            case Nil => finish(h, front)
+            case Nil => Some(finish(h, front))
             case x :: xs => loop(x, xs, h :: front)
           }
         case l@Line(_) =>
           val next = l.asFlatDoc
-          loop(next, stack, front)
+          if (next eq Doc.line) None
+          else loop(next, stack, front)
         case Nest(i, d) => loop(d, stack, front) // no Line, so Nest is irrelevant
         case Align(d) => loop(d, stack, front) // no Line, so Align is irrelevant
         case Union(a, _) => loop(a, stack, front) // invariant: flatten(union(a, b)) == flatten(a)
@@ -488,12 +491,11 @@ sealed abstract class Doc extends Product with Serializable {
    * newlines, no matter what width is used.
    */
   def flattenOption: Option[Doc] = {
-    val res = flattenBoolean
-    if (res._2) Some(res._1) else None
+    flattenBoolean.withFilter(_._2).map(_._1)
   }
 
   // return the flattened doc, and if it is different
-  private def flattenBoolean: (Doc, Boolean) = {
+  private def flattenBoolean: Option[(Doc, Boolean)] = {
 
     type DB = (Doc, Boolean)
 
@@ -503,19 +505,22 @@ sealed abstract class Doc extends Product with Serializable {
       }
 
     @tailrec
-    def loop(h: DB, stack: List[DB], front: List[DB]): DB =
+    def loop(h: DB, stack: List[DB], front: List[DB]): Option[DB] =
       h._1 match {
         case Empty | Text(_) =>
           stack match {
-            case Nil => finish(h, front)
+            case Nil => Some(finish(h, front))
             case x :: xs => loop(x, xs, h :: front)
           }
         case l@Line(_) =>
           val next = l.asFlatDoc
-          val change = (next, true)
-          stack match {
-            case Nil => finish(change, front)
-            case x :: xs => loop(x, xs, change :: front)
+          if (next eq Doc.line) None
+          else {
+            val change = (next, true)
+            stack match {
+              case Nil => Some(finish(change, front))
+              case x :: xs => loop(x, xs, change :: front)
+            }
           }
         case Nest(i, d) =>
           /*
@@ -577,8 +582,12 @@ object Doc {
    * Represents a single, literal newline.
    * if flattenToSpace == true, flatten returns space else empty
    */
-  private[paiges] case class Line(flattenToSpace: Boolean) extends Doc {
-    def asFlatDoc: Doc = if (flattenToSpace) Doc.space else Doc.empty
+  private[paiges] case class Line(options: Line.Options) extends Doc {
+    def asFlatDoc: Doc = options.asFlatDoc
+  }
+  object Line {
+    def apply(doc: Doc): Line = Line(Options(doc, indent = true))
+    case class Options(asFlatDoc: Doc, indent: Boolean)
   }
 
   /**
@@ -649,7 +658,14 @@ object Doc {
    * You might also @see lineBreak if you want a line that
    * is flattened into empty
    */
-  val line: Doc = Line(true)
+  val line: Doc = Line(space)
+
+  /** Line that does not flatten, but respects nesting. */
+  val lineNoFlat: Doc = Line(Line.Options(line, indent = true))
+
+  /** Line that does not flatten, and does not respect nesting. */
+  val lineNoFlatNoIndent: Doc = Line(Line.Options(line, indent = false))
+
   /**
    * A lineBreak is a line that is flattened into
    * an empty Doc. This is generally useful in code
@@ -658,7 +674,7 @@ object Doc {
    *
    * when we call `.grouped` on lineBreak we get lineOrEmpty
    */
-  val lineBreak: Doc = Line(false)
+  val lineBreak: Doc = Line(empty)
 
   /**
    * lineOrSpace renders a space if we can fit the rest
@@ -774,14 +790,15 @@ object Doc {
    *     doc.render(6)  // produces "1, 2,\n3"
    *     doc.render(10) // produces "1, 2, 3"
    */
-  def fill(sep: Doc, ds: Iterable[Doc]): Doc = {
-
-    val flatSep = sep.flatten
+  def fill(sep: Doc, ds: Iterable[Doc]): Option[Doc] = {
+    val flatSepOpt = sep.flatten
+    if (flatSepOpt.isEmpty) return None
+    val flatSep = flatSepOpt.get
     val sepGroup = sep.grouped
 
     @tailrec
-    def fillRec(x: Doc, lst: List[Doc], stack: List[Doc => Doc]): Doc = lst match {
-      case Nil => call(x, stack)
+    def fillRec(x: Doc, lst: List[Doc], stack: List[Doc => Doc]): Option[Doc] = lst match {
+      case Nil => Some(call(x, stack))
       case y :: tail =>
 
         /*
@@ -798,14 +815,22 @@ object Doc {
          * This is exactly the motivation for keeping the second
          * parameter of Union lazy.
          */
-        val (flaty, changedy) = y.flattenBoolean
-        val (flatx, changedx) = x.flattenBoolean
+        val (flaty, changedy) = {
+          val res = y.flattenBoolean
+          if (res.isEmpty) return None
+          else res.get
+        }
+        val (flatx, changedx) = {
+          val res = x.flattenBoolean
+          if (res.isEmpty) return None
+          res.get
+        }
 
         (changedx, changedy) match {
           case (true, true) =>
             def cont(resty: Doc) = {
               val first = Concat(flatx, Concat(flatSep, resty))
-              def second = Concat(x, Concat(sep, cheatRec(y, tail)))
+              def second = Concat(x, Concat(sep, cheatRec(y, tail).get /* ??? */))
               // note that first != second
               Union(first, () => second)
             }
@@ -823,7 +848,7 @@ object Doc {
             // flatx == x but reassociated
             def cont(resty: Doc) = {
               val first = Concat(flatx, Concat(flatSep, resty))
-              def second = Concat(flatx, Concat(sep, cheatRec(y, tail)))
+              def second = Concat(flatx, Concat(sep, cheatRec(y, tail).get /* ??? */))
               // note that first != second
               Union(first, () => second)
             }
@@ -835,11 +860,11 @@ object Doc {
         }
     }
 
-    def cheatRec(x: Doc, lst: List[Doc]): Doc =
+    def cheatRec(x: Doc, lst: List[Doc]): Option[Doc] =
       fillRec(x, lst, Nil)
 
     ds.toList match {
-      case Nil => Empty
+      case Nil => Some(Empty)
       case h :: tail => fillRec(h, tail, Nil)
     }
   }

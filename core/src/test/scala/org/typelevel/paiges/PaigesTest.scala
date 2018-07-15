@@ -2,6 +2,8 @@ package org.typelevel.paiges
 
 import org.scalatest.FunSuite
 import scala.util.Random
+import org.scalatest.prop.PropertyChecks._
+import Generators._
 
 object PaigesTest {
   implicit val docEquiv: Equiv[Doc] =
@@ -130,7 +132,7 @@ the spaces""")
      *   (a * n * (b * s * c) | (b * n * c))
      */
     val first = Doc.paragraph("a b c")
-    val second = Doc.fill(Doc.lineOrSpace, List("a", "b", "c").map(Doc.text))
+    val second = Doc.fill(Doc.lineOrSpace, List("a", "b", "c").map(Doc.text)).get
     /*
      * I think this fails perhaps because of the way fill constructs
      * Unions. It violates a stronger invariant that Union(a, b)
@@ -162,7 +164,7 @@ the spaces""")
 
   test("test json map example") {
     val kvs = (0 to 20).map { i => text("\"%s\": %s".format(s"key$i", i)) }
-    val parts = Doc.fill(Doc.comma + Doc.lineOrSpace, kvs)
+    val parts = Doc.fill(Doc.comma + Doc.lineOrSpace, kvs).get
 
     val map = parts.bracketBy(Doc.text("{"), Doc.text("}"))
     assert(map.render(1000) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.mkString("{ ", ", ", " }"))
@@ -206,7 +208,7 @@ the spaces""")
   test("fill example") {
     import Doc.{ comma, text, fill }
     val ds = text("1") :: text("2") :: text("3") :: Nil
-    val doc = fill(comma + Doc.line, ds)
+    val doc = fill(comma + Doc.line, ds).get
 
     assert(doc.render(0) == "1,\n2,\n3")
     assert(doc.render(6) == "1, 2,\n3")

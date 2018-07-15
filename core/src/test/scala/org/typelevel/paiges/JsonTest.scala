@@ -46,7 +46,7 @@ object Json {
       val kvs = toMap.map { case (s, j) =>
         JString(s).toDoc + text(":") + ((Doc.lineOrSpace + j.toDoc).nested(2))
       }
-      val parts = Doc.fill(Doc.comma, kvs)
+      val parts = Doc.fill(Doc.comma, kvs).get
       parts.bracketBy(text("{"), text("}"))
     }
   }
