@@ -518,18 +518,8 @@ sealed abstract class Doc extends Product with Serializable {
             case x :: xs => loop(x, xs, change :: front)
           }
         case Nest(i, d) =>
-          /*
-           * This is different from flatten which always strips
-           * the Nest node. This will return None if there is
-           * no embedded Line inside
-           */
           loop((d, h._2), stack, front) // no Line, so Nest is irrelevant
         case Align(d) =>
-          /*
-           * This is different from flatten which always strips
-           * the Align node. This will return None if there is
-           * no embedded Line inside
-           */
           loop((d, h._2), stack, front) // no Line, so Align is irrelevant
         case Union(a, _) => loop((a, true), stack, front) // invariant: flatten(union(a, b)) == flatten(a)
         case Concat(a, b) => loop((a, h._2), (b, h._2) :: stack, front)
