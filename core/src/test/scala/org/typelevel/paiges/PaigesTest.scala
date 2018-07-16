@@ -34,7 +34,7 @@ object PaigesTest {
 }
 
 class PaigesTest extends FunSuite {
-  import Doc.text
+  import Doc.{line, text}
   import PaigesTest._
 
   test("basic test") {
@@ -42,7 +42,7 @@ class PaigesTest extends FunSuite {
   }
 
   test("nested test") {
-    assert((text("yo") + (text("yo\nho\nho").nested(2))).render(100) ==
+    assert((text("yo") + (text("yo") + line + text("ho") + line + text("ho")).nested(2)).render(100) ==
 """yoyo
   ho
   ho""")
