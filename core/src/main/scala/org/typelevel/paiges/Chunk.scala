@@ -109,7 +109,8 @@ private[paiges] object Chunk {
       case (_, Doc.Align(d)) :: z => loop(pos, (pos, d) :: z)
       case (i, Doc.Text(s)) :: z => ChunkStream.Item(s, pos + s.length, z, false)
       case (i, Doc.Line(_)) :: z => ChunkStream.Item(null, i, z, true)
-      case (i, u@Doc.Union(x, _)) :: z =>
+      case (i, l@Doc.LazyDoc(_)) :: z => loop(pos, (i, l.evaluated) :: z)
+      case (i, Doc.Union(x, y)) :: z =>
         /*
          * If we can fit the next line from x, we take it.
          */
@@ -121,7 +122,7 @@ private[paiges] object Chunk {
          * to find if you can fit in width w.
          */
         if (fits(pos, first)) first
-        else loop(pos, (i, u.bDoc) :: z)
+        else loop(pos, (i, y) :: z)
     }
 
     def cheat(pos: Int, lst: List[(Int, Doc)]) =

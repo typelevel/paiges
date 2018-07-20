@@ -13,7 +13,7 @@ import scala.util.matching.Regex
  */
 sealed abstract class Doc extends Product with Serializable {
 
-  import Doc.{ Align, Empty, Text, Line, Nest, Concat, Union }
+  import Doc.{ Align, Empty, Text, Line, LazyDoc, Nest, Concat, Union }
 
   /**
    * Append the given Doc to this one.
@@ -166,7 +166,7 @@ sealed abstract class Doc extends Product with Serializable {
    */
   def grouped: Doc = {
     val (flattened, changed) = flattenBoolean
-    if (changed) Union(flattened, () => this)
+    if (changed) Union(flattened, this)
     else flattened
   }
 
@@ -192,6 +192,7 @@ sealed abstract class Doc extends Product with Serializable {
           // shouldn't be empty by construction, but defensive
           s.isEmpty && loop(Empty, stack)
         case Line(_) => false
+        case l@LazyDoc(_) => loop(l.evaluated, stack)
         case Union(flattened, _) =>
           // flattening cannot change emptiness
           loop(flattened, stack)
@@ -272,6 +273,7 @@ sealed abstract class Doc extends Product with Serializable {
       case (i, Align(d)) :: z => loop(pos, (pos, d) :: z)
       case (i, Text(s)) :: z => s #:: cheat(pos + s.length, z)
       case (i, Line(_)) :: z => Chunk.lineToStr(i) #:: cheat(i, z)
+      case (i, l@LazyDoc(_)) :: z => loop(pos, (i, l.evaluated) :: z)
       case (i, Union(a, _)) :: z =>
         /*
          * if we are infinitely wide, a always fits
@@ -403,11 +405,11 @@ sealed abstract class Doc extends Product with Serializable {
    * constructed), as well as the contents of every text node.
    *
    * By default, only the left side of union nodes is displayed. If
-   * `forceUnions = true` is passed, then both sides of the union are
-   * rendered (making this potentially-expensive method even more
+   * `forceLazy = true` is passed, then any LazyDoc nodes are
+   * evaluated (making this potentially-expensive method even more
    * expensive).
    */
-  def representation(forceUnions: Boolean = false): Doc = {
+  def representation(forceLazy: Boolean = false): Doc = {
     @tailrec def loop(stack: List[Either[Doc, String]], suffix: Doc): Doc =
       stack match {
         case head :: tail =>
@@ -428,12 +430,11 @@ sealed abstract class Doc extends Product with Serializable {
                   loop(Left(d) :: Right("Align(") :: tail, ")" +: suffix)
                 case Concat(x, y) =>
                   loop(Left(y) :: Right(", ") :: Left(x) :: Right("Concat(") :: tail, ")" +: suffix)
+                case l@LazyDoc(_) =>
+                  if (forceLazy) loop(Left(l.evaluated) :: tail, suffix)
+                  else loop(tail, "LazyDoc(() => ...)" +: suffix)
                 case Union(x, y) =>
-                  if (forceUnions) {
-                    loop(Left(y()) :: Right(", ") :: Left(x) :: Right("Union(") :: tail, ")" +: suffix)
-                  } else {
-                    loop(Left(x) :: Right("Union(") :: tail, ", ...)" +: suffix)
-                  }
+                  loop(Left(y) :: Right(", ") :: Left(x) :: Right("Union(") :: tail, ")" +: suffix)
               }
           }
         case Nil =>
@@ -461,7 +462,7 @@ sealed abstract class Doc extends Product with Serializable {
    * is ignored). The resulting Doc will never render any newlines, no
    * matter what width is used.
    */
-  def flatten: Doc = flattenOption getOrElse this
+  def flatten: Doc = flattenBoolean._1
 
   // return the flattened doc, and if it is different
   private def flattenBoolean: (Doc, Boolean) = {
@@ -492,6 +493,7 @@ sealed abstract class Doc extends Product with Serializable {
           loop((d, h._2), stack, front) // no Line, so Nest is irrelevant
         case Align(d) =>
           loop((d, h._2), stack, front) // no Line, so Align is irrelevant
+        case l@LazyDoc(_) => loop((l.evaluated, h._2), stack, front)
         case Union(a, _) => loop((a, true), stack, front) // invariant: flatten(union(a, b)) == flatten(a)
         case Concat(a, b) => loop((a, h._2), (b, h._2) :: stack, front)
       }
@@ -518,6 +520,7 @@ sealed abstract class Doc extends Product with Serializable {
       case (i, Align(d)) :: z => loop(pos, (pos, d) :: z, max)
       case (i, Text(s)) :: z => loop(pos + s.length, z, max)
       case (i, Line(_)) :: z => loop(i, z, math.max(max, pos))
+      case (i, l@LazyDoc(_)) :: z => loop(pos, (i, l.evaluated) :: z, max)
       case (i, Union(a, _)) :: z =>
         // we always go left, take the widest branch
         loop(pos, (i, a) :: z, max)
@@ -564,6 +567,10 @@ object Doc {
    */
   private[paiges] case class Align(doc: Doc) extends Doc
 
+  private[paiges] case class LazyDoc(generate: () => Doc) extends Doc {
+    lazy val evaluated: Doc = generate()
+  }
+
   /**
    * Represents an optimistic rendering (on the left) as well as a
    * fallback rendering (on the right) if the first line of the left
@@ -579,14 +586,20 @@ object Doc {
    * any Concat nodes to maintain efficiency in rendering. This
    * is currently done by flatten/flattenOption
    */
-  private[paiges] case class Union(a: Doc, b: () => Doc) extends Doc {
-    lazy val bDoc: Doc = b()
-  }
+  private[paiges] case class Union(a: Doc, b: Doc) extends Doc
 
   private[this] val maxSpaceTable = 20
 
   private[this] val spaceArray: Array[Text] =
     (1 to maxSpaceTable).map { i => Text(" " * i) }.toArray
+
+
+  /**
+   * Defer creation of a Doc until absolutely needed.
+   * This is useful in some recursive algorithms
+   */
+  def defer(d: => Doc): Doc =
+    LazyDoc(d _)
 
   /**
    * Produce a document of exactly `n` spaces.
@@ -755,9 +768,8 @@ object Doc {
          *
          * which is exponential in n (O(2^n))
          *
-         * Making the second parameter in the union lazy fixes this.
-         * This is exactly the motivation for keeping the second
-         * parameter of Union lazy.
+         * Making the recursion in the second parameter of the union fixes this.
+         * This is the motivation for defer/LazyDoc.
          */
         val (flaty, changedy) = y.flattenBoolean
         val (flatx, changedx) = x.flattenBoolean
@@ -766,27 +778,28 @@ object Doc {
           case (true, true) =>
             def cont(resty: Doc) = {
               val first = Concat(flatx, Concat(flatSep, resty))
-              def second = Concat(x, Concat(sep, cheatRec(y, tail)))
+              val second = Concat(x, Concat(sep, defer(cheatRec(y, tail))))
               // note that first != second
-              Union(first, () => second)
+              Union(first, second)
             }
             fillRec(flaty, tail, (cont _) :: stack)
           case (true, false) =>
             // flaty == y but reassociated
             def cont(resty: Doc) = {
               val first = Concat(flatx, Concat(flatSep, resty))
+              // no need to make second lazy here
               val second = Concat(x, Concat(sep, resty))
               // note that first != second
-              Union(first, () => second)
+              Union(first, second)
             }
             fillRec(flaty, tail, (cont _) :: stack)
           case (false, true) =>
             // flatx == x but reassociated
             def cont(resty: Doc) = {
               val first = Concat(flatx, Concat(flatSep, resty))
-              def second = Concat(flatx, Concat(sep, cheatRec(y, tail)))
+              val second = Concat(flatx, Concat(sep, defer(cheatRec(y, tail))))
               // note that first != second
-              Union(first, () => second)
+              Union(first, second)
             }
             fillRec(flaty, tail, (cont _) :: stack)
           case (false, false) =>
