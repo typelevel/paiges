@@ -567,7 +567,10 @@ object Doc {
    */
   private[paiges] case class Align(doc: Doc) extends Doc
 
-  private[paiges] case class LazyDoc(generate: () => Doc) extends Doc {
+  /**
+   * Invariant: generate is referentially transparent
+   */
+  private[paiges] case class LazyDoc(private val generate: () => Doc) extends Doc {
     lazy val evaluated: Doc = generate()
   }
 
