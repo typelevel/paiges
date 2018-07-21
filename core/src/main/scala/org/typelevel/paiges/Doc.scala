@@ -584,7 +584,9 @@ object Doc {
    *
    * Additionally, the left side (a) MUST be right associated with
    * any Concat nodes to maintain efficiency in rendering. This
-   * is currently done by flatten/flattenOption
+   * is currently done by flatten/flattenOption.
+   *
+   * Finally, we have the invariant a != b.
    */
   private[paiges] case class Union(a: Doc, b: Doc) extends Doc
 
