@@ -173,7 +173,7 @@ sealed abstract class Doc extends Product with Serializable {
   /**
    * Returns true if all renders return the empty string
    */
-  def isEmpty: Boolean = {
+  private[paiges] def isEmpty: Boolean = {
     @tailrec def loop(doc: Doc, stack: List[Doc]): Boolean =
       doc match {
         case Empty => stack match {
@@ -203,7 +203,7 @@ sealed abstract class Doc extends Product with Serializable {
   /**
    * d.nonEmpty == !d.isEmpty
    */
-  def nonEmpty: Boolean = !isEmpty
+  private[paiges] def nonEmpty: Boolean = !isEmpty
 
   private def renderGen(width: Int, trim: Boolean): String = {
     val bldr = new StringBuilder
@@ -510,7 +510,7 @@ sealed abstract class Doc extends Product with Serializable {
    * an upper-bound on widths that produce distinct renderings, but
    * not a least upper-bound.
    */
-  def maxWidth: Int = {
+  private[paiges] def maxWidth: Int = {
     @tailrec
     def loop(pos: Int, lst: List[(Int, Doc)], max: Int): Int = lst match {
       case Nil => math.max(max, pos)
@@ -649,14 +649,14 @@ object Doc {
   /**
    * Order documents by how they render at the given width.
    */
-  def orderingAtWidth(w: Int): Ordering[Doc] =
+  private[paiges] def orderingAtWidth(w: Int): Ordering[Doc] =
     Ordering.by((d: Doc) => d.render(w))
 
   /**
    * Require documents to be equivalent at all the given widths, as
    * well as at their "wide" renderings.
    */
-  def equivAtWidths(widths: List[Int]): Equiv[Doc] =
+  private[paiges] def equivAtWidths(widths: List[Int]): Equiv[Doc] =
     new Equiv[Doc] {
       def equiv(x: Doc, y: Doc): Boolean = {
         widths.forall(w => x.render(w) == y.render(w)) &&
