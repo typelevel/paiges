@@ -206,7 +206,7 @@ class PaigesScalacheckTest extends FunSuite {
       case Concat(a, b) => okay(a) && okay(b)
       case Nest(j, d) => okay(d)
       case Align(d) => okay(d)
-      case l@LazyDoc(_) => okay(l.evaluated)
+      case LazyDoc(d) => okay(d.evaluated)
       case Union(a, b) =>
         (a.flatten === b.flatten) && okay(a) && okay(b)
     }
@@ -229,7 +229,7 @@ class PaigesScalacheckTest extends FunSuite {
           val (d2, l2) = nextLineLength(b)
           (d2, l2 + l)
         } else r1
-      case l@LazyDoc(_) => nextLineLength(l.evaluated)
+      case LazyDoc(d) => nextLineLength(d.evaluated)
       case Union(a, _) => nextLineLength(a) // assume the property is true
     }
 
@@ -238,7 +238,7 @@ class PaigesScalacheckTest extends FunSuite {
       case Nest(j, d) => okay(d)
       case Align(d) => okay(d)
       case Concat(a, b) => okay(a) && okay(b)
-      case l@LazyDoc(_) => okay(l.evaluated)
+      case LazyDoc(d) => okay(d.evaluated)
       case Union(a, b) =>
         nextLineLength(a)._2 >= nextLineLength(b)._2
     }
