@@ -254,4 +254,46 @@ the spaces""")
   test("cat") {
     assert(Doc.cat(List("1", "2", "3") map Doc.text).render(80) == "123")
   }
+
+  test("Scala whitespace-sensitivity 1") {
+    import Document.ops._
+    import Doc._
+
+    val origStr =
+      """y match {
+        |  case foo => 5
+        |  case bar => 6
+        |}""".stripMargin
+
+    val case1 = "case".doc :& "foo" :& "=>" & 5.doc
+    val case2 = "case".doc :& "bar" :& "=>" & 6.doc
+    val inner = (case1 + hardLine + case2).aligned
+    val orig = "y".doc :& "match" & "{".doc + (lineOrSpace + inner).nested(2) + lineOrSpace + "}".doc
+    assert(orig.render(6) == origStr)
+
+    val flatStr =
+      """y match { case foo => 5
+        |          case bar => 6 }""".stripMargin
+
+    assert(orig.render(100) == flatStr)
+    assert(orig.grouped.render(100) == flatStr)
+  }
+
+  test("Scala whitespace-sensitivity 2") {
+    import Document.ops._
+    import Doc._
+
+    val origStr =
+      """val y = '''
+        |a
+        |  b
+        |    c
+        |'''""".stripMargin
+
+    val q3 = "'''"
+    val orig = ("val".doc :& "y" :& "=" :& q3) + (hardLine :+ "a") + (hardLine + spaces(2) :+ "b") + (hardLine + spaces(4) :+ "c") + hardLine :+ q3
+    assert(orig.render(10) == origStr)
+    assert(orig.grouped.render(10) == origStr)
+  }
+
 }
