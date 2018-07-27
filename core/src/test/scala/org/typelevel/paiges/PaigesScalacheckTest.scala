@@ -162,6 +162,12 @@ class PaigesScalacheckTest extends FunSuite {
     }
   }
 
+  test("c.flatten + d.flatten == (c + d).flatten") {
+    forAll { (c: Doc, d: Doc) =>
+      c.flatten + d.flatten === (c + d).flatten
+    }
+  }
+
   test("group law") {
     /**
      * group(x) = (x' | x) where x' is flatten(x)
@@ -196,6 +202,12 @@ class PaigesScalacheckTest extends FunSuite {
   test("a.flatten == a.flattenOption.getOrElse(a)") {
     forAll { (a: Doc) =>
       assert(a.flatten === a.flattenOption.getOrElse(a))
+    }
+  }
+
+  test("a.aligned.aligned == a.aligned") {
+    forAll { a: Doc =>
+      assert(a.aligned.aligned === a.aligned)
     }
   }
 
