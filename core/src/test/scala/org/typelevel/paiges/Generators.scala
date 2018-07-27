@@ -92,6 +92,11 @@ object Generators {
   implicit val arbDoc: Arbitrary[Doc] =
     Arbitrary(genDoc)
 
+  implicit val nonEmptyUnionGen: Gen[Doc.Union] =
+    genDoc.map(_.grouped).filter(d => d.isUnion && !d.isEmpty).map(_.asInstanceOf[Doc.Union])
+
+  implicit val arbNonEmptyUnion: Arbitrary[Doc.Union] = Arbitrary(nonEmptyUnionGen)
+
   implicit val cogenDoc: Cogen[Doc] =
     Cogen[Int].contramap((d: Doc) => d.hashCode)
 
@@ -118,4 +123,12 @@ object Generators {
       case Line(_) | Empty | LazyDoc(_) => Stream.empty
     }
   }
+
+  final case class ReasonableWidth(n: Int) extends AnyVal
+
+  implicit val reasonableWidthGen: Gen[ReasonableWidth] =
+    Gen.oneOf(Gen.const(Int.MaxValue), Gen.choose(1, 200)).map(ReasonableWidth)
+
+  implicit val arbReasonableWidth: Arbitrary[ReasonableWidth] =
+    Arbitrary(reasonableWidthGen)
 }

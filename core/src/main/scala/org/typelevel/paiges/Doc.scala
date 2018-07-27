@@ -126,6 +126,11 @@ sealed abstract class Doc extends Product with Serializable {
   def lineOrSpace(that: String): Doc =
     lineOrSpace(Doc.text(that))
 
+  private[paiges] def isUnion: Boolean = this match {
+    case Union(_, _) => true
+    case _ => false
+  }
+
   /**
    * Bookend this Doc between the given Docs.
    *
@@ -576,19 +581,22 @@ object Doc {
   /**
    * Represents an optimistic rendering (on the left) as well as a
    * fallback rendering (on the right) if the first line of the left
-   * is too long.
+   * is too long.  More precisely, in `Union(a, b)`, we have the
+   * invariants:
    *
-   * There is an additional invariant on Union: `flatten(a) == flatten(b)`.
+   * - `a` consists entirely of {`Empty`, `Text`, `Concat`} nodes.
+   *   As a result, for all N, `a.renderStream(N).length == 1` unless there are no Text
+   *   nodes, in which case `a.renderStream(N).length == 0`.
+   * - `a.flatten == a == b.flatten`
+   * - `a != b`
+   * - `a` is right-associated with respect to `Concat` nodes to
+   *   maintain efficiency in rendering.
+   * - `a`'s single line is longer than the first line of `b` at all widths.
+   *   More precisely, for all N, `a.renderStream(N).head.length >= b.renderStream(N).head.length`
    *
-   * By construction all `Union` nodes have this property; to preserve
+   * By construction all `Union` nodes have these properties; to preserve
    * this we don't expose the `Union` constructor directly, but only
    * the `.grouped` method on Doc.
-   *
-   * Additionally, the left side (a) MUST be right associated with
-   * any Concat nodes to maintain efficiency in rendering. This
-   * is currently done by flatten/flattenOption.
-   *
-   * Finally, we have the invariant a != b.
    */
   private[paiges] case class Union(a: Doc, b: Doc) extends Doc
 
