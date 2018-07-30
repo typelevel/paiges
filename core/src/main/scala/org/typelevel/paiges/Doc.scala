@@ -752,74 +752,9 @@ object Doc {
    *     doc.render(6)  // produces "1, 2,\n3"
    *     doc.render(10) // produces "1, 2, 3"
    */
-  def fill(sep: Doc, ds: Iterable[Doc]): Doc = {
-
-    val flatSep = sep.flatten
-    val sepGroup = sep.grouped
-
-    @tailrec
-    def fillRec(x: Doc, lst: List[Doc], stack: List[Doc => Doc]): Doc = lst match {
-      case Nil => call(x, stack)
-      case y :: tail =>
-
-        /*
-         * The cost of this algorithm c(n) for list of size n.
-         * note that c(n) = 2 * c(n-1) + k
-         * for some constant.
-         * so, c(n) - c(n-1) = c(n-1) + k
-         * which means that
-         * c(n) = (0 until n).map(c(_)).sum + nk
-         *
-         * which is exponential in n (O(2^n))
-         *
-         * Making the recursion in the second parameter of the union fixes this.
-         * This is the motivation for defer/LazyDoc.
-         */
-        val (flaty, changedy) = y.flattenBoolean
-        val (flatx, changedx) = x.flattenBoolean
-
-        (changedx, changedy) match {
-          case (true, true) =>
-            def cont(resty: Doc) = {
-              val first = Concat(flatx, Concat(flatSep, resty))
-              val second = Concat(x, Concat(sep, defer(cheatRec(y, tail))))
-              // note that first != second
-              Union(first, second)
-            }
-            fillRec(flaty, tail, (cont _) :: stack)
-          case (true, false) =>
-            // flaty == y but reassociated
-            def cont(resty: Doc) = {
-              val first = Concat(flatx, Concat(flatSep, resty))
-              // no need to make second lazy here
-              val second = Concat(x, Concat(sep, resty))
-              // note that first != second
-              Union(first, second)
-            }
-            fillRec(flaty, tail, (cont _) :: stack)
-          case (false, true) =>
-            // flatx == x but reassociated
-            def cont(resty: Doc) = {
-              val first = Concat(flatx, Concat(flatSep, resty))
-              val second = Concat(flatx, Concat(sep, defer(cheatRec(y, tail))))
-              // note that first != second
-              Union(first, second)
-            }
-            fillRec(flaty, tail, (cont _) :: stack)
-          case (false, false) =>
-            // flaty == y but reassociated
-            // flatx == x but reassociated
-            fillRec(flaty, tail, { d: Doc => Concat(flatx, Concat(sepGroup, d)) } :: stack)
-        }
-    }
-
-    def cheatRec(x: Doc, lst: List[Doc]): Doc =
-      fillRec(x, lst, Nil)
-
-    ds.toList match {
-      case Nil => Empty
-      case h :: tail => fillRec(h, tail, Nil)
-    }
+  def fill(sep: Doc, ds: Iterable[Doc]): Doc = ds.toList.reverse match {
+    case Nil => empty
+    case x :: xs => xs.foldLeft(x){ case (acc, d) => Concat(d, Concat(sep, acc)) }
   }
 
   /**
