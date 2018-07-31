@@ -1,6 +1,7 @@
 package org.typelevel.paiges
 
-import org.scalacheck.{Arbitrary, Cogen, Gen}
+import org.scalacheck.Shrink.shrink
+import org.scalacheck.{ Arbitrary, Cogen, Gen, Shrink }
 
 object Generators {
   import Doc.text
@@ -93,4 +94,28 @@ object Generators {
 
   implicit val cogenDoc: Cogen[Doc] =
     Cogen[Int].contramap((d: Doc) => d.hashCode)
+
+  implicit val shrinkDoc: Shrink[Doc] = {
+    import Doc._
+    def interleave[A](xs: Stream[A], ys: Stream[A]): Stream[A] =
+      if (xs.isEmpty) ys
+      else if (ys.isEmpty) xs
+      else xs.head #:: ys.head #:: interleave(xs.tail, ys.tail)
+    def combine[A](a: A)(f: A => A)(implicit F: Shrink[A]): Stream[A] = {
+      val sa = shrink(a)
+      a #:: interleave(sa, sa.map(f))
+    }
+    def combine2[A](a: A, b: A)(f: (A, A) => A)(implicit F: Shrink[A]): Stream[A] = {
+      val (sa, sb) = (shrink(a), shrink(b))
+      a #:: b #:: interleave(interleave(sa, sb), sa.flatMap(x => sb.map(y => f(x, y))))
+    }
+    Shrink {
+      case Union(a, b) => combine2(a, b)(Union)
+      case Concat(a, b) => combine2(a, b)(_ + _)
+      case Text(s) => shrink(s).map(text)
+      case Nest(i, d) => combine(d)(_.nested(i))
+      case Align(d) => combine(d)(_.aligned)
+      case Line(_) | Empty | LazyDoc(_) => Stream.empty
+    }
+  }
 }
