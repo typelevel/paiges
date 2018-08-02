@@ -45,6 +45,18 @@ matrix:
       env: PLATFORM="js"
       script: sbt "++ ${TRAVIS_SCALA_VERSION}!" coreJS/test catsJS/test
 
+    - scala: 2.13.0-M4
+      language: scala
+      jdk: oraclejdk8
+      env: PLATFORM="jvm"
+      script: sbt "++ ${TRAVIS_SCALA_VERSION}!" coreJVM/test catsJVM/test
+
+    - scala: 2.13.0-M4
+      language: scala
+      jdk: oraclejdk8
+      env: PLATFORM="js"
+      script: sbt "++ ${TRAVIS_SCALA_VERSION}!" coreJS/test catsJS/test
+
 install:
  - pip install --user codecov
 

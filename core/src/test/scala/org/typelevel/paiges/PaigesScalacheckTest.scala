@@ -74,8 +74,8 @@ class PaigesScalacheckTest extends FunSuite {
   test("spaces(n) == text(\" \") * n == text(\" \" * n)") {
     forAll(Gen.choose(-10, 1000)) { n =>
       val sn = Doc.spaces(n)
-      val tn = Doc.text(" ") * n
-      val un = Doc.text(" " * n)
+      val tn = if (n <= 0) Doc.text("") else Doc.text(" ") * n
+      val un = if (n <= 0) Doc.text("") else Doc.text(" " * n)
 
       assert(sn === tn)
       assert(tn === un)
