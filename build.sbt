@@ -12,7 +12,18 @@ val Scala211 = "2.11.12"
 lazy val paigesSettings = Seq(
   organization := "org.typelevel",
   scalaVersion := "2.12.6",
-  crossScalaVersions := Seq("2.10.7", Scala211, "2.12.6"),
+  crossScalaVersions := Seq("2.10.7", Scala211, "2.12.6", "2.13.0-M4"),
+  scalacOptions ++= (
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, n)) if n <= 12 =>
+        Seq(
+          "-Xfatal-warnings",
+          "-Yno-adapted-args"
+        )
+      case _ =>
+        Nil
+    }
+  ),
   scalacOptions ++= Seq(
     "-deprecation",
     "-encoding", "UTF-8",
@@ -22,9 +33,7 @@ lazy val paigesSettings = Seq(
     "-language:implicitConversions",
     "-language:experimental.macros",
     "-unchecked",
-    "-Xfatal-warnings",
     "-Xlint",
-    "-Yno-adapted-args",
     "-Ywarn-dead-code",
     "-Ywarn-numeric-widen",
     "-Ywarn-value-discard",
@@ -153,8 +162,8 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform).crossType(
   .jvmSettings(commonJvmSettings:_*)
   .platformsSettings(JVMPlatform, JSPlatform)(
     libraryDependencies ++= Seq(
-      "org.scalatest" %%% "scalatest" % "3.0.5" % Test,
-      "org.scalacheck" %%% "scalacheck" % "1.13.5" % Test
+      "org.scalatest" %%% "scalatest" % "3.0.6-SNAP1" % Test,
+      "org.scalacheck" %%% "scalacheck" % "1.14.0" % Test
     )
   )
   .nativeSettings(
@@ -180,8 +189,8 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform).crossType(CrossType.Pure)
   .settings(moduleName := "paiges-cats")
   .settings(paigesSettings: _*)
   .settings(libraryDependencies ++= Seq(
-    "org.typelevel" %%% "cats-core" % "1.1.0",
-    "org.typelevel" %%% "cats-laws" % "1.1.0" % Test))
+    "org.typelevel" %%% "cats-core" % "1.2.0",
+    "org.typelevel" %%% "cats-laws" % "1.2.0" % Test))
   .settings(mimaPreviousArtifacts := previousArtifact(version.value, "cats"))
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings:_*)
