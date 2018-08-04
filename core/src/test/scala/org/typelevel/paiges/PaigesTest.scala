@@ -177,9 +177,9 @@ the spaces""")
     assert(Doc.intercalate(Doc.lineOrSpace, (1 to 100000).map(Doc.str)).maxWidth >= 0)
   }
 
-  test("renderWide is stack safe") {
+  test("renderCompactStream is stack safe") {
     val nums = (1 to 100000)
-    assert(Doc.intercalate(Doc.lineOrSpace, nums.map(Doc.str)).renderWideStream.mkString == nums.mkString(" "))
+    assert(Doc.intercalate(Doc.space, nums.map(Doc.str)).renderCompactStream.mkString == nums.mkString(" "))
   }
 
   test("lineBreak works as expected") {

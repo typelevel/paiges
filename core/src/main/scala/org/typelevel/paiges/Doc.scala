@@ -247,6 +247,11 @@ sealed abstract class Doc extends Product with Serializable {
     Chunk.best(width, this, false).toStream
 
   /**
+   * Render the stream at Int.MaxValue width.
+   */
+  def renderWideStream: Stream[String] = this.renderStream(Int.MaxValue)
+
+  /**
    * Render this Doc as a stream of strings, treating `width` in the
    * same way as `render` does.
    *
@@ -259,31 +264,27 @@ sealed abstract class Doc extends Product with Serializable {
     Chunk.best(width, this, true).toStream
 
   /**
-   * Render this Doc as a stream of strings, using
-   * the widest possible variant. This is the same
-   * as render(Int.MaxValue) except it is more efficient.
+   * Render this Doc as a stream of strings, with no indentation.
+   * There is no structure to the resulting rendering, but it is fast,
+   * therefore useful for hashing, comparisons, non-human consumption, etc.
    */
-  def renderWideStream: Stream[String] = {
+  def renderCompactStream: Stream[String] = {
     @tailrec
-    def loop(pos: Int, lst: List[(Int, Doc)]): Stream[String] = lst match {
+    def loop(lst: List[Doc]): Stream[String] = lst match {
       case Nil => Stream.empty
-      case (i, Empty) :: z => loop(pos, z)
-      case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z)
-      case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
-      case (i, Align(d)) :: z => loop(pos, (pos, d) :: z)
-      case (i, Text(s)) :: z => s #:: cheat(pos + s.length, z)
-      case (i, Line(_)) :: z => Chunk.lineToStr(i) #:: cheat(i, z)
-      case (i, LazyDoc(d)) :: z => loop(pos, (i, d.evaluated) :: z)
-      case (i, Union(a, _)) :: z =>
-        /*
-         * if we are infinitely wide, a always fits
-         */
-        loop(pos, (i, a) :: z)
+      case Empty :: z => loop(z)
+      case Concat(a, b) :: z => loop(a :: b :: z)
+      case Nest(_, d) :: z => loop(d :: z)
+      case Align(d) :: z => loop(d :: z)
+      case Text(s) :: z => s #:: cheat(z)
+      case Line(_) :: z => "\n" #:: cheat(z)
+      case LazyDoc(d) :: z => loop(d.evaluated :: z)
+      case Union(_, b) :: z => loop(b :: z)
     }
-    def cheat(pos: Int, lst: List[(Int, Doc)]) =
-      loop(pos, lst)
+    def cheat(lst: List[Doc]) =
+      loop(lst)
 
-    loop(0, (0, this) :: Nil)
+    loop(List(this))
   }
 
   /**
@@ -383,7 +384,7 @@ sealed abstract class Doc extends Product with Serializable {
       if (i < s.length) shash(hash(n, s.charAt(i)), s, i + 1) else n
 
     // Always go left to avoid triggering the lazy fill evaluation.
-    renderWideStream.foldLeft(0xdead60d5) {
+    renderCompactStream.foldLeft(0xdead60d5) {
       case (n, s) => shash(n, s, 0)
     }
   }
@@ -658,13 +659,12 @@ object Doc {
 
   /**
    * Require documents to be equivalent at all the given widths, as
-   * well as at their "wide" renderings.
+   * well as Int.MaxValue.
    */
   def equivAtWidths(widths: List[Int]): Equiv[Doc] =
     new Equiv[Doc] {
       def equiv(x: Doc, y: Doc): Boolean = {
-        widths.forall(w => x.render(w) == y.render(w)) &&
-          x.renderWideStream.mkString == y.renderWideStream.mkString
+        (Int.MaxValue :: widths).forall(w => x.render(w) == y.render(w))
       }
     }
 

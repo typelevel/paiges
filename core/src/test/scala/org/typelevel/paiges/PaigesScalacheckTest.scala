@@ -306,12 +306,6 @@ class PaigesScalacheckTest extends FunSuite {
       assert(d.render(w) == d.renderStream(w).mkString)
     }
   }
-  test("renderWide == render(maxWidth)") {
-    forAll { (d: Doc) =>
-      val max = d.maxWidth
-      assert(d.renderWideStream.mkString == d.render(max))
-    }
-  }
 
   test("character concat works") {
     forAll { (c1: Char, c2: Char) =>
