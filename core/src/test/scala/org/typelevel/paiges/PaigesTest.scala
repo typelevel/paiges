@@ -150,7 +150,7 @@ the spaces""")
 
   test("test json array example") {
     val items = (0 to 20).map(Doc.str(_))
-    val parts = Doc.fill(Doc.comma + Doc.line, items)
+    val parts = Doc.fill(Doc.comma + Doc.lineOrSpace, items)
     val ary = "[" +: ((parts :+ "]").aligned)
     assert(ary.renderWideStream.mkString == (0 to 20).mkString("[", ", ", "]"))
     val expect = """[0, 1, 2, 3, 4, 5,
@@ -206,7 +206,7 @@ the spaces""")
   test("fill example") {
     import Doc.{ comma, text, fill }
     val ds = text("1") :: text("2") :: text("3") :: Nil
-    val doc = fill(comma + Doc.line, ds)
+    val doc = fill(comma + Doc.lineOrSpace, ds)
 
     assert(doc.render(0) == "1,\n2,\n3")
     assert(doc.render(6) == "1, 2,\n3")
