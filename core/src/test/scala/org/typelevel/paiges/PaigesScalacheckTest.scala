@@ -258,6 +258,30 @@ class PaigesScalacheckTest extends FunSuite {
     forAll { (a: Doc) => assert(okay(a)) }
   }
 
+  test("a is flat ==> Concat(a, Union(b, c)) === Union(Concat(a, b), Concat(a, c))") {
+    import Doc._
+    forAll { (aGen: Doc, bc: Doc) =>
+      val a = aGen.flatten
+      bc.grouped match {
+        case d@Union(b, c) =>
+          assert(Concat(a, d) === Union(Concat(a, b), Concat(a, c)))
+        case _ =>
+      }
+    }
+  }
+
+  test("c is flat ==> Concat(Union(a, b), c) === Union(Concat(a, c), Concat(b, c))") {
+    import Doc._
+    forAll { (ab: Doc, cGen: Doc) =>
+      val c = cGen.flatten
+      ab.grouped match {
+        case d@Union(a, b) =>
+          assert(Concat(d, c) === Union(Concat(a, c), Concat(b, c)))
+        case _ =>
+      }
+    }
+  }
+
   test("test Doc.text") {
     forAll { (s: String) =>
       assert(Doc.text(s).render(0) == s)
