@@ -784,7 +784,7 @@ object Doc {
               val first = Concat(flatx, Concat(flatSep, resty))
               val second = Concat(x, Concat(sep, defer(cheatRec(y, tail))))
               // note that first != second
-              Union(first, second)
+              Union(first.flatten, second)
             }
             fillRec(flaty, tail, (cont _) :: stack)
           case (true, false) =>
@@ -794,7 +794,7 @@ object Doc {
               // no need to make second lazy here
               val second = Concat(x, Concat(sep, resty))
               // note that first != second
-              Union(first, second)
+              Union(first.flatten, second)
             }
             fillRec(flaty, tail, (cont _) :: stack)
           case (false, true) =>
@@ -803,7 +803,7 @@ object Doc {
               val first = Concat(flatx, Concat(flatSep, resty))
               val second = Concat(flatx, Concat(sep, defer(cheatRec(y, tail))))
               // note that first != second
-              Union(first, second)
+              Union(first.flatten, second)
             }
             fillRec(flaty, tail, (cont _) :: stack)
           case (false, false) =>
