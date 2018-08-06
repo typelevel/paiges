@@ -258,6 +258,16 @@ class PaigesScalacheckTest extends FunSuite {
     forAll { (a: Doc) => assert(okay(a)) }
   }
 
+  test("Union(a1, b1) + Union(a2, b2) === Union(a1 + a2, b1 + b2)") {
+    import Doc._
+    forAll { (d1: Doc, d2: Doc) =>
+      (d1.grouped, d2.grouped) match {
+        case (d1@Union(a1, b1), d2@Union(a2, b2)) => Concat(d1, d2) === Union(Concat(a1, a2), Concat(b1, b2))
+        case _ =>
+      }
+    }
+  }
+
   test("test Doc.text") {
     forAll { (s: String) =>
       assert(Doc.text(s).render(0) == s)
