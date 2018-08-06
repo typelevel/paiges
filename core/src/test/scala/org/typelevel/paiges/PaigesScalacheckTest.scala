@@ -10,7 +10,7 @@ class PaigesScalacheckTest extends FunSuite {
   import Doc.text
 
   implicit val generatorDrivenConfig =
-    PropertyCheckConfiguration(minSuccessful = 500)
+    PropertyCheckConfiguration(minSuccessful = 3000)
 
   test("(x = y) -> (x.## = y.##)") {
     forAll { (a: Doc, b: Doc) =>
@@ -214,7 +214,8 @@ class PaigesScalacheckTest extends FunSuite {
   test("the left and right side of a union are the same after flattening") {
     import Doc._
     def okay(d: Doc): Boolean = d match {
-      case Empty | Text(_) | Line(_) => true
+      case Empty | Text(_) | Line | Fail => true
+      case FlatAlt(a, b) => okay(a) && okay(b)
       case Concat(a, b) => okay(a) && okay(b)
       case Nest(j, d) => okay(d)
       case Align(d) => okay(d)
@@ -230,7 +231,7 @@ class PaigesScalacheckTest extends FunSuite {
     import Doc._
 
     def nextLineLength(d: Doc): (Boolean, Int) = d match {
-      case Line(_) => (true, 0)
+      case Line | Fail => (true, 0)
       case Empty => (false, 0)
       case Text(s) => (false, s.length)
       case Nest(j, d) => nextLineLength(d) // nesteding only matters AFTER the next line
@@ -243,16 +244,18 @@ class PaigesScalacheckTest extends FunSuite {
         } else r1
       case LazyDoc(d) => nextLineLength(d.evaluated)
       case Union(a, _) => nextLineLength(a) // assume the property is true
+      case FlatAlt(a, _) => nextLineLength(a) // d hasn't been flattened by invariant
     }
 
     def okay(d: Doc): Boolean = d match {
-      case Empty | Text(_) | Line(_) => true
+      case Empty | Text(_) | Line | Fail => true
       case Nest(j, d) => okay(d)
       case Align(d) => okay(d)
       case Concat(a, b) => okay(a) && okay(b)
       case LazyDoc(d) => okay(d.evaluated)
       case Union(a, b) =>
         nextLineLength(a)._2 >= nextLineLength(b)._2
+      case FlatAlt(a, b) => okay(a) && okay(b)
     }
 
     forAll { (a: Doc) => assert(okay(a)) }

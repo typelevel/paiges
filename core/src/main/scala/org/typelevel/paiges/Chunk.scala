@@ -15,7 +15,7 @@ private[paiges] object Chunk {
     sealed abstract class ChunkStream
     object ChunkStream {
       case object Empty extends ChunkStream
-      case class Item(str: String, position: Int, stack: List[(Int, Doc)], isBreak: Boolean) extends ChunkStream {
+      case class Item(str: String, position: Int, stack: List[(Int, Doc)], isBreak: Boolean, isFail: Boolean) extends ChunkStream {
         def isLine: Boolean = str == null
         def stringChunk: String = if (isBreak) lineToStr(position) else str
         private[this] var next: ChunkStream = _
@@ -93,7 +93,7 @@ private[paiges] object Chunk {
         d match {
           case ChunkStream.Empty => true
           case item: ChunkStream.Item =>
-            item.isBreak || fits(item.position, item.step)
+            !item.isFail && (item.isBreak || fits(item.position, item.step))
         }
       }
     /*
@@ -103,13 +103,19 @@ private[paiges] object Chunk {
     @tailrec
     def loop(pos: Int, lst: List[(Int, Doc)]): ChunkStream = lst match {
       case Nil => ChunkStream.Empty
-      case (i, Doc.Empty) :: z => loop(pos, z)
+      case (_, Doc.Empty) :: z => loop(pos, z)
       case (i, Doc.Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z)
+      /*
+       * By invariant, there are no FlatAlt nodes if the Doc had been flattened.
+       * Since we're in this case, we just want the default.
+       */
+      case (i, Doc.FlatAlt(a, _)) :: z => loop(pos, (i, a) :: z)
       case (i, Doc.Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
       case (_, Doc.Align(d)) :: z => loop(pos, (pos, d) :: z)
-      case (i, Doc.Text(s)) :: z => ChunkStream.Item(s, pos + s.length, z, false)
-      case (i, Doc.Line(_)) :: z => ChunkStream.Item(null, i, z, true)
+      case (_, Doc.Text(s)) :: z => ChunkStream.Item(s, pos + s.length, z, isBreak = false, isFail = false)
+      case (i, Doc.Line) :: z => ChunkStream.Item(null, i, z, isBreak = true, isFail = false)
       case (i, Doc.LazyDoc(d)) :: z => loop(pos, (i, d.evaluated) :: z)
+      case (i, Doc.Fail) :: z => ChunkStream.Item(null, i, z, isBreak = false, isFail = true)
       case (i, Doc.Union(x, y)) :: z =>
         /*
          * If we can fit the next line from x, we take it.
