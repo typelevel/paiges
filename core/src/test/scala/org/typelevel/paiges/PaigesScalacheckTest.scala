@@ -1,13 +1,13 @@
 package org.typelevel.paiges
 
-import org.scalatest.FunSuite
-import org.scalatest.prop.PropertyChecks._
 import org.scalacheck.Gen
+import org.scalatest.prop.PropertyChecks._
+import org.scalatest.{ Assertion, FunSuite }
 
 class PaigesScalacheckTest extends FunSuite {
-  import PaigesTest._
-  import Generators._
   import Doc.text
+  import Generators._
+  import PaigesTest._
 
   implicit val generatorDrivenConfig =
     PropertyCheckConfiguration(minSuccessful = 500)
@@ -348,4 +348,19 @@ class PaigesScalacheckTest extends FunSuite {
     assert((Doc.char('a') + Doc.char('\n')) === Doc.text("a\n"))
   }
 
+  test("Union invariants") {
+    import Doc._
+    def invariant(d: Doc): Assertion = d match {
+      case Empty | Text(_) => assert(true)
+      case Concat(Concat(_, _), _) => assert(false, "Left-associative Concat")
+      case Concat(a, b) => invariant(a); invariant(b)
+      case _ => assert(false, s"Illegal doc: ${d}")
+    }
+    forAll { d: Doc =>
+      d.grouped match {
+        case Union(a, _) => invariant(a)
+        case _ => ()
+      }
+    }
+  }
 }
