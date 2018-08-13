@@ -95,6 +95,16 @@ object Generators {
   implicit val cogenDoc: Cogen[Doc] =
     Cogen[Int].contramap((d: Doc) => d.hashCode)
 
+  private def isUnion(d: Doc): Boolean = d match {
+    case Doc.Union(_, _) => true
+    case _ => false
+  }
+
+  implicit val genUnion: Gen[Doc.Union] =
+    genDoc.map(_.grouped).filter(isUnion).map(_.asInstanceOf[Doc.Union])
+
+  implicit val arbUnion: Arbitrary[Doc.Union] = Arbitrary(genUnion)
+
   implicit val shrinkDoc: Shrink[Doc] = {
     import Doc._
     def interleave[A](xs: Stream[A], ys: Stream[A]): Stream[A] =
