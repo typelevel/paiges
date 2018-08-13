@@ -212,50 +212,21 @@ class PaigesScalacheckTest extends FunSuite {
   }
 
   test("the left and right side of a union are the same after flattening") {
-    import Doc._
-    def okay(d: Doc): Boolean = d match {
-      case Empty | Text(_) | Line(_) => true
-      case Concat(a, b) => okay(a) && okay(b)
-      case Nest(j, d) => okay(d)
-      case Align(d) => okay(d)
-      case LazyDoc(d) => okay(d.evaluated)
-      case Union(a, b) =>
-        (a.flatten === b.flatten) && okay(a) && okay(b)
-    }
-
-    forAll { (a: Doc) => assert(okay(a)) }
+    forAll { u: Doc.Union => assert(u.a.flatten === u.b.flatten) }
   }
 
-  test("the left side of a union has a next line as long or longer than the right") {
-    import Doc._
-
-    def nextLineLength(d: Doc): (Boolean, Int) = d match {
-      case Line(_) => (true, 0)
-      case Empty => (false, 0)
-      case Text(s) => (false, s.length)
-      case Nest(j, d) => nextLineLength(d) // nesteding only matters AFTER the next line
-      case Align(d) => nextLineLength(d) // aligning only matters AFTER the next line
-      case Concat(a, b) =>
-        val r1@(done, l) = nextLineLength(a)
-        if (!done) {
-          val (d2, l2) = nextLineLength(b)
-          (d2, l2 + l)
-        } else r1
-      case LazyDoc(d) => nextLineLength(d.evaluated)
-      case Union(a, _) => nextLineLength(a) // assume the property is true
+  test("the left side of a union has a first line as long or longer than the right") {
+    forAll(Gen.choose(1, 200), genUnion) { (n, u) =>
+      if (u.nonEmpty) {
+        def firstLine(d: Doc) = {
+          val stream = d.renderStream(n)
+          val inits = stream.takeWhile(s => !s.contains("\n"))
+          (inits + stream.head.takeWhile(_ != '\n')).mkString
+        }
+        assert(firstLine(u.a).length >= firstLine(u.b).length)
+      }
+      else succeed
     }
-
-    def okay(d: Doc): Boolean = d match {
-      case Empty | Text(_) | Line(_) => true
-      case Nest(j, d) => okay(d)
-      case Align(d) => okay(d)
-      case Concat(a, b) => okay(a) && okay(b)
-      case LazyDoc(d) => okay(d.evaluated)
-      case Union(a, b) =>
-        nextLineLength(a)._2 >= nextLineLength(b)._2
-    }
-
-    forAll { (a: Doc) => assert(okay(a)) }
   }
 
   test("a is flat ==> Concat(a, Union(b, c)) === Union(Concat(a, b), Concat(a, c))") {
