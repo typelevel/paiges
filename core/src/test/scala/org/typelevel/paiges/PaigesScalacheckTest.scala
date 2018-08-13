@@ -1,13 +1,13 @@
 package org.typelevel.paiges
 
-import org.scalatest.FunSuite
-import org.scalatest.prop.PropertyChecks._
 import org.scalacheck.Gen
+import org.scalatest.prop.PropertyChecks._
+import org.scalatest.{ Assertion, FunSuite }
 
 class PaigesScalacheckTest extends FunSuite {
-  import PaigesTest._
-  import Generators._
   import Doc.text
+  import Generators._
+  import PaigesTest._
 
   implicit val generatorDrivenConfig =
     PropertyCheckConfiguration(minSuccessful = 500)
@@ -170,25 +170,31 @@ class PaigesScalacheckTest extends FunSuite {
 
   test("group law") {
     /**
-     * group(x) = (x' | x) where x' is flatten(x)
+     * Writing `a | b` for `Union(a, b)` and `a * b` for
+     * `Concat(a, b)` we have
      *
-     * (a | b)*c == (a*c | b*c) so, if flatten(c) == c we have:
-     * c * (a | b) == (a*c | b*c)
+     *   x.grouped = (x.flatten | x) if x.flatten != x
+     *               x otherwise
      *
-     * b.grouped + flatten(c) == (b + flatten(c)).grouped
-     * flatten(c) + b.grouped == (flatten(c) + b).grouped
+     * If c.flatten == c we have (see tests below):
+     *   (a | b) * c == (a * c | b * c) and
+     *   c * (a | b) == (c * a | c * b)
+     *
+     * So these laws follow:
+     *   ab.grouped + c.flatten == (ab + c.flatten).grouped
+     *   c.flatten + ab.grouped == (c.flatten + ab).grouped
      */
-    forAll { (b: Doc, c: Doc) =>
+    forAll { (ab: Doc, c: Doc) =>
       val flatC = c.flatten
-      val left = (b.grouped + flatC)
-      val right = (b + flatC).grouped
+      val left = ab.grouped + flatC
+      val right = (ab + flatC).grouped
       assert(left === right)
-      assert((flatC + b.grouped) === (flatC + b).grouped)
+      assert((flatC + ab.grouped) === (flatC + ab).grouped)
       // since left == right, we could have used those instead of b:
       assert((left.grouped + flatC) === (right + flatC).grouped)
     }
   }
-  test("flatten(group(a)) == flatten(a)") {
+  test("a.grouped.flatten == a.flatten") {
     forAll { (a: Doc) =>
       assert(a.grouped.flatten === a.flatten)
     }
@@ -208,24 +214,6 @@ class PaigesScalacheckTest extends FunSuite {
   test("a.aligned.aligned == a.aligned") {
     forAll { a: Doc =>
       assert(a.aligned.aligned === a.aligned)
-    }
-  }
-
-  test("the left and right side of a union are the same after flattening") {
-    forAll { u: Doc.Union => assert(u.a.flatten === u.b.flatten) }
-  }
-
-  test("the left side of a union has a first line as long or longer than the right") {
-    forAll(Gen.choose(1, 200), genUnion) { (n, u) =>
-      if (u.nonEmpty) {
-        def firstLine(d: Doc) = {
-          val stream = d.renderStream(n)
-          val inits = stream.takeWhile(s => !s.contains("\n"))
-          (inits + stream.head.takeWhile(_ != '\n')).mkString
-        }
-        assert(firstLine(u.a).length >= firstLine(u.b).length)
-      }
-      else succeed
     }
   }
 
@@ -250,6 +238,46 @@ class PaigesScalacheckTest extends FunSuite {
           assert(Concat(d, c) === Union(Concat(a, c), Concat(b, c)))
         case _ =>
       }
+    }
+  }
+
+  test("Union invariant: `a.flatten == b.flatten`") {
+    forAll { d: Doc.Union => d.a.flatten === d.b.flatten}
+  }
+
+  test("Union invariant: `a != b`") {
+    forAll { d: Doc.Union => !(d.a === d.b) }
+  }
+
+  def unionRightAssocInvariant(d: Doc): Assertion = {
+    import Doc._
+    d match {
+      case Empty | Text(_) => assert(true)
+      case Concat(Concat(_, _), _) => assert(false, s"Left-associative Concat: ${d.representation(true).render(1000)}")
+      case Concat(a, b) =>
+        unionRightAssocInvariant(a)
+        unionRightAssocInvariant(b)
+      case Union(a, _) => unionRightAssocInvariant(a)
+      case LazyDoc(f) => unionRightAssocInvariant(f.evaluated)
+      case _ => assert(false, s"Illegal doc: ${d}")
+    }
+  }
+
+  test("Union invariant: `a` has right-associated `Concat` nodes") {
+    forAll { d: Doc.Union => unionRightAssocInvariant(d.a) }
+  }
+
+  test("Union invariant: the first line of `a` is at least as long as the first line of `b`") {
+    forAll(Gen.choose(1, 200), genUnion) { (n, u) =>
+      if (u.nonEmpty) {
+        def firstLine(d: Doc) = {
+          val stream = d.renderStream(n)
+          val inits = stream.takeWhile(s => !s.contains("\n"))
+          (inits + stream.head.takeWhile(_ != '\n')).mkString
+        }
+        assert(firstLine(u.a).length >= firstLine(u.b).length)
+      }
+      else succeed
     }
   }
 
