@@ -576,19 +576,22 @@ object Doc {
   /**
    * Represents an optimistic rendering (on the left) as well as a
    * fallback rendering (on the right) if the first line of the left
-   * is too long.
+   * is too long.  In `Union(a, b)`, we have the invariants:
    *
-   * There is an additional invariant on Union: `flatten(a) == flatten(b)`.
+   * - `a.flatten == b.flatten`
+   * - `a != b` (otherwise the Union would be redundant)
+   * - `a` is 2-right-associated with respect to `Concat` nodes to maintain efficiency in rendering.
+   * - The first line of `a` is longer than the first line of `b` at all widths.
    *
-   * By construction all `Union` nodes have this property; to preserve
+   * A `Doc` is 2-right-associated if there are no subterms of the form
+   * `Concat(Concat(Concat(_, _), _), _)`.  Due to how `fill` is implemented,
+   * subterms of the form `Concat(Concat(_, _), _)` can appear, but as long
+   * as the left-associated chains are not very long, we avoid the potentially
+   * quadratic behavior of unconstrained terms.
+   *
+   * By construction all `Union` nodes have these properties; to preserve
    * this we don't expose the `Union` constructor directly, but only
-   * the `.grouped` method on Doc.
-   *
-   * Additionally, the left side (a) MUST be right associated with
-   * any Concat nodes to maintain efficiency in rendering. This
-   * is currently done by flatten/flattenOption.
-   *
-   * Finally, we have the invariant a != b.
+   * the `grouped` and `fill` methods.
    */
   private[paiges] case class Union(a: Doc, b: Doc) extends Doc
 
