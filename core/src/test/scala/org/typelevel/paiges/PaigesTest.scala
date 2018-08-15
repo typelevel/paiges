@@ -17,6 +17,7 @@ object PaigesTest {
     }
 
   implicit class EquivSyntax(lhs: Doc) {
+    override def toString: String = lhs.toString
     def ===(rhs: Doc): Boolean = docEquiv.equiv(lhs, rhs)
   }
 
