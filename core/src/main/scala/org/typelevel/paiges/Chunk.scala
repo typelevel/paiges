@@ -84,9 +84,6 @@ private[paiges] object Chunk {
       }
     }
 
-    /*
-     * Return the length of this line if it fits
-     */
     @tailrec
     def fits(pos: Int, d: ChunkStream): Boolean =
       (nonNegW >= pos) && {
