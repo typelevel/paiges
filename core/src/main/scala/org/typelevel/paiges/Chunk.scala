@@ -116,9 +116,9 @@ private[paiges] object Chunk {
          */
         val first = cheat(pos, (i, x) :: z)
         /*
-         * Note that in Union the left side is always right associated.
+         * Note that in Union the left side is always 2-right-associated.
          * This means the "fits" branch in rendering
-         * always has a right associated Doc which means it is O(w)
+         * always has a 2-right-associated Doc which means it is O(w)
          * to find if you can fit in width w.
          */
         if (fits(pos, first)) first
