@@ -49,6 +49,20 @@ object Generators {
     Gen.const({ ds: List[Doc] => Doc.spread(ds) }),
     Gen.const({ ds: List[Doc] => Doc.stack(ds) }))
 
+  def leftAssoc(max: Int): Gen[Doc] = for {
+    n <- Gen.choose(1, max)
+    start <- genDoc
+    front <- Gen.listOfN(n, genDoc)
+  } yield front.foldLeft(start)(Doc.Concat)
+
+  def fill(max: Int): Gen[Doc] = for {
+    n <- Gen.choose(1, max)
+    m <- Gen.choose(1, max)
+    k <- Gen.choose(1, max)
+    l <- Gen.listOfN(n, leftAssoc(m))
+    sep <- leftAssoc(k)
+  } yield Doc.fill(sep, l)
+
   val maxDepth = 7
 
   def genTree(depth: Int): Gen[Doc] = {
@@ -101,7 +115,7 @@ object Generators {
   }
 
   implicit val genUnion: Gen[Doc.Union] =
-    genDoc.map(_.grouped).filter(isUnion).map(_.asInstanceOf[Doc.Union])
+    Gen.oneOf(genDoc.map(_.grouped), fill(10)).filter(isUnion).map(_.asInstanceOf[Doc.Union])
 
   implicit val arbUnion: Arbitrary[Doc.Union] = Arbitrary(genUnion)
 

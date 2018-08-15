@@ -31,6 +31,20 @@ object PaigesTest {
         .mkString("\n")
     }
   }
+
+  def twoRightAssociated(d: Doc): Boolean = {
+    import Doc._
+    d match {
+      case Empty | Text(_) | Line(_) => true
+      case Concat(Concat(Concat(_, _), _), _) => false
+      case Concat(a, b) =>
+        twoRightAssociated(a) && twoRightAssociated(b)
+      case Union(a, _) => twoRightAssociated(a)
+      case LazyDoc(f) => twoRightAssociated(f.evaluated)
+      case Align(d) => twoRightAssociated(d)
+      case Nest(_, d) => twoRightAssociated(d)
+    }
+  }
 }
 
 class PaigesTest extends FunSuite {

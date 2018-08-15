@@ -1,13 +1,13 @@
 package org.typelevel.paiges
 
+import org.scalacheck.Gen
 import org.scalatest.FunSuite
 import org.scalatest.prop.PropertyChecks._
-import org.scalacheck.Gen
 
 class PaigesScalacheckTest extends FunSuite {
-  import PaigesTest._
-  import Generators._
   import Doc.text
+  import Generators._
+  import PaigesTest._
 
   implicit val generatorDrivenConfig =
     PropertyCheckConfiguration(minSuccessful = 500)
@@ -211,25 +211,6 @@ class PaigesScalacheckTest extends FunSuite {
     }
   }
 
-  test("the left and right side of a union are the same after flattening") {
-    forAll { u: Doc.Union => assert(u.a.flatten === u.b.flatten) }
-  }
-
-  test("the left side of a union has a first line as long or longer than the right") {
-    forAll(Gen.choose(1, 200), genUnion) { (n, u) =>
-      def firstLine(d: Doc) = {
-        def loop(s: Stream[String], acc: List[String]): String =
-          s match {
-            case Stream.Empty => acc.reverse.mkString
-            case head #:: _ if head.contains('\n') => (head.takeWhile(_ != '\n') :: acc).reverse.mkString
-            case head #:: tail => loop(tail, head :: acc)
-          }
-        loop(d.renderStream(n), Nil)
-      }
-      assert(firstLine(u.a).length >= firstLine(u.b).length)
-    }
-  }
-
   test("a is flat ==> Concat(a, Union(b, c)) === Union(Concat(a, b), Concat(a, c))") {
     import Doc._
     forAll { (aGen: Doc, bc: Doc) =>
@@ -251,6 +232,33 @@ class PaigesScalacheckTest extends FunSuite {
           assert(Concat(d, c) === Union(Concat(a, c), Concat(b, c)))
         case _ =>
       }
+    }
+  }
+
+  test("Union invariant: `a.flatten == b.flatten`") {
+    forAll { d: Doc.Union => assert(d.a.flatten === d.b.flatten) }
+  }
+
+  test("Union invariant: `a != b`") {
+    forAll { d: Doc.Union => assert(d.a !== d.b) }
+  }
+
+  test("Union invariant: `a` has 2-right-associated `Concat` nodes") {
+    forAll { d: Doc.Union => assert(PaigesTest.twoRightAssociated(d.a)) }
+  }
+
+  test("Union invariant: the first line of `a` is at least as long as the first line of `b`") {
+    forAll(Gen.choose(1, 200), genUnion) { (n, u) =>
+      def firstLine(d: Doc) = {
+        def loop(s: Stream[String], acc: List[String]): String =
+          s match {
+            case Stream.Empty => acc.reverse.mkString
+            case head #:: _ if head.contains('\n') => (head.takeWhile(_ != '\n') :: acc).reverse.mkString
+            case head #:: tail => loop(tail, head :: acc)
+          }
+        loop(d.renderStream(n), Nil)
+      }
+      assert(firstLine(u.a).length >= firstLine(u.b).length)
     }
   }
 
