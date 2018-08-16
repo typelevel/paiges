@@ -15,9 +15,9 @@ private[paiges] object Chunk {
     sealed abstract class ChunkStream
     object ChunkStream {
       case object Empty extends ChunkStream
-      case class Item(str: String, position: Int, stack: List[(Int, Doc)], isBreak: Boolean) extends ChunkStream {
+      case class Item(str: String, position: Int, stack: List[(Int, Doc)]) extends ChunkStream {
         def isLine: Boolean = str == null
-        def stringChunk: String = if (isBreak) lineToStr(position) else str
+        def stringChunk: String = if (isLine) lineToStr(position) else str
         private[this] var next: ChunkStream = _
         def step: ChunkStream = {
           // do a cheap local computation.
@@ -66,7 +66,7 @@ private[paiges] object Chunk {
           LineCombiner.trim(res)
         }
         def addItem(item: ChunkStream.Item): Option[String] =
-          if (item.isBreak) {
+          if (item.isLine) {
             val v = LineCombiner.trim(line.toString)
             line = new StringBuilder(lineToStr(item.position))
             Some(v)
@@ -90,7 +90,7 @@ private[paiges] object Chunk {
         d match {
           case ChunkStream.Empty => true
           case item: ChunkStream.Item =>
-            item.isBreak || fits(item.position, item.step)
+            item.isLine || fits(item.position, item.step)
         }
       }
     /*
@@ -104,8 +104,8 @@ private[paiges] object Chunk {
       case (i, Doc.Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z)
       case (i, Doc.Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
       case (_, Doc.Align(d)) :: z => loop(pos, (pos, d) :: z)
-      case (i, Doc.Text(s)) :: z => ChunkStream.Item(s, pos + s.length, z, false)
-      case (i, Doc.Line(_)) :: z => ChunkStream.Item(null, i, z, true)
+      case (i, Doc.Text(s)) :: z => ChunkStream.Item(s, pos + s.length, z)
+      case (i, Doc.Line(_)) :: z => ChunkStream.Item(null, i, z)
       case (i, Doc.LazyDoc(d)) :: z => loop(pos, (i, d.evaluated) :: z)
       case (i, Doc.Union(x, y)) :: z =>
         /*
