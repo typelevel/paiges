@@ -1,7 +1,7 @@
 package org.typelevel.paiges
 
-import org.scalatest.FunSuite
 import scala.util.Random
+import org.scalatest.FunSuite
 
 object PaigesTest {
   implicit val docEquiv: Equiv[Doc] =
@@ -36,14 +36,35 @@ object PaigesTest {
   def twoRightAssociated(d: Doc): Boolean = {
     import Doc._
     d match {
-      case Empty | Text(_) | Line(_) => true
+      case Empty | Text(_) | Line => true
       case Concat(Concat(Concat(_, _), _), _) => false
-      case Concat(a, b) =>
-        twoRightAssociated(a) && twoRightAssociated(b)
+      case Concat(a, b) => twoRightAssociated(a) && twoRightAssociated(b)
       case Union(a, _) => twoRightAssociated(a)
       case LazyDoc(f) => twoRightAssociated(f.evaluated)
       case Align(d) => twoRightAssociated(d)
       case Nest(_, d) => twoRightAssociated(d)
+      case FlatAlt(a, b) => twoRightAssociated(a) && twoRightAssociated(b)
+    }
+  }
+
+  // Definition of `fill` from the paper, augmented with
+  // rules for hard line breaks
+  def fillSpec(ds: List[Doc]): Doc = {
+    import Doc._
+    ds match {
+      case Nil => empty
+      case x :: Nil => x.grouped // The paper has `x` here.  I think grouping makes more sense
+      case x :: y :: zs => (x.flattenOption, y.flattenOption) match {
+        case (None, _) => x + (line.grouped + fillSpec(y :: zs))
+        case (Some(flatx), None) =>
+          val rest = fillSpec(y :: zs)
+          Union(flatx, x) + (line.grouped + rest)
+        case (Some(flatx), Some(flaty)) =>
+          Union(
+            flatx + (space + fillSpec(flaty :: zs)),
+            x + (line + fillSpec(y :: zs))
+          )
+      }
     }
   }
 }
@@ -268,5 +289,85 @@ the spaces""")
 
   test("cat") {
     assert(Doc.cat(List("1", "2", "3") map Doc.text).render(80) == "123")
+  }
+
+  test("lineOr does not accept a hard line") {
+    intercept[Throwable](Doc.lineOr(Doc.hardLine))
+    intercept[Throwable](Doc.lineOr(Doc.hardLine + Doc.empty + Doc.empty))
+  }
+
+  test("lineOr accepts non-hard-lines") {
+    val _ = Doc.lineOr(Doc.hardLine + Doc.hardLine)
+    ()
+  }
+
+  test("empty.aligned == empty") {
+    import Doc._
+    assert(empty.aligned === empty)
+  }
+
+  test("fill basics") {
+    import Doc._
+    def spec(ds: Doc*) = assert(fill(line, ds) === fillSpec(ds.toList))
+    spec(line)
+    spec(hardLine, empty)
+    spec(empty, hardLine)
+    spec(line, empty)
+    spec(empty, line)
+    spec(hardLine, line)
+    spec(hardLine + (lineOrSpace + text("FOO")), Empty)
+    spec(line, hardLine)
+    spec(lineBreak, Align(empty) + hardLine, Empty)
+  }
+
+  // This is a counterexample to, in Union(a, b), a.flatten == b.flatten
+  test("fill/flatten failure") {
+    import Doc._
+    val d = fill(empty, List(empty, lineOrSpace, Line))
+     d match {
+      case Union(a, b) => assert(!(a.flatten === b.flatten))
+      case _ => assert(false)
+    }
+  }
+
+  test("Scala whitespace-sensitivity 1") {
+    import Doc._
+    import Document.ops._
+
+    val origStr =
+      """y match {
+        |  case foo => 5
+        |  case bar => 6
+        |}""".stripMargin
+
+    val case1 = "case".doc :& "foo" :& "=>" & 5.doc
+    val case2 = "case".doc :& "bar" :& "=>" & 6.doc
+    val inner = (case1 + hardLine + case2).aligned
+    val orig = "y".doc :& "match" & "{".doc + (lineOrSpace + inner).nested(2) + lineOrSpace + "}".doc
+    assert(orig.render(6) == origStr)
+
+    val flatStr =
+      """y match { case foo => 5
+        |          case bar => 6 }""".stripMargin
+
+    assert(orig.render(100) == flatStr)
+    assert(orig.grouped.render(100) == flatStr)
+  }
+
+  test("Scala whitespace-sensitivity 2") {
+    import Doc._
+    import Document.ops._
+
+    val origStr =
+      """val y = '''
+        |a
+        |  b
+        |    c
+        |'''""".stripMargin
+
+    val q3 = "'''"
+    val orig = ("val".doc :& "y" :& "=" :& q3) + (hardLine :+ "a") + (hardLine + spaces(2) :+ "b") + (hardLine + spaces(4) :+ "c") + hardLine :+ q3
+    assert(orig.render(10) == origStr)
+    assert(orig.grouped.render(10) == origStr)
   }
 }

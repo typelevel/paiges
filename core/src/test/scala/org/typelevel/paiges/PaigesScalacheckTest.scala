@@ -168,40 +168,16 @@ class PaigesScalacheckTest extends FunSuite {
     }
   }
 
-  test("group law") {
-    /**
-     * group(x) = (x' | x) where x' is flatten(x)
-     *
-     * (a | b)*c == (a*c | b*c) so, if flatten(c) == c we have:
-     * c * (a | b) == (a*c | b*c)
-     *
-     * b.grouped + flatten(c) == (b + flatten(c)).grouped
-     * flatten(c) + b.grouped == (flatten(c) + b).grouped
-     */
-    forAll { (b: Doc, c: Doc) =>
-      val flatC = c.flatten
-      val left = (b.grouped + flatC)
-      val right = (b + flatC).grouped
-      assert(left === right)
-      assert((flatC + b.grouped) === (flatC + b).grouped)
-      // since left == right, we could have used those instead of b:
-      assert((left.grouped + flatC) === (right + flatC).grouped)
-    }
-  }
-  test("flatten(group(a)) == flatten(a)") {
+  test("a.grouped.flatten == a.flatten") {
     forAll { (a: Doc) =>
       assert(a.grouped.flatten === a.flatten)
     }
   }
+
   test("a.flatten == a.flatten.flatten") {
     forAll { (a: Doc) =>
       val aflat = a.flatten
       assert(aflat === aflat.flatten)
-    }
-  }
-  test("a.flatten == a.flattenOption.getOrElse(a)") {
-    forAll { (a: Doc) =>
-      assert(a.flatten === a.flattenOption.getOrElse(a))
     }
   }
 
@@ -213,8 +189,7 @@ class PaigesScalacheckTest extends FunSuite {
 
   test("a is flat ==> Concat(a, Union(b, c)) === Union(Concat(a, b), Concat(a, c))") {
     import Doc._
-    forAll { (aGen: Doc, bc: Doc) =>
-      val a = aGen.flatten
+    forAll(genFlat, genDoc) { (a: Doc, bc: Doc) =>
       bc.grouped match {
         case d@Union(b, c) =>
           assert(Concat(a, d) === Union(Concat(a, b), Concat(a, c)))
@@ -225,8 +200,7 @@ class PaigesScalacheckTest extends FunSuite {
 
   test("c is flat ==> Concat(Union(a, b), c) === Union(Concat(a, c), Concat(b, c))") {
     import Doc._
-    forAll { (ab: Doc, cGen: Doc) =>
-      val c = cGen.flatten
+    forAll(genDoc, genFlat) { (ab: Doc, c: Doc) =>
       ab.grouped match {
         case d@Union(a, b) =>
           assert(Concat(d, c) === Union(Concat(a, c), Concat(b, c)))
@@ -235,16 +209,12 @@ class PaigesScalacheckTest extends FunSuite {
     }
   }
 
-  test("Union invariant: `a.flatten == b.flatten`") {
-    forAll { d: Doc.Union => assert(d.a.flatten === d.b.flatten) }
-  }
-
   test("Union invariant: `a != b`") {
     forAll { d: Doc.Union => assert(d.a !== d.b) }
   }
 
   test("Union invariant: `a` has 2-right-associated `Concat` nodes") {
-    forAll { d: Doc.Union => assert(PaigesTest.twoRightAssociated(d.a)) }
+    forAll(genGroupedUnion) { d: Doc.Union => assert(PaigesTest.twoRightAssociated(d.a)) }
   }
 
   test("Union invariant: the first line of `a` is at least as long as the first line of `b`") {
@@ -275,7 +245,7 @@ class PaigesScalacheckTest extends FunSuite {
      */
     implicit val generatorDrivenConfig =
       PropertyCheckConfiguration(minSuccessful = 30)
-    val smallTree = Gen.choose(0, 3).flatMap(genTree)
+    val smallTree = Gen.choose(0, 3).flatMap(genTree(_, withFill = true))
     val smallInt = Gen.choose(0, 10)
 
     def simple(n: Int, d: Doc, acc: Doc): Doc =
@@ -292,7 +262,7 @@ class PaigesScalacheckTest extends FunSuite {
      */
     implicit val generatorDrivenConfig =
       PropertyCheckConfiguration(minSuccessful = 30)
-    val smallTree = Gen.choose(0, 3).flatMap(genTree)
+    val smallTree = Gen.choose(0, 3).flatMap(genTree(_, withFill = true))
     val smallInt = Gen.choose(0, 3)
 
     forAll(smallTree, smallInt, smallInt) { (d: Doc, a: Int, b: Int) =>
@@ -328,4 +298,49 @@ class PaigesScalacheckTest extends FunSuite {
     assert((Doc.char('a') + Doc.char('\n')) === Doc.text("a\n"))
   }
 
+  // FlatAlt well-behaved with `grouped`.  The following test holds.  However,
+  // with `fill` we have `FlatAlt`s interspersed all over the place, so it is
+  // not true.
+  //
+  test("FlatAlt is not on the left of a Union") {
+    import Doc._
+    def ok(d: Doc): Boolean = d match {
+      case Union(x, _) => ok(x)
+      case Align(d) => ok(d)
+      case Nest(_, d) => ok(d)
+      case LazyDoc(d) => ok(d.evaluated)
+      case Concat(a, b) => ok(a) && ok(b)
+      case FlatAlt(_, _) => false
+      case Text(_) | Empty | Line => true
+     }
+    forAll(genGroupedUnion) { d: Doc.Union => assert(ok(d.a)) }
+  }
+
+  test("a.grouped.grouped == a.grouped") {
+    forAll { a: Doc => assert(a.grouped.grouped === a.grouped) }
+  }
+
+  // (c + d).grouped == c.grouped + d.grouped would be nice, but is not true.
+  // For example,
+  //
+  //    line.grouped = Union(\s, line)
+  //    line.grouped + line.grouped = Union(\s, line) + Union(\s, line)
+  //    (line + line).grouped == Union(\s + \s, line + line)
+  //    So at width 1, the lhs is \s\n, where the rhs is \n\n
+  //
+  // test("(c + d).grouped == c.grouped + d.grouped") {
+  //   forAll { (c: Doc, d: Doc) =>
+  //     (c + d).grouped === c.grouped + d.grouped
+  //   }
+  // }
+
+  test("fill matches spec") {
+    val docsGen = for {
+      n <- Gen.choose(1, 10)
+      ds <- Gen.listOfN(n, genDoc)
+    } yield ds
+    forAll(docsGen) { ds: List[Doc] =>
+      assert(Doc.fill(Doc.line, ds) === fillSpec(ds))
+    }
+  }
 }

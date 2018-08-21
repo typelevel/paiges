@@ -102,10 +102,15 @@ private[paiges] object Chunk {
       case Nil => ChunkStream.Empty
       case (i, Doc.Empty) :: z => loop(pos, z)
       case (i, Doc.Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z)
+      /*
+       * By invariant, there are no FlatAlt nodes if the Doc had been flattened.
+       * Since we're in this case, we just want the default.
+       */
+      case (i, Doc.FlatAlt(a, _)) :: z => loop(pos, (i, a) :: z)
       case (i, Doc.Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
       case (_, Doc.Align(d)) :: z => loop(pos, (pos, d) :: z)
       case (i, Doc.Text(s)) :: z => ChunkStream.Item(s, pos + s.length, z)
-      case (i, Doc.Line(_)) :: z => ChunkStream.Item(null, i, z)
+      case (i, Doc.Line) :: z => ChunkStream.Item(null, i, z)
       case (i, Doc.LazyDoc(d)) :: z => loop(pos, (i, d.evaluated) :: z)
       case (i, Doc.Union(x, y)) :: z =>
         /*
