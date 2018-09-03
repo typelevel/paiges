@@ -1,7 +1,7 @@
 package org.typelevel.paiges
 
-import org.scalatest.FunSuite
 import scala.util.Random
+import org.scalatest.FunSuite
 
 object PaigesTest {
   implicit val docEquiv: Equiv[Doc] =
@@ -44,6 +44,20 @@ object PaigesTest {
       case LazyDoc(f) => twoRightAssociated(f.evaluated)
       case Align(d) => twoRightAssociated(d)
       case Nest(_, d) => twoRightAssociated(d)
+    }
+  }
+
+  // Definition of `fill` from the paper
+  def fillSpec(ds: List[Doc]): Doc = {
+    import Doc._
+    ds match {
+      case Nil => empty
+      case x :: Nil => x.grouped
+      case x :: y :: zs =>
+        Union(
+          x.flatten + (space + fillSpec(y.flatten :: zs)),
+          x + (line + fillSpec(y :: zs))
+        )
     }
   }
 }
