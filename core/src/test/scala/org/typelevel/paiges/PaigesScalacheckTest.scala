@@ -328,4 +328,13 @@ class PaigesScalacheckTest extends FunSuite {
     assert((Doc.char('a') + Doc.char('\n')) === Doc.text("a\n"))
   }
 
+  test("fill matches spec") {
+    val docsGen = for {
+      n <- Gen.choose(1, 10)
+      ds <- Gen.listOfN(n, genDoc)
+    } yield ds
+    forAll(docsGen) { ds: List[Doc] =>
+      assert(Doc.fill(Doc.line, ds) === fillSpec(ds))
+    }
+  }
 }

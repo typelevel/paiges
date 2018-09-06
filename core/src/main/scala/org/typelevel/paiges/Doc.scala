@@ -762,7 +762,7 @@ object Doc {
 
     @tailrec
     def fillRec(x: Doc, lst: List[Doc], stack: List[Doc => Doc]): Doc = lst match {
-      case Nil => call(x, stack)
+      case Nil => call(x.grouped, stack)
       case y :: tail =>
 
         /*
