@@ -1,17 +1,5 @@
 matrix:
   include:
-    - scala: 2.10.7
-      language: scala
-      jdk: oraclejdk8
-      env: PLATFORM="jvm"
-      script: sbt "++ ${TRAVIS_SCALA_VERSION}!" coverage coreJVM/test catsJVM/test docs/tut doc mimaReportBinaryIssues coverageReport && codecov
-
-    - scala: 2.10.7
-      language: scala
-      jdk: oraclejdk8
-      env: PLATFORM="js"
-      script: sbt "++ ${TRAVIS_SCALA_VERSION}!" coreJS/test catsJS/test
-
     - scala: 2.11.12
       language: scala
       jdk: oraclejdk8
@@ -30,7 +18,7 @@ matrix:
       env: PLATFORM="native"
       sudo: required
       before_install:
-      - curl https://raw.githubusercontent.com/scala-native/scala-native/d1b17c78b7e1a/scripts/travis_setup.sh | bash -
+      - curl https://raw.githubusercontent.com/scala-native/scala-native/01fbdf7cf6f/scripts/travis_setup.sh | bash -
       script: sbt "++ ${TRAVIS_SCALA_VERSION}!" coreNative/test
 
     - scala: 2.12.6
@@ -45,13 +33,13 @@ matrix:
       env: PLATFORM="js"
       script: sbt "++ ${TRAVIS_SCALA_VERSION}!" coreJS/test catsJS/test
 
-    - scala: 2.13.0-M4
+    - scala: 2.13.0-M5
       language: scala
       jdk: oraclejdk8
       env: PLATFORM="jvm"
       script: sbt "++ ${TRAVIS_SCALA_VERSION}!" coreJVM/test catsJVM/test
 
-    - scala: 2.13.0-M4
+    - scala: 2.13.0-M5
       language: scala
       jdk: oraclejdk8
       env: PLATFORM="js"
