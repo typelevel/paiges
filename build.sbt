@@ -11,8 +11,8 @@ val Scala211 = "2.11.12"
 
 lazy val paigesSettings = Seq(
   organization := "org.typelevel",
-  scalaVersion := "2.12.6",
-  crossScalaVersions := Seq(Scala211, "2.12.6", "2.13.0-M5"),
+  scalaVersion := "2.12.8",
+  crossScalaVersions := Seq(Scala211, "2.12.8", "2.13.0-M5"),
   scalacOptions ++= (
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, n)) if n <= 12 =>
