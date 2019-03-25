@@ -130,8 +130,8 @@ lazy val paiges = project
   .settings(name := "root")
   .settings(paigesSettings: _*)
   .settings(noPublish: _*)
-  .aggregate(paigesJVM, paigesJS)
-  .dependsOn(paigesJVM, paigesJS)
+  .aggregate(paigesJVM, paigesJS, paigesNative)
+  .dependsOn(paigesJVM, paigesJS, paigesNative)
 
 lazy val paigesJVM = project
   .in(file(".paigesJVM"))
@@ -149,6 +149,17 @@ lazy val paigesJS = project
   .aggregate(coreJS, catsJS)
   .dependsOn(coreJS, catsJS)
   .enablePlugins(ScalaJSPlugin)
+
+lazy val paigesNative = project
+  .in(file(".paigesNative"))
+  .settings(moduleName := "paiges")
+  .settings(paigesSettings)
+  .settings(
+    scalaVersion := Scala211,
+    crossScalaVersions := Seq(Scala211),
+  )
+  .aggregate(coreNative)
+  .dependsOn(coreNative)
 
 lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform).crossType(CrossType.Pure)
   .in(file("core"))
