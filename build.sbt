@@ -181,6 +181,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform).crossType(
     scalaVersion := Scala211,
     crossScalaVersions := Seq(Scala211),
     nativeLinkStubs := true,
+    scalacOptions in Compile -= "-Xfatal-warnings",
     sources in Test ~= {
       _.filter(f => Set("JsonTest.scala", "PaigesTest.scala").contains(f.getName))
     },
