@@ -1,5 +1,5 @@
 addSbtPlugin("com.geirsson"       % "sbt-ci-release"  % "1.2.2")
-addSbtPlugin("com.jsuereth"       % "sbt-pgp"         % "1.1.1")
+addSbtPlugin("com.jsuereth"       % "sbt-pgp"         % "1.1.2")
 addSbtPlugin("com.typesafe"       % "sbt-mima-plugin" % "0.3.0")
 addSbtPlugin("org.scala-js"       % "sbt-scalajs"     % "0.6.26")
 addSbtPlugin("org.tpolecat"       % "tut-plugin"      % "0.6.10")
