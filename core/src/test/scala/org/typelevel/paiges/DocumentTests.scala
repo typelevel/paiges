@@ -1,7 +1,7 @@
 package org.typelevel.paiges
 
 import org.scalatest.FunSuite
-import org.scalatest.prop.PropertyChecks._
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks._
 
 class DocumentTest extends FunSuite {
   import Doc.text

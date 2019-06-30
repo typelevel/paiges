@@ -2,7 +2,7 @@ package org.typelevel.paiges
 
 import org.scalacheck.Gen
 import org.scalatest.FunSuite
-import org.scalatest.prop.PropertyChecks._
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks._
 
 class PaigesScalacheckTest extends FunSuite {
   import Doc.text

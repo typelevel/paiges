@@ -2,11 +2,11 @@ import sbtcrossproject.{crossProject, CrossType}
 
 val Scala211 = "2.11.12"
 val Scala212 = "2.12.8"
-val Scala213 = "2.13.0-M5"
+val Scala213 = "2.13.0"
 
 inThisBuild(List(
   organization := "org.typelevel",
-  scalaVersion := Scala212,
+  scalaVersion := Scala213,
   crossScalaVersions := Seq(Scala211, Scala212, Scala213),
   licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
   homepage := Some(url("https://github.com/typelevel/paiges")),
@@ -63,7 +63,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .jvmSettings(commonJvmSettings)
   .platformsSettings(JVMPlatform, JSPlatform)(
     libraryDependencies ++= Seq(
-      "org.scalatest" %%% "scalatest" % "3.0.6-SNAP5" % Test,
+      "org.scalatest" %%% "scalatest" % "3.0.8" % Test,
       "org.scalacheck" %%% "scalacheck" % "1.14.0" % Test
     )
   )
@@ -90,8 +90,10 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform)
     name := "paiges-cats",
     moduleName := "paiges-cats",
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core" % "1.6.1",
-      "org.typelevel" %%% "cats-laws" % "1.6.1" % Test),
+      "org.typelevel" %%% "cats-core" % "2.0.0-M4",
+      "org.typelevel" %%% "cats-laws" % "2.0.0-M4" % Test,
+      "org.typelevel" %%% "discipline-core" % "0.12.0-M3" % Test,
+      "org.typelevel" %%% "discipline-scalatest" % "0.12.0-M3" % Test),
     mimaPreviousArtifacts := previousArtifact(version.value, "cats"))
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings)
@@ -143,8 +145,7 @@ lazy val commonSettings = Seq(
     "-Xlint",
     "-Ywarn-dead-code",
     "-Ywarn-numeric-widen",
-    "-Ywarn-value-discard",
-    "-Xfuture"),
+    "-Ywarn-value-discard"),
   // HACK: without these lines, the console is basically unusable,
   // since all imports are reported as being unused (and then become
   // fatal errors).
@@ -155,7 +156,8 @@ lazy val commonSettings = Seq(
       case Some((2, n)) if n <= 12 =>
         Seq(
           "-Xfatal-warnings",
-          "-Yno-adapted-args"
+          "-Yno-adapted-args",
+          "-Xfuture"
         )
       case _ =>
         Nil
