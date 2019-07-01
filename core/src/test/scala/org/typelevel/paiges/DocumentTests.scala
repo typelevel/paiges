@@ -1,9 +1,9 @@
 package org.typelevel.paiges
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks._
 
-class DocumentTest extends FunSuite {
+class DocumentTest extends AnyFunSuite {
   import Doc.text
   import PaigesTest._
 

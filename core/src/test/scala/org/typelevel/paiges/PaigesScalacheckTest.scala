@@ -1,10 +1,10 @@
 package org.typelevel.paiges
 
 import org.scalacheck.Gen
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks._
 
-class PaigesScalacheckTest extends FunSuite {
+class PaigesScalacheckTest extends AnyFunSuite {
   import Doc.text
   import Generators._
   import PaigesTest._
