@@ -30,11 +30,11 @@ jobs:
       env: PLATFORM="js"
       script: sbt "++ ${TRAVIS_SCALA_VERSION}" js/checkCI
 
-    - scala: 2.13.0-M5
+    - scala: 2.13.0
       env: PLATFORM="jvm"
       script: sbt "++ ${TRAVIS_SCALA_VERSION}" jvm/checkCI
 
-    - scala: 2.13.0-M5
+    - scala: 2.13.0
       env: PLATFORM="js"
       script: sbt "++ ${TRAVIS_SCALA_VERSION}" js/checkCI
 
