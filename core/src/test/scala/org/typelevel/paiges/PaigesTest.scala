@@ -1,7 +1,7 @@
 package org.typelevel.paiges
 
 import scala.util.Random
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 object PaigesTest {
   implicit val docEquiv: Equiv[Doc] =
@@ -62,7 +62,7 @@ object PaigesTest {
   }
 }
 
-class PaigesTest extends FunSuite {
+class PaigesTest extends AnyFunSuite {
   import Doc.text
   import PaigesTest._
 

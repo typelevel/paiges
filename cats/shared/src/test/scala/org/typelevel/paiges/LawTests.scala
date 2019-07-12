@@ -1,20 +1,16 @@
 package org.typelevel.paiges
 
-import catalysts.Platform
-import catalysts.macros.TypeTagM // need this import for implicit macros
-
 import cats.Semigroupal
 import cats.Contravariant
 import cats.kernel.{Eq, Monoid}
-import cats.laws.discipline.{SemigroupalTests, ContravariantTests, SerializableTests}
+import cats.laws.discipline.{ExhaustiveCheck, SemigroupalTests, ContravariantTests, SerializableTests}
 import cats.kernel.laws.discipline.MonoidTests
-import cats.laws.discipline.eq.catsLawsEqForFn1
+import cats.laws.discipline.eq.catsLawsEqForFn1Exhaustive
 
-import org.typelevel.discipline.Laws
 import org.typelevel.discipline.scalatest.Discipline
 import org.scalacheck.Arbitrary
 import org.scalactic.anyvals.{PosZDouble, PosInt, PosZInt}
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.prop.Configuration
 
 class LawTests extends LawChecking with CatsDocument {
@@ -31,23 +27,23 @@ class LawTests extends LawChecking with CatsDocument {
   implicit def arbitraryForDocument[A]: Arbitrary[Document[A]] =
     Arbitrary(Document.useToString[A])
 
-  implicit def eqForDocument[A: Arbitrary]: Eq[Document[A]] =
+  implicit def eqForDocument[A: ExhaustiveCheck]: Eq[Document[A]] =
     Eq.by[Document[A], A => Doc](inst => (a: A) => inst.document(a))
 
-  laws[MonoidTests, Doc].check(_.monoid)
+  checkAll("Monoid[Doc]", MonoidTests[Doc].monoid)
 
-  checkAll("Contravariant[Document]", ContravariantTests[Document].contravariant[Int, Int, Int])
+  checkAll("Contravariant[Document]", ContravariantTests[Document].contravariant[Boolean, Boolean, Boolean])
   checkAll("Contravariant[Document]", SerializableTests.serializable(Contravariant[Document]))
 
   {
     implicit val semigroupalDocument: Semigroupal[Document] =
       CatsDocument.semigroupalDocument(Doc.char(','))
-    checkAll("Semigroupal[Document]", SemigroupalTests[Document].semigroupal[Int, Int, Int])
+    checkAll("Semigroupal[Document]", SemigroupalTests[Document].semigroupal[Boolean, Boolean, Boolean])
     checkAll("Semigroupal[Document]", SerializableTests.serializable(Semigroupal[Document]))
   }
 }
 
-abstract class LawChecking extends FunSuite with Configuration with Discipline {
+abstract class LawChecking extends AnyFunSuite with Configuration with Discipline {
 
   lazy val checkConfiguration: PropertyCheckConfiguration =
     PropertyCheckConfiguration(
@@ -62,14 +58,4 @@ abstract class LawChecking extends FunSuite with Configuration with Discipline {
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     if (Platform.isJvm) PropertyCheckConfiguration(sizeRange = 100, minSuccessful = 100)
     else PropertyCheckConfiguration(sizeRange = 10, minSuccessful = 100)
-
-  case class LawChecker[L <: Laws](name: String, laws: L) {
-    def check(f: L => L#RuleSet): Unit = checkAll(name, f(laws))
-  }
-
-  def laws[L[_] <: Laws, A](implicit lws: L[A], tag: TypeTagM[A]): LawChecker[L[A]] =
-    laws[L, A]("")
-
-  def laws[L[_] <: Laws, A](extraTag: String)(implicit laws: L[A], tag: TypeTagM[A]): LawChecker[L[A]] =
-    LawChecker("[" + tag.name.toString + (if(extraTag != "") "@@" + extraTag else "") + "]", laws)
 }

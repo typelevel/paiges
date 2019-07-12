@@ -1,6 +1,6 @@
 package org.typelevel.paiges
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 /**
  * A simple JSON ast
@@ -52,7 +52,7 @@ object Json {
   }
 }
 
-class JsonTest extends FunSuite {
+class JsonTest extends AnyFunSuite {
   import Json._
 
   test("test nesteded array json example") {
