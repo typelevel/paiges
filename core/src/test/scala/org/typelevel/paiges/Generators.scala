@@ -97,8 +97,7 @@ object Generators {
         // bias to simple stuff
         (6, doc0Gen),
         (1, ugen),
-        // TODO: replace this with recur when 117 lands
-        (1, Gen.lzy(genTree(depth - 1, withFill)).map(Doc.defer(_))),
+        (1, recur.map(Doc.defer(_))),
         (2, cgen),
         (1, fgen))
     } else {
