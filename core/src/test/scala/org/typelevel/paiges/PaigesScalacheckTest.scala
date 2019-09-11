@@ -333,8 +333,8 @@ class PaigesScalacheckTest extends AnyFunSuite {
       n <- Gen.choose(1, 10)
       ds <- Gen.listOfN(n, genDoc)
     } yield ds
-    forAll(docsGen) { ds: List[Doc] =>
-      assert(Doc.fill(Doc.line, ds) === fillSpec(ds))
+    forAll(genDoc, docsGen) { (sep: Doc, ds: List[Doc]) =>
+      assert(Doc.fill(sep, ds) === fillSpec(sep, ds))
     }
   }
 }

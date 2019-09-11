@@ -1,3 +1,4 @@
+package org.typelevel.paiges
 package bench
 
 import java.util.concurrent.TimeUnit
@@ -41,10 +42,36 @@ class PaigesBenchmark {
 
   @Benchmark
   def fill0(): String =
-    Doc.fill(Doc.text(","), strs.map(Doc.text)).render(0)
+    Doc.fill(Doc.line, strs.map(Doc.text)).render(0)
 
   @Benchmark
   def fill100(): String =
-    Doc.fill(Doc.text(","), strs.map(Doc.text)).render(100)
+    Doc.fill(Doc.line, strs.map(Doc.text)).render(100)
 
+  // Definition of `fill` from the paper
+  def fillSpec(sep: Doc, ds: List[Doc]): Doc = {
+    val flatSep = sep.flatten
+    import Doc._
+
+    def loop(ds: List[Doc]): Doc =
+      ds match {
+        case Nil => empty
+        case x :: Nil => x.grouped
+        case x :: y :: zs =>
+          Union(
+            x.flatten + (flatSep + defer(loop(y.flatten :: zs))),
+            x + (sep + defer(loop(y :: zs)))
+          )
+      }
+
+    loop(ds)
+  }
+
+  @Benchmark
+  def fillSpec0(): String =
+    fillSpec(Doc.line, strs.map(Doc.text).toList).render(0)
+
+  @Benchmark
+  def fillSpec100(): String =
+    fillSpec(Doc.line, strs.map(Doc.text).toList).render(100)
 }

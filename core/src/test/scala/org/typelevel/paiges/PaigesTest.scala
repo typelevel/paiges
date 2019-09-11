@@ -48,15 +48,15 @@ object PaigesTest {
   }
 
   // Definition of `fill` from the paper
-  def fillSpec(ds: List[Doc]): Doc = {
+  def fillSpec(sep: Doc, ds: List[Doc]): Doc = {
     import Doc._
     ds match {
       case Nil => empty
       case x :: Nil => x.grouped
       case x :: y :: zs =>
         Union(
-          x.flatten + (space + fillSpec(y.flatten :: zs)),
-          x + (line + fillSpec(y :: zs))
+          x.flatten + (sep.flatten + fillSpec(sep, y.flatten :: zs)),
+          x + (sep + fillSpec(sep, y :: zs))
         )
     }
   }
