@@ -398,7 +398,7 @@ class PaigesScalacheckTest extends AnyFunSuite {
         case Nest(_, d) => law(d, isLeft)
       }
 
-    forAll(law(_, false))
+    forAll(law(_: Doc, false))
   }
 
   test("Line is always wrapped in FlatAlt") {
@@ -418,6 +418,6 @@ class PaigesScalacheckTest extends AnyFunSuite {
         case Nest(_, d) => law(d, isFlatDef)
       }
 
-    forAll(law(_, false))
+    forAll(law(_: Doc, false))
   }
 }
