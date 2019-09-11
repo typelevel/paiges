@@ -41,13 +41,20 @@ object Generators {
       Gen.const({ d: Doc => d.aligned }),
       Gen.choose(0, 40).map { i => { d: Doc => d.nested(i) } })
 
-  val folds: Gen[(List[Doc] => Doc)] =
-    Gen.oneOf(
-    doc0Gen.map { sep =>
+  def folds(genDoc: Gen[Doc], withFill: Boolean): Gen[(List[Doc] => Doc)] = {
+    val gfill = genDoc.map { sep =>
       { ds: List[Doc] => Doc.fill(sep, ds.take(8)) }
-    },
-    Gen.const({ ds: List[Doc] => Doc.spread(ds) }),
-    Gen.const({ ds: List[Doc] => Doc.stack(ds) }))
+    }
+
+    Gen.frequency(
+      (1, genDoc.map { sep =>
+        { ds: List[Doc] => Doc.intercalate(sep, ds) }
+      }),
+      (1, Gen.const({ ds: List[Doc] => Doc.spread(ds) })),
+      (1, Gen.const({ ds: List[Doc] => Doc.stack(ds) })),
+      (if (withFill) 1 else 0, gfill)
+    )
+  }
 
   def leftAssoc(max: Int): Gen[Doc] = for {
     n <- Gen.choose(1, max)
@@ -66,6 +73,7 @@ object Generators {
   val maxDepth = 7
 
   def genTree(depth: Int, withFill: Boolean): Gen[Doc] = {
+    val recur = Gen.lzy(genTree(depth - 1, withFill))
     val ugen = for {
       u <- unary
       d <- genTree(depth - 1, withFill)
@@ -78,9 +86,9 @@ object Generators {
     } yield c(d0, d1)
 
     val fgen = for {
-      fold <- folds
+      fold <- folds(recur, withFill)
       num <- Gen.choose(0, 20)
-      ds <- Gen.listOfN(num, Gen.lzy(genTree(depth - 1, withFill)))
+      ds <- Gen.listOfN(num, recur)
     } yield fold(ds)
 
     if (depth <= 0) doc0Gen
@@ -90,7 +98,7 @@ object Generators {
         (6, doc0Gen),
         (1, ugen),
         (2, cgen),
-        (if (withFill) 1 else 0, fgen))
+        (1, fgen))
     } else {
       // bias to simple stuff
       Gen.frequency(
