@@ -685,6 +685,8 @@ object Doc {
    * lineOr(d) renders as d if we can fit the rest
    * or inserts a newline.
    *
+   * If it is not already flat, d will be flattened.
+   *
    * and example would be:
    * stmt1 + lineOr(Doc.text("; ")) + stmt2
    * in a programming language that semicolons to
@@ -692,7 +694,7 @@ object Doc {
    * on the end of a line
    */
   def lineOr(doc: Doc): Doc =
-    FlatAlt(Line, doc).grouped
+    FlatAlt(Line, doc.flatten).grouped
 
   /**
    * lineOrSpace renders a space if we can fit the rest

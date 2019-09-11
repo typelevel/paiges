@@ -399,23 +399,18 @@ class PaigesScalacheckTest extends AnyFunSuite {
         case Concat(a, b) =>
           law(a, isLeft) && law(b, isLeft)
         case Union(a, b) =>
-          law(a, true) && law(b, isLeft)
+          // we only care about the first parent of a FlatAlt node;
+          // once we see a union its right side could have a FlatAlt
+          // but its left side must not.
+          law(a, true) && law(b, false)
         case f@LazyDoc(_) => law(f.evaluated, isLeft)
         case Align(d) => law(d, isLeft)
         case Nest(_, d) => law(d, isLeft)
       }
 
-    /*
-    var seenFail = false
     forAll { d: Doc =>
-      val res = law(d, false)
-      if (!seenFail && !res) {
-        println(d.representation(true).render(80))
-      }
-      seenFail |= !res
-      assert(law(d, false))
+      assert(law(d, false), s"input=${d.representation().render(100)}")
     }
-    */
   }
 
   test("Line is always wrapped in FlatAlt") {
@@ -436,5 +431,23 @@ class PaigesScalacheckTest extends AnyFunSuite {
       }
 
     forAll { d: Doc => assert(law(d, false)) }
+  }
+
+  test("flattened docs never have FlatAlt") {
+    import Doc._
+    def law(d: Doc): Boolean =
+      d match {
+        case FlatAlt(_, _) => false
+        case Empty | Text(_) | Line => true
+        case Concat(a, b) => law(a) && law(b)
+        case Union(a, b) => law(a) && law(b)
+        case f@LazyDoc(_) => law(f.evaluated)
+        case Align(d) => law(d)
+        case Nest(_, d) => law(d)
+      }
+
+    forAll { (d: Doc) =>
+      assert(law(d.flatten), s"input=${d.representation().render(100)}")
+    }
   }
 }
