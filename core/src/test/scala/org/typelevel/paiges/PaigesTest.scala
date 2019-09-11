@@ -42,7 +42,7 @@ object PaigesTest {
       case Concat(a, b) =>
         twoRightAssociated(a) && twoRightAssociated(b)
       case Union(a, _) => twoRightAssociated(a)
-      case LazyDoc(f) => twoRightAssociated(f.evaluated)
+      case f@LazyDoc(_) => twoRightAssociated(f.evaluated)
       case Align(d) => twoRightAssociated(d)
       case Nest(_, d) => twoRightAssociated(d)
     }
@@ -283,5 +283,38 @@ the spaces""")
 
   test("cat") {
     assert(Doc.cat(List("1", "2", "3") map Doc.text).render(80) == "123")
+  }
+
+  test("defer doesn't evaluate immediately") {
+    var count = 0
+    val doc = Doc.defer {
+      count += 1
+      Doc.text("done")
+    }
+    assert(count == 0)
+    assert(doc.renderWideStream.mkString == "done")
+    assert(count == 1)
+  }
+
+  test("defer short circuits") {
+    var d1count = 0
+    val d1 = Doc.defer {
+      d1count += 1
+      Doc.empty
+    }
+
+    var d2count = 0
+    val d2 = Doc.defer {
+      d2count += 1
+      d1
+    }
+
+    d2.render(0)
+    assert(d1count == 1)
+    assert(d2count == 1)
+    // rendering d1 does not increment d1
+    d1.render(0)
+    assert(d1count == 1)
+    assert(d2count == 1)
   }
 }
