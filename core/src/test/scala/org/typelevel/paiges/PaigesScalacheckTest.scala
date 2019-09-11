@@ -310,6 +310,7 @@ class PaigesScalacheckTest extends AnyFunSuite {
       assert(d.render(w) == d.renderStream(w).mkString)
     }
   }
+
   test("renderWide == render(maxWidth)") {
     forAll { (d: Doc) =>
       val max = d.maxWidth
@@ -336,5 +337,87 @@ class PaigesScalacheckTest extends AnyFunSuite {
     forAll(docsGen) { ds: List[Doc] =>
       assert(Doc.fill(Doc.line, ds) === fillSpec(ds))
     }
+  }
+
+  test("FlatAlt invariant 0: FlatAlt renders as default") {
+    forAll { (d1: Doc, d2: Doc, w: Int) =>
+      Doc.FlatAlt(d1, d2).render(w) == d1.render(w)
+    }
+  }
+
+  test("FlatAlt invariant 1: All constructed FlatAlt have width(default) <= width(flattened)") {
+    import Doc._
+    def law(d: Doc): Boolean =
+      d match {
+        case Empty | Text(_) | Line => true
+        case FlatAlt(a, b) =>
+          a.maxWidth <= b.maxWidth
+        case Concat(a, b) =>
+          law(a) && law(b)
+        case Union(a, b) =>
+          law(a) && law(b)
+        case LazyDoc(f) => law(f.evaluated)
+        case Align(d) => law(d)
+        case Nest(_, d) => law(d)
+      }
+
+    forAll(law _)
+  }
+
+  test("FlatAlt invariant 2: default != whenFlat (otherwise the FlatAlt is redundant)") {
+    import Doc._
+    def law(d: Doc): Boolean =
+      d match {
+        case Empty | Text(_) | Line => true
+        case FlatAlt(a, b) =>
+          a !== b
+        case Concat(a, b) =>
+          law(a) && law(b)
+        case Union(a, b) =>
+          law(a) && law(b)
+        case LazyDoc(f) => law(f.evaluated)
+        case Align(d) => law(d)
+        case Nest(_, d) => law(d)
+      }
+
+    forAll(law _)
+  }
+
+  test("FlatAlt invariant 3: FlatAlt does not occur on the left side of a union") {
+    import Doc._
+    def law(d: Doc, isLeft: Boolean): Boolean =
+      d match {
+        case Empty | Text(_) | Line => true
+        case FlatAlt(a, b) => !isLeft && law(a, isLeft) && law(b, isLeft)
+        case Concat(a, b) =>
+          law(a, isLeft) && law(b, isLeft)
+        case Union(a, b) =>
+          law(a, true) && law(b, isLeft)
+        case LazyDoc(f) => law(f.evaluated, isLeft)
+        case Align(d) => law(d, isLeft)
+        case Nest(_, d) => law(d, isLeft)
+      }
+
+    forAll(law(_, false))
+  }
+
+  test("Line is always wrapped in FlatAlt") {
+    import Doc._
+    def law(d: Doc, isFlatDef: Boolean): Boolean =
+      d match {
+        case Empty | Text(_) => true
+        case Line => !isFlatDef
+        case FlatAlt(a, b) =>
+          law(a, true) && law(b, isFlatDef)
+        case Concat(a, b) =>
+          law(a, isFlatDef) && law(b, isFlatDef)
+        case Union(a, b) =>
+          law(a, isFlatDef) && law(b, isFlatDef)
+        case LazyDoc(f) => law(f.evaluated, isFlatDef)
+        case Align(d) => law(d, isFlatDef)
+        case Nest(_, d) => law(d, isFlatDef)
+      }
+
+    forAll(law(_, false))
   }
 }

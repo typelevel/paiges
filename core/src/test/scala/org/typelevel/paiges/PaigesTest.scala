@@ -36,7 +36,8 @@ object PaigesTest {
   def twoRightAssociated(d: Doc): Boolean = {
     import Doc._
     d match {
-      case Empty | Text(_) | Line(_) => true
+      case Empty | Text(_) | Line => true
+      case FlatAlt(a, _) => twoRightAssociated(a)
       case Concat(Concat(Concat(_, _), _), _) => false
       case Concat(a, b) =>
         twoRightAssociated(a) && twoRightAssociated(b)

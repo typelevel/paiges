@@ -39,6 +39,7 @@ object Generators {
     Gen.oneOf(
       Gen.const({ d: Doc => d.grouped }),
       Gen.const({ d: Doc => d.aligned }),
+      Gen.const({ d: Doc => Doc.lineOr(d) }),
       Gen.choose(0, 40).map { i => { d: Doc => d.nested(i) } })
 
   val folds: Gen[(List[Doc] => Doc)] =
@@ -134,12 +135,13 @@ object Generators {
       a #:: b #:: interleave(interleave(sa, sb), sa.flatMap(x => sb.map(y => f(x, y))))
     }
     Shrink {
+      case FlatAlt(_, b) => b #:: shrinkDoc.shrink(b)
       case Union(a, b) => combine2(a, b)(Union)
       case Concat(a, b) => combine2(a, b)(_ + _)
       case Text(s) => shrink(s).map(text)
       case Nest(i, d) => combine(d)(_.nested(i))
       case Align(d) => combine(d)(_.aligned)
-      case Line(_) | Empty | LazyDoc(_) => Stream.empty
+      case Line | Empty | LazyDoc(_) => Stream.empty
     }
   }
 }
