@@ -572,17 +572,21 @@ object Doc {
     // This is never a LazyDoc
     lazy val evaluated: Doc = {
       @tailrec
-      def loop(d: Doc, toSet: List[LazyDoc]): Doc =
+      def loop(d: Doc, toUpdate: List[LazyDoc]): Doc =
         d match {
           case lzy@LazyDoc(thunk) =>
-            // this points to another, and therefore equivalent LazyDoc
+            // note: we are intentionally shadowing thunk here because
+            // we want to make it impossible to accidentally use the outer
+            // thunk
+            //
+            // lzy points to another, and therefore equivalent LazyDoc
             // short circuit if we this has already computed
             val lzyC = lzy.computed
             // lzy isn't computed, add it to the list of LazyDocs to fill in
-            if (lzyC == null) loop(thunk(), lzy :: toSet)
-            else loop(lzyC, toSet)
+            if (lzyC == null) loop(thunk(), lzy :: toUpdate)
+            else loop(lzyC, toUpdate)
           case _ =>
-            toSet.foreach(_.computed = d)
+            toUpdate.foreach(_.computed = d)
             d
         }
 
