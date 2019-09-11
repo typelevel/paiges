@@ -21,6 +21,7 @@ object Generators {
     (1, Doc.line),
     (1, Doc.lineBreak),
     (1, Doc.lineOrSpace),
+    (1, Doc.lineOrEmpty),
     (10, asciiString.map(text(_))),
     (10, generalString.map(text(_))),
     (3, asciiString.map(Doc.split(_))),
@@ -159,7 +160,7 @@ object Generators {
       case Nest(i, d) => interleave(shrink(d), combine(d)(_.nested(i)))
       case Align(d) => interleave(shrink(d), combine(d)(_.aligned))
       case Line | Empty => Stream.empty
-      case d@LazyDoc(_) => d.evaluated #:: shrink(d)
+      case d@LazyDoc(_) => d.evaluated #:: shrink(d.evaluated)
     }
   }
 }
