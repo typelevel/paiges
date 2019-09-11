@@ -21,6 +21,7 @@ object Generators {
     (1, Doc.line),
     (1, Doc.lineBreak),
     (1, Doc.lineOrSpace),
+    (1, Doc.lineOrEmpty),
     (10, asciiString.map(text(_))),
     (10, generalString.map(text(_))),
     (3, asciiString.map(Doc.split(_))),
