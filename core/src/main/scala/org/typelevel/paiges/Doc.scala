@@ -192,7 +192,7 @@ sealed abstract class Doc extends Product with Serializable {
           // shouldn't be empty by construction, but defensive
           s.isEmpty && loop(Empty, stack)
         case Line(_) => false
-        case LazyDoc(d) => loop(d.evaluated, stack)
+        case d@LazyDoc(_) => loop(d.evaluated, stack)
         case Union(flattened, _) =>
           // flattening cannot change emptiness
           loop(flattened, stack)
@@ -273,7 +273,7 @@ sealed abstract class Doc extends Product with Serializable {
       case (i, Align(d)) :: z => loop(pos, (pos, d) :: z)
       case (i, Text(s)) :: z => s #:: cheat(pos + s.length, z)
       case (i, Line(_)) :: z => Chunk.lineToStr(i) #:: cheat(i, z)
-      case (i, LazyDoc(d)) :: z => loop(pos, (i, d.evaluated) :: z)
+      case (i, d@LazyDoc(_)) :: z => loop(pos, (i, d.evaluated) :: z)
       case (i, Union(a, _)) :: z =>
         /*
          * if we are infinitely wide, a always fits
@@ -430,7 +430,7 @@ sealed abstract class Doc extends Product with Serializable {
                   loop(Left(d) :: Right("Align(") :: tail, ")" +: suffix)
                 case Concat(x, y) =>
                   loop(Left(y) :: Right(", ") :: Left(x) :: Right("Concat(") :: tail, ")" +: suffix)
-                case LazyDoc(d) =>
+                case d@LazyDoc(_) =>
                   if (forceLazy) loop(Left(d.evaluated) :: tail, suffix)
                   else loop(tail, "LazyDoc(() => ...)" +: suffix)
                 case Union(x, y) =>
@@ -493,7 +493,7 @@ sealed abstract class Doc extends Product with Serializable {
           loop((d, h._2), stack, front) // no Line, so Nest is irrelevant
         case Align(d) =>
           loop((d, h._2), stack, front) // no Line, so Align is irrelevant
-        case LazyDoc(d) => loop((d.evaluated, h._2), stack, front)
+        case d@LazyDoc(_) => loop((d.evaluated, h._2), stack, front)
         case Union(a, _) => loop((a, true), stack, front) // invariant: flatten(union(a, b)) == flatten(a)
         case Concat(a, b) => loop((a, h._2), (b, h._2) :: stack, front)
       }
@@ -520,7 +520,7 @@ sealed abstract class Doc extends Product with Serializable {
       case (i, Align(d)) :: z => loop(pos, (pos, d) :: z, max)
       case (i, Text(s)) :: z => loop(pos + s.length, z, max)
       case (i, Line(_)) :: z => loop(i, z, math.max(max, pos))
-      case (i, LazyDoc(d)) :: z => loop(pos, (i, d.evaluated) :: z, max)
+      case (i, d@LazyDoc(_)) :: z => loop(pos, (i, d.evaluated) :: z, max)
       case (i, Union(a, _)) :: z =>
         // we always go left, take the widest branch
         loop(pos, (i, a) :: z, max)
@@ -567,11 +567,24 @@ object Doc {
    */
   private[paiges] case class Align(doc: Doc) extends Doc
 
-  private[paiges] class Thunk(value: => Doc) extends Serializable {
-    lazy val evaluated: Doc = value
-  }
+  private[paiges] case class LazyDoc(thunk: () => Doc) extends Doc {
+    private var computed: Doc = null
+    // This is never a LazyDoc
+    lazy val evaluated: Doc = {
+      def loop(d: Doc): Doc =
+        d match {
+          case lzy@LazyDoc(thunk) =>
+            // short circuit if we this has already computed
+            val lzyC = lzy.computed
+            if (lzyC == null) loop(thunk())
+            else lzyC
+          case _ => d
+        }
 
-  private[paiges] case class LazyDoc(thunk: Thunk) extends Doc
+      computed = loop(thunk())
+      computed
+    }
+  }
 
   /**
    * Represents an optimistic rendering (on the left) as well as a
@@ -606,7 +619,7 @@ object Doc {
    * This is useful in some recursive algorithms
    */
   def defer(d: => Doc): Doc =
-    LazyDoc(new Thunk(d))
+    LazyDoc(() => d)
 
   /**
    * Produce a document of exactly `n` spaces.

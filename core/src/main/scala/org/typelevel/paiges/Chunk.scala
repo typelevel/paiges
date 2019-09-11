@@ -106,7 +106,7 @@ private[paiges] object Chunk {
       case (_, Doc.Align(d)) :: z => loop(pos, (pos, d) :: z)
       case (_, Doc.Text(s)) :: z => ChunkStream.Item(s, pos + s.length, z)
       case (i, Doc.Line(_)) :: z => ChunkStream.Item(null, i, z)
-      case (i, Doc.LazyDoc(d)) :: z => loop(pos, (i, d.evaluated) :: z)
+      case (i, d@Doc.LazyDoc(_)) :: z => loop(pos, (i, d.evaluated) :: z)
       case (i, Doc.Union(x, y)) :: z =>
         /*
          * If we can fit the next line from x, we take it.
