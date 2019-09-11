@@ -9,7 +9,7 @@ import org.typelevel.paiges.Doc
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 class PaigesBenchmark {
 
-  @Param(Array("1", "10", "100", "1000", "10000"))
+  @Param(Array(/*"1", "10", "100", */"1000", "10000"))
   var size: Int = 0
 
   var strs: Vector[String] = Vector.empty
@@ -41,10 +41,10 @@ class PaigesBenchmark {
 
   @Benchmark
   def fill0(): String =
-    Doc.fill(Doc.text(","), strs.map(Doc.text)).render(0)
+    Doc.fill(Doc.line, strs.map(Doc.text)).render(0)
 
   @Benchmark
   def fill100(): String =
-    Doc.fill(Doc.text(","), strs.map(Doc.text)).render(100)
+    Doc.fill(Doc.line, strs.map(Doc.text)).render(100)
 
 }

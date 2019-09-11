@@ -4,6 +4,21 @@ import scala.util.Random
 import org.scalatest.funsuite.AnyFunSuite
 
 object PaigesTest {
+
+  def repr(d: Doc): String =
+    d.representation().render(100)
+
+  def esc(s: String): String =
+    "\"" + s.replace("\t", "\\t").replace("\n", "\\n") + "\""
+
+  def debugEq(x: Doc, y: Doc): String = {
+    val maxW = Integer.max(x.maxWidth, y.maxWidth)
+    (0 until maxW).find(w => !Doc.orderingAtWidth(w).equiv(x, y)) match {
+      case Some(w) => s"$w: ${repr(x)} != ${repr(y)} (${esc(x.render(w))} != ${esc(y.render(w))})"
+      case None => "ok"
+    }
+  }
+
   implicit val docEquiv: Equiv[Doc] =
     new Equiv[Doc] {
       def equiv(x: Doc, y: Doc): Boolean = {
@@ -49,16 +64,15 @@ object PaigesTest {
   }
 
   // Definition of `fill` from the paper
-  def fillSpec(ds: List[Doc]): Doc = {
+  def fillSpec(sep: Doc, ds: List[Doc]): Doc = {
     import Doc._
     ds match {
       case Nil => empty
       case x :: Nil => x.grouped
       case x :: y :: zs =>
         Union(
-          x.flatten + (space + fillSpec(y.flatten :: zs)),
-          x + (line + fillSpec(y :: zs))
-        )
+          x.flatten + (sep.flatten + fillSpec(sep, y.flatten :: zs)),
+          x + (sep + Doc.defer(fillSpec(sep, y :: zs))))
     }
   }
 }

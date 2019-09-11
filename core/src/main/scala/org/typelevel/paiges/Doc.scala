@@ -467,6 +467,18 @@ sealed abstract class Doc extends Product with Serializable {
    */
   def flatten: Doc = flattenBoolean._1
 
+  private[paiges] def containsHardNewline: Boolean =
+    this match {
+      case Line => true
+      case Empty | Text(_) => false
+      case FlatAlt(_, b) => b.containsHardNewline
+      case Concat(a, b) => a.containsHardNewline || b.containsHardNewline
+      case Nest(_, d) => d.containsHardNewline
+      case Align(d) => d.containsHardNewline
+      case d@LazyDoc(_) => d.evaluated.containsHardNewline
+      case Union(a, b) => a.containsHardNewline || b.containsHardNewline
+    }
+
   // return the flattened doc, and if it is different
   private def flattenBoolean: (Doc, Boolean) = {
 
@@ -477,33 +489,52 @@ sealed abstract class Doc extends Product with Serializable {
         case ((d1, c1), (d0, c2)) => (Concat(d0, d1), c1 || c2)
       }
 
+    def cheat(h: DB): DB = {
+      val (last, front) = loop(h, Nil, Nil)
+      finish(last, front)
+    }
+
     @tailrec
-    def loop(h: DB, stack: List[DB], front: List[DB]): DB =
+    def loop(h: DB, stack: List[DB], front: List[DB]): (DB, List[DB]) =
       h._1 match {
-        case Empty | Text(_) =>
+        case Empty | Text(_) | Line =>
           stack match {
-            case Nil => finish(h, front)
+            case Nil => (h, front)
             case x :: xs => loop(x, xs, h :: front)
           }
         case FlatAlt(_, next) =>
           val change = (next, true)
           stack match {
-            case Nil => finish(change, front)
+            case Nil => (change, front)
             case x :: xs => loop(x, xs, change :: front)
           }
-        case Line =>
-          // $COVERAGE-OFF$
-          sys.error("found Line not on the left of a FlatAlt, invariant violation")
-          // $COVERAGE-ON$
         case Nest(i, d) =>
-          loop((d, h._2), stack, front) // no Line, so Nest is irrelevant
+          if (d.containsHardNewline) {
+            val (dd, bb) = cheat((d, h._2))
+            stack match {
+              case Nil => ((Nest(i, dd), bb), front)
+              case x :: xs => loop(x, xs, (Nest(i, dd), bb) :: front)
+            }
+          } else {
+            loop((d, h._2), stack, front) // no Line, so Nest is irrelevant
+          }
         case Align(d) =>
-          loop((d, h._2), stack, front) // no Line, so Align is irrelevant
+          if (d.containsHardNewline) {
+            val (dd, bb) = cheat((d, h._2))
+            stack match {
+              case Nil => ((Align(dd), bb), front)
+              case x :: xs => loop(x, xs, (Align(dd), bb) :: front)
+            }
+          } else {
+            loop((d, h._2), stack, front) // no Line, so Align is irrelevant
+          }
         case d@LazyDoc(_) => loop((d.evaluated, h._2), stack, front)
         case Union(a, _) => loop((a, true), stack, front) // invariant: flatten(union(a, b)) == flatten(a)
         case Concat(a, b) => loop((a, h._2), (b, h._2) :: stack, front)
       }
-    loop((this, false), Nil, Nil)
+
+    val (last, front) = loop((this, false), Nil, Nil)
+    finish(last, front)
   }
 
   /**
@@ -682,6 +713,11 @@ object Doc {
   val lineBreak: Doc = FlatAlt(Line, empty)
 
   /**
+   *
+   */
+  val hardLine: Doc = Line
+
+  /**
    * lineOr(d) renders as d if we can fit the rest
    * or inserts a newline.
    *
@@ -694,7 +730,10 @@ object Doc {
    * on the end of a line
    */
   def lineOr(doc: Doc): Doc =
-    FlatAlt(Line, doc.flatten).grouped
+    doc.flatten match {
+      case Line => Line
+      case d => FlatAlt(Line, d).grouped
+    }
 
   /**
    * lineOrSpace renders a space if we can fit the rest
@@ -796,6 +835,30 @@ object Doc {
   def split(str: String, pat: Regex = Doc.splitWhitespace, sep: Doc = Doc.lineOrSpace): Doc =
     foldDocs(pat.pattern.split(str, -1).map(Doc.text))((x, y) => x + (sep + y))
 
+  sealed abstract class MaybeFlat {
+    def doc: Doc
+    def flatDoc: Doc
+    def grouped: Doc
+    def flatten: MaybeFlat
+  }
+
+  object MaybeFlat {
+    def apply(d: Doc): MaybeFlat =
+      d.flattenOption match {
+        case Some(df) => WithFlat(d, df)
+        case None => JustFlat(d)
+      }
+    case class JustFlat(flatDoc: Doc) extends MaybeFlat {
+      def doc: Doc = flatDoc
+      def grouped: Doc = flatDoc
+      def flatten: MaybeFlat = this
+    }
+    case class WithFlat(doc: Doc, flatDoc: Doc) extends MaybeFlat {
+      def grouped: Doc = Union(flatDoc, doc)
+      def flatten: MaybeFlat = JustFlat(flatDoc)
+    }
+  }
+
   /**
    * Collapse a collection of documents into one document, delimited
    * by a separator.
@@ -811,6 +874,46 @@ object Doc {
    *     doc.render(10) // produces "1, 2, 3"
    */
   def fill(sep: Doc, ds: Iterable[Doc]): Doc = {
+    val flatSep = sep.flatten
+
+    def recursex(xd: Doc, xf: Doc, yd: Doc, yf: Doc, ds: List[Doc]): Doc = {
+      ds match {
+        case Nil =>
+          if (yd eq yf) {
+            Union(xf + flatSep, xd + sep) + yf
+          } else {
+            val u = Union(yf, yd)
+            Union(
+              xf + (flatSep + u),
+              xd + (sep + u))
+          }
+        case z :: zs =>
+          val (zf, zb) = z.flattenBoolean
+          val zd = if (zb) z else zf
+          val rest = defer(recursex(yd, yf, zd, zf, zs))
+          if (yd eq yf) {
+            Union(xf + flatSep, xd + sep) + rest
+          } else {
+            Union(
+              xf + (flatSep + defer(recursex(yf, yf, zd, zf, zs))),
+              xd + (sep + rest))
+          }
+      }
+    }
+
+    ds.toList match {
+      case Nil => empty
+      case x :: Nil => x.grouped
+      case x :: y :: zs =>
+        val (xf, xb) = x.flattenBoolean
+        val (yf, yb) = y.flattenBoolean
+        val xd = if (xb) x else xf
+        val yd = if (yb) y else yf
+        recursex(xd, xf, yd, yf, zs)
+    }
+  }
+
+  def fillx(sep: Doc, ds: Iterable[Doc]): Doc = {
 
     val flatSep = sep.flatten
     val sepGroup = sep.grouped
