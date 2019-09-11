@@ -13,7 +13,7 @@ import scala.util.matching.Regex
  */
 sealed abstract class Doc extends Product with Serializable {
 
-  import Doc.{ Align, Empty, Text, Line, LazyDoc, Nest, Concat, Union }
+  import Doc.{ Align, Empty, FlatAlt, Text, Line, LazyDoc, Nest, Concat, Union }
 
   /**
    * Append the given Doc to this one.
@@ -180,7 +180,8 @@ sealed abstract class Doc extends Product with Serializable {
           case d1 :: tail => loop(d1, tail)
           case Nil => true
         }
-        case Concat(_, Line(_)) =>
+        case FlatAlt(a, b) => loop(a, b :: stack)
+        case Concat(_, Line) =>
           false // minor optimization to short circuit sooner
         case Concat(a, Text(s)) =>
           // minor optimization to short circuit sooner
@@ -191,7 +192,7 @@ sealed abstract class Doc extends Product with Serializable {
         case Text(s) =>
           // shouldn't be empty by construction, but defensive
           s.isEmpty && loop(Empty, stack)
-        case Line(_) => false
+        case Line => false
         case d@LazyDoc(_) => loop(d.evaluated, stack)
         case Union(flattened, _) =>
           // flattening cannot change emptiness
@@ -268,11 +269,12 @@ sealed abstract class Doc extends Product with Serializable {
     def loop(pos: Int, lst: List[(Int, Doc)]): Stream[String] = lst match {
       case Nil => Stream.empty
       case (i, Empty) :: z => loop(pos, z)
+      case (i, FlatAlt(a, _)) :: z => loop(pos, (i, a) :: z)
       case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z)
       case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
       case (i, Align(d)) :: z => loop(pos, (pos, d) :: z)
       case (i, Text(s)) :: z => s #:: cheat(pos + s.length, z)
-      case (i, Line(_)) :: z => Chunk.lineToStr(i) #:: cheat(i, z)
+      case (i, Line) :: z => Chunk.lineToStr(i) #:: cheat(i, z)
       case (i, d@LazyDoc(_)) :: z => loop(pos, (i, d.evaluated) :: z)
       case (i, Union(a, _)) :: z =>
         /*
@@ -420,8 +422,10 @@ sealed abstract class Doc extends Product with Serializable {
               d match {
                 case Empty =>
                   loop(tail, "Empty" +: suffix)
-                case Line(f) =>
-                  loop(tail, s"Line($f)" +: suffix)
+                case FlatAlt(x, y) =>
+                  loop(Left(y) :: Right(", ") :: Left(x) :: Right("FlatAlt(") :: tail, ")" +: suffix)
+                case Line =>
+                  loop(tail, s"Line" +: suffix)
                 case Text(s) =>
                   loop(tail, "Text(" +: s +: ")" +: suffix)
                 case Nest(i, d) =>
@@ -456,11 +460,10 @@ sealed abstract class Doc extends Product with Serializable {
   }
 
   /**
-   * Convert this Doc to a single-line representation.
+   * Convert this Doc to a minimal representation.
    *
-   * All newlines are replaced with spaces (and optional indentation
-   * is ignored). The resulting Doc will never render any newlines, no
-   * matter what width is used.
+   * All flattenable (non-hardLine) newlines are replaced with spaces (and optional indentation
+   * is ignored).
    */
   def flatten: Doc = flattenBoolean._1
 
@@ -482,13 +485,16 @@ sealed abstract class Doc extends Product with Serializable {
             case Nil => finish(h, front)
             case x :: xs => loop(x, xs, h :: front)
           }
-        case l@Line(_) =>
-          val next = l.asFlatDoc
+        case FlatAlt(_, next) =>
           val change = (next, true)
           stack match {
             case Nil => finish(change, front)
             case x :: xs => loop(x, xs, change :: front)
           }
+        case Line =>
+          // $COVERAGE-OFF$
+          sys.error("found Line not on the left of a FlatAlt, invariant violation")
+          // $COVERAGE-ON$
         case Nest(i, d) =>
           loop((d, h._2), stack, front) // no Line, so Nest is irrelevant
         case Align(d) =>
@@ -515,11 +521,12 @@ sealed abstract class Doc extends Product with Serializable {
     def loop(pos: Int, lst: List[(Int, Doc)], max: Int): Int = lst match {
       case Nil => math.max(max, pos)
       case (i, Empty) :: z => loop(pos, z, max)
+      case (i, FlatAlt(default, _)) :: z => loop(pos, (i, default) :: z, max)
       case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z, max)
       case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z, max)
       case (i, Align(d)) :: z => loop(pos, (pos, d) :: z, max)
       case (i, Text(s)) :: z => loop(pos + s.length, z, max)
-      case (i, Line(_)) :: z => loop(i, z, math.max(max, pos))
+      case (i, Line) :: z => loop(i, z, math.max(max, pos))
       case (i, d@LazyDoc(_)) :: z => loop(pos, (i, d.evaluated) :: z, max)
       case (i, Union(a, _)) :: z =>
         // we always go left, take the widest branch
@@ -538,12 +545,20 @@ object Doc {
   private[paiges] case object Empty extends Doc
 
   /**
-   * Represents a single, literal newline.
-   * if flattenToSpace == true, flatten returns space else empty
+   * Render 'default' except when flattened.
+   * Invariant: width(default) <= width(whenFlat)
+   * Invariant: default != whenFlat (otherwise the FlatAlt is redundant)
+   * Invariant: `FlatAlt` does not occur on the left of a `Union`.
+   *   (`Union`s arise only by flattening, and the left is always the `whenFlat` case.)
    */
-  private[paiges] case class Line(flattenToSpace: Boolean) extends Doc {
-    def asFlatDoc: Doc = if (flattenToSpace) Doc.space else Doc.empty
-  }
+  private[paiges] case class FlatAlt(default: Doc, whenFlat: Doc) extends Doc
+
+  /**
+   * Represents a single, literal newline.
+   * This is always nested inside the left of a FlatAlt.
+   * Exposing this at the top level breaks a number of invariants we have.
+   */
+  private[paiges] case object Line extends Doc
 
   /**
    * The string must not be empty, and may not contain newlines.
@@ -649,12 +664,13 @@ object Doc {
 
   val space: Doc = spaceArray(0)
   val empty: Doc = Empty
+
   /**
    * when flattened a line becomes a space
    * You might also @see lineBreak if you want a line that
    * is flattened into empty
    */
-  val line: Doc = Line(true)
+  val line: Doc = FlatAlt(Line, space)
   /**
    * A lineBreak is a line that is flattened into
    * an empty Doc. This is generally useful in code
@@ -663,19 +679,34 @@ object Doc {
    *
    * when we call `.grouped` on lineBreak we get lineOrEmpty
    */
-  val lineBreak: Doc = Line(false)
+  val lineBreak: Doc = FlatAlt(Line, empty)
+
+  /**
+   * lineOr(d) renders as d if we can fit the rest
+   * or inserts a newline.
+   *
+   * If it is not already flat, d will be flattened.
+   *
+   * and example would be:
+   * stmt1 + lineOr(Doc.text("; ")) + stmt2
+   * in a programming language that semicolons to
+   * separate statments, but does not require them
+   * on the end of a line
+   */
+  def lineOr(doc: Doc): Doc =
+    FlatAlt(Line, doc.flatten).grouped
 
   /**
    * lineOrSpace renders a space if we can fit the rest
    * or inserts a newline. Identical to line.grouped
    */
-  val lineOrSpace: Doc = line.grouped
+  val lineOrSpace: Doc = lineOr(space)
 
   /**
    * lineOrEmpty renders as empty if we can fit the rest
    * or inserts a newline. Identical to lineBreak.grouped
    */
-  val lineOrEmpty: Doc = lineBreak.grouped
+  val lineOrEmpty: Doc = lineOr(empty)
 
   /**
    * Order documents by how they render at the given width.

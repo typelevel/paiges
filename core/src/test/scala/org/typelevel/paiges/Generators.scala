@@ -21,6 +21,7 @@ object Generators {
     (1, Doc.line),
     (1, Doc.lineBreak),
     (1, Doc.lineOrSpace),
+    (1, Doc.lineOrEmpty),
     (10, asciiString.map(text(_))),
     (10, generalString.map(text(_))),
     (3, asciiString.map(Doc.split(_))),
@@ -39,6 +40,7 @@ object Generators {
     Gen.oneOf(
       Gen.const({ d: Doc => d.grouped }),
       Gen.const({ d: Doc => d.aligned }),
+      Gen.const({ d: Doc => Doc.lineOr(d) }),
       Gen.choose(0, 40).map { i => { d: Doc => d.nested(i) } })
 
   def folds(genDoc: Gen[Doc], withFill: Boolean): Gen[(List[Doc] => Doc)] = {
@@ -151,12 +153,14 @@ object Generators {
       a #:: b #:: interleave(interleave(sa, sb), sa.flatMap(x => sb.map(y => f(x, y))))
     }
     Shrink {
+      case FlatAlt(_, b) => b #:: shrinkDoc.shrink(b)
       case Union(a, b) => combine2(a, b)(Union)
       case Concat(a, b) => combine2(a, b)(_ + _)
       case Text(s) => shrink(s).map(text)
-      case Nest(i, d) => combine(d)(_.nested(i))
-      case Align(d) => combine(d)(_.aligned)
-      case Line(_) | Empty | LazyDoc(_) => Stream.empty
+      case Nest(i, d) => interleave(shrink(d), combine(d)(_.nested(i)))
+      case Align(d) => interleave(shrink(d), combine(d)(_.aligned))
+      case Line | Empty => Stream.empty
+      case d@LazyDoc(_) => d.evaluated #:: shrink(d.evaluated)
     }
   }
 }
