@@ -571,17 +571,24 @@ object Doc {
     private var computed: Doc = null
     // This is never a LazyDoc
     lazy val evaluated: Doc = {
-      def loop(d: Doc): Doc =
+      @tailrec
+      def loop(d: Doc, toSet: List[LazyDoc]): Doc =
         d match {
           case lzy@LazyDoc(thunk) =>
+            // this points to another, and therefore equivalent LazyDoc
             // short circuit if we this has already computed
             val lzyC = lzy.computed
-            if (lzyC == null) loop(thunk())
-            else lzyC
-          case _ => d
+            // lzy isn't computed, add it to the list of LazyDocs to fill in
+            if (lzyC == null) loop(thunk(), lzy :: toSet)
+            else loop(lzyC, toSet)
+          case _ =>
+            toSet.foreach(_.computed = d)
+            d
         }
 
-      computed = loop(thunk())
+      if (computed == null) {
+        computed = loop(thunk(), Nil)
+      }
       computed
     }
   }
