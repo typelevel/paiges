@@ -38,6 +38,13 @@ class PaigesScalacheckTest extends AnyFunSuite {
     }
   }
 
+  test("LazyDoc.evaluate never returns a LazyDoc") {
+    forAll { (a: Doc) =>
+      val ld = Doc.LazyDoc(() => a)
+      assert(!ld.evaluated.isInstanceOf[Doc.LazyDoc])
+    }
+  }
+
   test("writeTo works") {
     import java.io._
     forAll { (doc: Doc, w: Int) =>

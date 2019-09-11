@@ -97,6 +97,7 @@ object Generators {
         // bias to simple stuff
         (6, doc0Gen),
         (1, ugen),
+        (1, recur.map(Doc.defer(_))),
         (2, cgen),
         (1, fgen))
     } else {
