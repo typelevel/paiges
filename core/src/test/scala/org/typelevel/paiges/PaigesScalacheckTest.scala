@@ -275,7 +275,7 @@ class PaigesScalacheckTest extends AnyFunSuite {
      */
     implicit val generatorDrivenConfig =
       PropertyCheckConfiguration(minSuccessful = 30)
-    val smallTree = Gen.choose(0, 3).flatMap(genTree)
+    val smallTree = Gen.choose(0, 3).flatMap(genTree(_, withFill = true))
     val smallInt = Gen.choose(0, 10)
 
     def simple(n: Int, d: Doc, acc: Doc): Doc =
@@ -292,7 +292,7 @@ class PaigesScalacheckTest extends AnyFunSuite {
      */
     implicit val generatorDrivenConfig =
       PropertyCheckConfiguration(minSuccessful = 30)
-    val smallTree = Gen.choose(0, 3).flatMap(genTree)
+    val smallTree = Gen.choose(0, 3).flatMap(genTree(_, withFill = true))
     val smallInt = Gen.choose(0, 3)
 
     forAll(smallTree, smallInt, smallInt) { (d: Doc, a: Int, b: Int) =>
