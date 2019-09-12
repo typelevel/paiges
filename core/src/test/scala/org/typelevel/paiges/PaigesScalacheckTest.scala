@@ -5,7 +5,21 @@ import org.scalatest.Assertion
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks._
 
-class PaigesScalacheckTest extends AnyFunSuite {
+abstract class OurFunSuite extends AnyFunSuite {
+  import PaigesTest._
+
+  def assertEq(x: Doc, y: Doc): Assertion = {
+    val ok = x === y
+    if (ok) succeed else fail(debugEq(x, y))
+  }
+
+  def assertNeq(x: Doc, y: Doc): Assertion = {
+    val ok = x !== y
+    if (ok) succeed else fail(debugNeq(x, y))
+  }
+}
+
+class PaigesScalacheckTest extends OurFunSuite {
   import Doc.text
   import Generators._
   import PaigesTest._
@@ -23,19 +37,19 @@ class PaigesScalacheckTest extends AnyFunSuite {
 
   test("concat is associative") {
     forAll { (a: Doc, b: Doc, c: Doc) =>
-      assert(((a + b) + c) === (a + (b + c)))
+      assertEq(((a + b) + c), (a + (b + c)))
     }
   }
 
   test("line is associative") {
     forAll { (a: Doc, b: Doc, c: Doc) =>
-      assert(a.line(b).line(c) === a.line(b.line(c)))
+      assertEq(a.line(b).line(c), a.line(b.line(c)))
     }
   }
 
   test("lineOrSpace is associative") {
     forAll { (a: Doc, b: Doc, c: Doc) =>
-      assert(a.lineOrSpace(b).lineOrSpace(c) === a.lineOrSpace(b.lineOrSpace(c)))
+      assertEq(a.lineOrSpace(b).lineOrSpace(c), a.lineOrSpace(b.lineOrSpace(c)))
     }
   }
 
@@ -74,8 +88,8 @@ class PaigesScalacheckTest extends AnyFunSuite {
 
   test("empty does not change things") {
     forAll { (a: Doc) =>
-      assert((a + Doc.empty) === a)
-      assert((Doc.empty + a) === a)
+      assertEq((a + Doc.empty), a)
+      assertEq((Doc.empty + a), a)
     }
   }
 
@@ -85,8 +99,8 @@ class PaigesScalacheckTest extends AnyFunSuite {
       val tn = if (n <= 0) Doc.text("") else Doc.text(" ") * n
       val un = if (n <= 0) Doc.text("") else Doc.text(" " * n)
 
-      assert(sn === tn)
-      assert(tn === un)
+      assertEq(sn, tn)
+      assertEq(tn, un)
     }
   }
 
@@ -137,19 +151,22 @@ class PaigesScalacheckTest extends AnyFunSuite {
   test("isEmpty == render(w).isEmpty for all w") {
     forAll { (d: Doc) =>
       if (d.isEmpty) {
-        assert((0 to d.maxWidth).forall(d.render(_).isEmpty), s"${d.representation(true).render(50)} has nonEmpty renderings")
+        val ok = (0 to d.maxWidth).forall(d.render(_).isEmpty)
+        assert(ok, s"${d.representation(true).render(50)} has nonEmpty renderings")
       }
       else succeed
     }
   }
+
   test("nonEmpty == !isEmpty") {
     forAll { (d: Doc) =>
       assert(d.nonEmpty == !d.isEmpty)
     }
   }
+
   test("isEmpty compare empty == 0") {
     forAll { (d: Doc) =>
-      if (d.isEmpty) assert(d === Doc.empty)
+      if (d.isEmpty) assertEq(d, Doc.empty)
       else succeed
     }
   }
@@ -172,7 +189,7 @@ class PaigesScalacheckTest extends AnyFunSuite {
 
   test("c.flatten + d.flatten == (c + d).flatten") {
     forAll { (c: Doc, d: Doc) =>
-      c.flatten + d.flatten === (c + d).flatten
+      assertEq(c.flatten + d.flatten, (c + d).flatten)
     }
   }
 
@@ -191,18 +208,18 @@ class PaigesScalacheckTest extends AnyFunSuite {
 
       val left = b.grouped + flatC
       val right = (b + flatC).grouped
-      assert(left === right, debugEq(left, right))
+      assertEq(left, right)
 
-      if (!flatC.containsHardNewline) {
+      if (!containsHardLine(flatC)) {
         val lhs0 = flatC + b.grouped
         val rhs0 = (flatC + b).grouped
-        assert(lhs0 === rhs0, debugEq(lhs0, rhs0))
+        assertEq(lhs0, rhs0)
       }
 
       // since left == right, we could have used those instead of b:
       val lhs1 = left.grouped + flatC
       val rhs1 = (right + flatC).grouped
-      assert(lhs1 === rhs1, debugEq(lhs1, rhs1))
+      assertEq(lhs1, rhs1)
     }
 
     forAll { (b: Doc, c: Doc) =>
@@ -212,26 +229,26 @@ class PaigesScalacheckTest extends AnyFunSuite {
 
   test("flatten(group(a)) == flatten(a)") {
     forAll { (a: Doc) =>
-      assert(a.grouped.flatten === a.flatten)
+      assertEq(a.grouped.flatten, a.flatten)
     }
   }
   test("a.flatten == a.flatten.flatten") {
     forAll { (a: Doc) =>
       val aflat = a.flatten
-      assert(aflat === aflat.flatten)
+      assertEq(aflat, aflat.flatten)
     }
   }
   test("a.flatten == a.flattenOption.getOrElse(a)") {
     forAll { (a: Doc) =>
       val lhs = a.flatten
       val rhs = a.flattenOption.getOrElse(a)
-      assert(lhs === rhs, debugEq(lhs, rhs))
+      assertEq(lhs, rhs)
     }
   }
 
   test("a.aligned.aligned == a.aligned") {
     forAll { a: Doc =>
-      assert(a.aligned.aligned === a.aligned)
+      assertEq(a.aligned.aligned, a.aligned)
     }
   }
 
@@ -239,14 +256,14 @@ class PaigesScalacheckTest extends AnyFunSuite {
     import Doc._
     forAll { (aGen: Doc, bc: Doc) =>
       val a = aGen.flatten
-      if (a.containsHardNewline) {
+      if (containsHardLine(a)) {
         ()
       } else {
         bc.grouped match {
           case d@Union(b, c) =>
             val lhs = Concat(a, d)
             val rhs = Union(Concat(a, b), Concat(a, c))
-            assert(lhs === rhs, debugEq(lhs, rhs))
+            assertEq(lhs, rhs)
           case _ =>
         }
       }
@@ -259,18 +276,18 @@ class PaigesScalacheckTest extends AnyFunSuite {
       val c = cGen.flatten
       ab.grouped match {
         case d@Union(a, b) =>
-          assert(Concat(d, c) === Union(Concat(a, c), Concat(b, c)))
+          assertEq(Concat(d, c), Union(Concat(a, c), Concat(b, c)))
         case _ =>
       }
     }
   }
 
   test("Union invariant: `a.flatten == b.flatten`") {
-    forAll { d: Doc.Union => assert(d.a.flatten === d.b.flatten) }
+    forAll { d: Doc.Union => assertEq(d.a.flatten, d.b.flatten) }
   }
 
   test("Union invariant: `a != b`") {
-    forAll { d: Doc.Union => assert(d.a !== d.b) }
+    forAll { d: Doc.Union => assertNeq(d.a, d.b) }
   }
 
   test("Union invariant: `a` has 2-right-associated `Concat` nodes") {
@@ -314,7 +331,7 @@ class PaigesScalacheckTest extends AnyFunSuite {
       if(n <= 0) acc else simple(n - 1, d, acc + d)
 
     forAll(smallTree, smallInt) { (d: Doc, small: Int) =>
-      assert(simple(small, d, Doc.empty) === (d * small))
+      assertEq(simple(small, d, Doc.empty), (d * small))
     }
   }
   test("(d * a) * b == d * (a * b)") {
@@ -328,7 +345,7 @@ class PaigesScalacheckTest extends AnyFunSuite {
     val smallInt = Gen.choose(0, 3)
 
     forAll(smallTree, smallInt, smallInt) { (d: Doc, a: Int, b: Int) =>
-      assert(((d * a) * b) === (d * (a * b)))
+      assertEq(((d * a) * b), (d * (a * b)))
     }
   }
   test("text(s) * n == s * n for identifiers") {
@@ -354,11 +371,11 @@ class PaigesScalacheckTest extends AnyFunSuite {
     forAll { (c1: Char, c2: Char) =>
       val got = Doc.char(c1) + Doc.char(c2)
       val expected = Doc.text(new String(Array(c1, c2)))
-      assert(got === expected)
+      assertEq(got, expected)
     }
 
     // here is a hard case:
-    assert((Doc.char('a') + Doc.char('\n')) === Doc.text("a\n"))
+    assertEq((Doc.char('a') + Doc.char('\n')), Doc.text("a\n"))
   }
 
   test("fill matches spec") {
@@ -369,13 +386,13 @@ class PaigesScalacheckTest extends AnyFunSuite {
     forAll(genDoc, docsGen) { (sep: Doc, ds: List[Doc]) =>
       val lhs = Doc.fill(sep, ds)
       val rhs = fillSpec(sep, ds)
-      assert(lhs === rhs, debugEq(lhs, rhs))
+      assertEq(lhs, rhs)
     }
   }
 
   test("FlatAlt invariant 0: FlatAlt renders as default") {
     forAll { (d1: Doc, d2: Doc, w: Int) =>
-      Doc.FlatAlt(d1, d2).render(w) == d1.render(w)
+      assert(Doc.FlatAlt(d1, d2).render(w) == d1.render(w))
     }
   }
 
@@ -414,7 +431,7 @@ class PaigesScalacheckTest extends AnyFunSuite {
         case Nest(_, d) => law(d)
       }
 
-    forAll { d: Doc => assert(law(d)) }
+    forAll { d: Doc => assert(law(d), s"repr($d)") }
   }
 
   test("FlatAlt invariant 3: FlatAlt does not occur on the left side of a union") {

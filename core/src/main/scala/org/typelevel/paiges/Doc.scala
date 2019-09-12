@@ -476,30 +476,6 @@ sealed abstract class Doc extends Product with Serializable {
    */
   def flatten: Doc = flattenBoolean._1
 
-  /**
-   * Returns true of the given doc contains a hardLine that
-   * cannot be grouped or flattened away
-   */
-  private[paiges] def containsHardNewline: Boolean = {
-    @tailrec
-    def loop(stack: List[Doc]): Boolean =
-      stack match {
-        case Nil => false
-        case h :: tail =>
-          h match {
-            case Line => true
-            case Empty | Text(_) => loop(tail)
-            case FlatAlt(_, b) => loop(b :: tail)
-            case Concat(a, b) => loop(a :: b :: tail)
-            case Nest(_, d) => loop(d :: tail)
-            case Align(d) => loop(d :: tail)
-            case d@LazyDoc(_) => loop(d.evaluated :: tail)
-            case Union(a, b) => loop(a :: b :: tail)
-          }
-      }
-    loop(this :: Nil)
-  }
-
   // return the flattened doc, and if it is different
   private def flattenBoolean: (Doc, Boolean) = {
 

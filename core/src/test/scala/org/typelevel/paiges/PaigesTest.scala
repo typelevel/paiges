@@ -1,5 +1,6 @@
 package org.typelevel.paiges
 
+import scala.annotation.tailrec
 import scala.util.Random
 import org.scalatest.funsuite.AnyFunSuite
 
@@ -15,8 +16,41 @@ object PaigesTest {
     val maxW = Integer.max(x.maxWidth, y.maxWidth)
     (0 until maxW).find(w => !Doc.orderingAtWidth(w).equiv(x, y)) match {
       case Some(w) => s"$w: ${repr(x)} != ${repr(y)} (${esc(x.render(w))} != ${esc(y.render(w))})"
-      case None => "ok"
+      case None => sys.error("should not happen")
     }
+  }
+
+  def debugNeq(x: Doc, y: Doc): String = {
+    val maxW = Integer.max(x.maxWidth, y.maxWidth)
+    (0 until maxW).find(w => Doc.orderingAtWidth(w).equiv(x, y)) match {
+      case Some(w) => s"$w: ${repr(x)} == ${repr(y)} (${esc(x.render(w))} == ${esc(y.render(w))})"
+      case None => sys.error("should not happen")
+    }
+  }
+
+  /**
+   * Returns true of the given doc contains a hardLine that
+   * cannot be grouped or flattened away
+   */
+  def containsHardLine(doc: Doc): Boolean = {
+    import Doc._
+    @tailrec
+    def loop(stack: List[Doc]): Boolean =
+      stack match {
+        case Nil => false
+        case h :: tail =>
+          h match {
+            case Line => true
+            case Empty | Text(_) => loop(tail)
+            case FlatAlt(_, b) => loop(b :: tail)
+            case Concat(a, b) => loop(a :: b :: tail)
+            case Nest(_, d) => loop(d :: tail)
+            case Align(d) => loop(d :: tail)
+            case d@LazyDoc(_) => loop(d.evaluated :: tail)
+            case Union(a, b) => loop(a :: b :: tail)
+          }
+      }
+    loop(doc :: Nil)
   }
 
   implicit val docEquiv: Equiv[Doc] =
