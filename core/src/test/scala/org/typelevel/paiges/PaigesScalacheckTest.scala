@@ -276,7 +276,7 @@ class PaigesScalacheckTest extends AnyFunSuite {
   }
 
   test("Union invariant: `a` has 2-right-associated `Concat` nodes") {
-    forAll(genGroupedUnion) { d: Doc.Union =>
+    forAll { d: Doc.Union =>
       assert(PaigesTest.twoRightAssociated(d.a), repr(d))
     }
   }
