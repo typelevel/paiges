@@ -448,11 +448,15 @@ sealed abstract class Doc extends Product with Serializable {
   }
 
   /**
-   * This method is similar to flatten, but returns None if no
-   * flattening was needed (i.e. if no newlines or unions were present).
+   * This method is similar to flatten, but returns None if
+   * no change is made to the document.
    *
-   * As with flatten, the resulting Doc (if any) will never render any
-   * newlines, no matter what width is used.
+   * Note, some documents contain hardLine, which cannot be
+   * completely flattened.
+   *
+   * @see flatten and prefer that when you don't care if
+   * flattening has happened, as flatten also may optimize
+   * the original input even when there is no flattening
    */
   def flattenOption: Option[Doc] = {
     val res = flattenBoolean
@@ -464,6 +468,11 @@ sealed abstract class Doc extends Product with Serializable {
    *
    * All flattenable (non-hardLine) newlines are replaced with spaces (and optional indentation
    * is ignored).
+   *
+   * If a hardLine is encountered, an identical value is returned.
+   * Note, it isn't true that x.flattenOption.isEmpty implies x.flatten eq x
+   * because flattening also right associates Concat nodes as it is working
+   * to improve rendering performance.
    */
   def flatten: Doc = flattenBoolean._1
 
@@ -477,33 +486,52 @@ sealed abstract class Doc extends Product with Serializable {
         case ((d1, c1), (d0, c2)) => (Concat(d0, d1), c1 || c2)
       }
 
+    def cheat(h: DB): DB = {
+      val (last, front) = loop(h, Nil, Nil)
+      finish(last, front)
+    }
+
     @tailrec
-    def loop(h: DB, stack: List[DB], front: List[DB]): DB =
+    def loop(h: DB, stack: List[DB], front: List[DB]): (DB, List[DB]) =
       h._1 match {
-        case Empty | Text(_) =>
+        case Empty | Text(_) | Line =>
           stack match {
-            case Nil => finish(h, front)
+            case Nil => (h, front)
             case x :: xs => loop(x, xs, h :: front)
           }
         case FlatAlt(_, next) =>
           val change = (next, true)
           stack match {
-            case Nil => finish(change, front)
+            case Nil => (change, front)
             case x :: xs => loop(x, xs, change :: front)
           }
-        case Line =>
-          // $COVERAGE-OFF$
-          sys.error("found Line not on the left of a FlatAlt, invariant violation")
-          // $COVERAGE-ON$
         case Nest(i, d) =>
-          loop((d, h._2), stack, front) // no Line, so Nest is irrelevant
+          // This costs stack, but if can't see if there
+          // is a Line inside, we assume the worst
+          // rather than pay the cost to check
+          val (dd, bb) = cheat((d, h._2))
+          val next = (Nest(i, dd), bb)
+          stack match {
+            case Nil => (next, front)
+            case x :: xs => loop(x, xs, next :: front)
+          }
         case Align(d) =>
-          loop((d, h._2), stack, front) // no Line, so Align is irrelevant
+          // This costs stack, but if can't see if there
+          // is a Line inside, we assume the worst
+          // rather than pay the cost to check
+          val (dd, bb) = cheat((d, h._2))
+          val next = (Align(dd), bb)
+          stack match {
+            case Nil => (next, front)
+            case x :: xs => loop(x, xs, next :: front)
+          }
         case d@LazyDoc(_) => loop((d.evaluated, h._2), stack, front)
         case Union(a, _) => loop((a, true), stack, front) // invariant: flatten(union(a, b)) == flatten(a)
         case Concat(a, b) => loop((a, h._2), (b, h._2) :: stack, front)
       }
-    loop((this, false), Nil, Nil)
+
+    val (last, front) = loop((this, false), Nil, Nil)
+    finish(last, front)
   }
 
   /**
@@ -682,6 +710,16 @@ object Doc {
   val lineBreak: Doc = FlatAlt(Line, empty)
 
   /**
+   * Puts a hard line that cannot be removed by grouped
+   * or flattening. This is useful for source code
+   * generation when you absolutely need a new line.
+   *
+   * @see lineOr which is useful when you have a string
+   * that can replace newline, e.g. "; " or similar
+   */
+  def hardLine: Doc = Line
+
+  /**
    * lineOr(d) renders as d if we can fit the rest
    * or inserts a newline.
    *
@@ -694,7 +732,12 @@ object Doc {
    * on the end of a line
    */
   def lineOr(doc: Doc): Doc =
-    FlatAlt(Line, doc.flatten).grouped
+    doc.flatten match {
+      case Line =>
+        // we don't want to create FlatAlt(x, x)
+        Line
+      case d => FlatAlt(Line, d).grouped
+    }
 
   /**
    * lineOrSpace renders a space if we can fit the rest
@@ -758,7 +801,7 @@ object Doc {
     @tailrec def parse(i: Int, limit: Int, doc: Doc): Doc =
       if (i < 0) tx(0, limit) + doc
       else str.charAt(i) match {
-        case '\n' => parse(i - 1, i, line + tx(i + 1, limit) + doc)
+        case '\n' => parse(i - 1, i, line + (tx(i + 1, limit) + doc))
         case _ => parse(i - 1, limit, doc)
       }
 
@@ -800,6 +843,23 @@ object Doc {
    * Collapse a collection of documents into one document, delimited
    * by a separator.
    *
+   *  This is equivalent to the following code, but is much
+   *  more complex to avoid stack overflows and exponential
+   *  time complexity
+   *  {{{
+   *
+   *  def fill(sep: Doc, ds: List[Doc]): Doc =
+   *    ds match {
+   *      case Nil => empty
+   *      case x :: Nil => x.grouped
+   *      case x :: y :: zs =>
+   *        Union(
+   *          x.flatten + (sep.flatten + fillSpec(sep, y.flatten :: zs)),
+   *          x + (sep + fillSpec(sep, y :: zs)))
+   *    }
+   *
+   *  }}}
+   *
    * For example:
    *
    *     import Doc.{ comma, line, text, fill }
@@ -811,72 +871,75 @@ object Doc {
    *     doc.render(10) // produces "1, 2, 3"
    */
   def fill(sep: Doc, ds: Iterable[Doc]): Doc = {
+    // when the separator is already flattened
+    // we can optimize somewhat
+    val (flatSep, fb) = sep.flattenBoolean
+    val sepd = if (fb) sep else flatSep
 
-    val flatSep = sep.flatten
-    val sepGroup = sep.grouped
+    // when we don't have a branch, we would like to loop
+    // but if we unconditionally do that we can blow the stack
+    // loop at most this many times before building a defer
+    val maxLoop = 20
+    // xd suffix means original doc, xf is the flattened doc
+    def recurse(xd: Doc, xf: Doc, ds: List[Doc], cnt: Int): Doc =
+      ds match {
+        case Nil =>
+          if (xd eq xf) xf
+          else Union(xf, xd)
+        case y :: ys =>
+          // if we don't change, the original doc is the same as flatten
+          val (yf, yb) = y.flattenBoolean
+          val yd = if (yb) y else yf
+          // even though we always need rest in the first branch
+          // we may blow the stack if we recurse now
+          if (yd eq yf) {
+            val rest = if (cnt < maxLoop) recurse(yd, yf, ys, cnt + 1) else defer(recurse(yd, yf, ys, 0))
+            // leverage (union(a + c, b + c) = union(a, b) + c
+            Union(xf + flatSep, xd + sepd) + rest
+          } else {
+            val leftRest = defer(recurse(yf, yf, ys, 0))
+            val rest = defer(recurse(yd, yf, ys, 0))
+            Union(
+              xf + (flatSep + leftRest),
+              xd + (sepd + rest))
+          }
+      }
 
-    @tailrec
-    def fillRec(x: Doc, lst: List[Doc], stack: List[Doc => Doc]): Doc = lst match {
-      case Nil => call(x.grouped, stack)
-      case y :: tail =>
-
-        /*
-         * The cost of this algorithm c(n) for list of size n.
-         * note that c(n) = 2 * c(n-1) + k
-         * for some constant.
-         * so, c(n) - c(n-1) = c(n-1) + k
-         * which means that
-         * c(n) = (0 until n).map(c(_)).sum + nk
-         *
-         * which is exponential in n (O(2^n))
-         *
-         * Making the recursion in the second parameter of the union fixes this.
-         * This is the motivation for defer/LazyDoc.
-         */
-        val (flaty, changedy) = y.flattenBoolean
-        val (flatx, changedx) = x.flattenBoolean
-
-        (changedx, changedy) match {
-          case (true, true) =>
-            def cont(resty: Doc) = {
-              val first = Concat(flatx, Concat(flatSep, resty))
-              val second = Concat(x, Concat(sep, defer(cheatRec(y, tail))))
-              // note that first != second
-              Union(first, second)
-            }
-            fillRec(flaty, tail, (cont _) :: stack)
-          case (true, false) =>
-            // flaty == y but reassociated
-            def cont(resty: Doc) = {
-              val first = Concat(flatx, Concat(flatSep, resty))
-              // no need to make second lazy here
-              val second = Concat(x, Concat(sep, resty))
-              // note that first != second
-              Union(first, second)
-            }
-            fillRec(flaty, tail, (cont _) :: stack)
-          case (false, true) =>
-            // flatx == x but reassociated
-            def cont(resty: Doc) = {
-              val first = Concat(flatx, Concat(flatSep, resty))
-              val second = Concat(flatx, Concat(sep, defer(cheatRec(y, tail))))
-              // note that first != second
-              Union(first, second)
-            }
-            fillRec(flaty, tail, (cont _) :: stack)
-          case (false, false) =>
-            // flaty == y but reassociated
-            // flatx == x but reassociated
-            fillRec(flaty, tail, { d: Doc => Concat(flatx, Concat(sepGroup, d)) } :: stack)
-        }
-    }
-
-    def cheatRec(x: Doc, lst: List[Doc]): Doc =
-      fillRec(x, lst, Nil)
+    // when sep is already flat, we can optimize more
+    def recurseSep(xd: Doc, xf: Doc, ds: List[Doc], cnt: Int): Doc =
+      ds match {
+        case Nil =>
+          if (xd eq xf) xf
+          else Union(xf, xd)
+        case y :: ys =>
+          // if we don't change, the original doc is the same as flatten
+          val (yf, yb) = y.flattenBoolean
+          val yd = if (yb) y else yf
+          // even though we always need rest in the first branch
+          // we may blow the stack if we recurse now
+          if (yd eq yf) {
+            val rest = if (cnt < maxLoop) recurseSep(yd, yf, ys, cnt + 1) else defer(recurseSep(yd, yf, ys, 0))
+            // don't make a union if both sides are the same
+            val xpart = if (xf eq xd) xf else Union(xf, xd)
+            xpart + (sepd + rest)
+          } else {
+            val leftRest = defer(recurse(yf, yf, ys, 0))
+            val rest = defer(recurse(yd, yf, ys, 0))
+            Union(
+              xf + (sepd + leftRest),
+              xd + (sepd + rest))
+          }
+      }
 
     ds.toList match {
-      case Nil => Empty
-      case h :: tail => fillRec(h, tail, Nil)
+      case Nil => empty
+      case x :: ys =>
+        val (xf, xb) = x.flattenBoolean
+        // if we don't change, the original doc is the same as flatten
+        val xd = if (xb) x else xf
+        // if we had to flattend sep, use the full recurse, else shortcut
+        if (fb) recurse(xd, xf, ys, 0)
+        else recurseSep(xd, xf, ys, 0)
     }
   }
 

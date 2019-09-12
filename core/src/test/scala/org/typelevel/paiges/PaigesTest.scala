@@ -1,9 +1,58 @@
 package org.typelevel.paiges
 
+import scala.annotation.tailrec
 import scala.util.Random
 import org.scalatest.funsuite.AnyFunSuite
 
 object PaigesTest {
+
+  def repr(d: Doc): String =
+    d.representation().render(100)
+
+  def esc(s: String): String =
+    "\"" + s.replace("\t", "\\t").replace("\n", "\\n") + "\""
+
+  def debugEq(x: Doc, y: Doc): String = {
+    val maxW = Integer.max(x.maxWidth, y.maxWidth)
+    (0 until maxW).find(w => !Doc.orderingAtWidth(w).equiv(x, y)) match {
+      case Some(w) => s"$w: ${repr(x)} != ${repr(y)} (${esc(x.render(w))} != ${esc(y.render(w))})"
+      case None => sys.error("should not happen")
+    }
+  }
+
+  def debugNeq(x: Doc, y: Doc): String = {
+    val maxW = Integer.max(x.maxWidth, y.maxWidth)
+    (0 until maxW).find(w => Doc.orderingAtWidth(w).equiv(x, y)) match {
+      case Some(w) => s"$w: ${repr(x)} == ${repr(y)} (${esc(x.render(w))} == ${esc(y.render(w))})"
+      case None => sys.error("should not happen")
+    }
+  }
+
+  /**
+   * Returns true of the given doc contains a hardLine that
+   * cannot be grouped or flattened away
+   */
+  def containsHardLine(doc: Doc): Boolean = {
+    import Doc._
+    @tailrec
+    def loop(stack: List[Doc]): Boolean =
+      stack match {
+        case Nil => false
+        case h :: tail =>
+          h match {
+            case Line => true
+            case Empty | Text(_) => loop(tail)
+            case FlatAlt(_, b) => loop(b :: tail)
+            case Concat(a, b) => loop(a :: b :: tail)
+            case Nest(_, d) => loop(d :: tail)
+            case Align(d) => loop(d :: tail)
+            case d@LazyDoc(_) => loop(d.evaluated :: tail)
+            case Union(a, b) => loop(a :: b :: tail)
+          }
+      }
+    loop(doc :: Nil)
+  }
+
   implicit val docEquiv: Equiv[Doc] =
     new Equiv[Doc] {
       def equiv(x: Doc, y: Doc): Boolean = {
@@ -49,16 +98,15 @@ object PaigesTest {
   }
 
   // Definition of `fill` from the paper
-  def fillSpec(ds: List[Doc]): Doc = {
+  def fillSpec(sep: Doc, ds: List[Doc]): Doc = {
     import Doc._
     ds match {
       case Nil => empty
       case x :: Nil => x.grouped
       case x :: y :: zs =>
         Union(
-          x.flatten + (space + fillSpec(y.flatten :: zs)),
-          x + (line + fillSpec(y :: zs))
-        )
+          x.flatten + (sep.flatten + defer(fillSpec(sep, y.flatten :: zs))),
+          x + (sep + defer(fillSpec(sep, y :: zs))))
     }
   }
 }

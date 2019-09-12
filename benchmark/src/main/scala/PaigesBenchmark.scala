@@ -41,10 +41,9 @@ class PaigesBenchmark {
 
   @Benchmark
   def fill0(): String =
-    Doc.fill(Doc.text(","), strs.map(Doc.text)).render(0)
+    Doc.fill(Doc.line, strs.map(Doc.text)).render(0)
 
   @Benchmark
   def fill100(): String =
-    Doc.fill(Doc.text(","), strs.map(Doc.text)).render(100)
-
+    Doc.fill(Doc.line, strs.map(Doc.text)).render(100)
 }
