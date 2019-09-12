@@ -46,13 +46,4 @@ class PaigesBenchmark {
   @Benchmark
   def fill100(): String =
     Doc.fill(Doc.line, strs.map(Doc.text)).render(100)
-
-  @Benchmark
-  def fillx0(): String =
-    Doc.fillx(Doc.line, strs.map(Doc.text)).render(0)
-
-  @Benchmark
-  def fillx100(): String =
-    Doc.fillx(Doc.line, strs.map(Doc.text)).render(100)
-
 }

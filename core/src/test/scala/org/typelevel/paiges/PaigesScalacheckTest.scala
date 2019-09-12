@@ -367,7 +367,7 @@ class PaigesScalacheckTest extends AnyFunSuite {
 
   test("fill matches spec") {
     val docsGen = for {
-      n <- Gen.choose(0, 20)
+      n <- Gen.choose(0, 12)
       ds <- Gen.listOfN(n, genDoc)
     } yield ds
     forAll(genDoc, docsGen) { (sep: Doc, ds: List[Doc]) =>

@@ -67,9 +67,10 @@ object Generators {
   } yield front.foldLeft(start)(Doc.Concat)
 
   def fill(max: Int): Gen[Doc] = {
+    // we start at 1 because fill(d, Nil) == Empty
     val c1 = Gen.choose(1, max)
     for {
-      (n, m, k) <- Gen.zip(Gen.choose(0, max), c1, c1)
+      (n, m, k) <- Gen.zip(c1, c1, c1)
       l <- Gen.listOfN(n, leftAssoc(m))
       sep <- leftAssoc(k)
     } yield Doc.fill(sep, l)
