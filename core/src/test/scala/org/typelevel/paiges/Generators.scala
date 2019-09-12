@@ -22,6 +22,7 @@ object Generators {
     (1, Doc.lineBreak),
     (1, Doc.lineOrSpace),
     (1, Doc.lineOrEmpty),
+    (1, Doc.lineOr(Doc.hardLine + Doc.empty)), // stress-test hardLine
     (1, Doc.hardLine),
     (15, asciiString.map(text(_))),
     (15, generalString.map(text(_))),

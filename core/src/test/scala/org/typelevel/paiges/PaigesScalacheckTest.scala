@@ -8,6 +8,11 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks._
 abstract class OurFunSuite extends AnyFunSuite {
   import PaigesTest._
 
+  def assertDoc(x: Doc)(p: Doc => Boolean): Assertion = {
+    val ok = p(x)
+    if (ok) succeed else fail(repr(x))
+  }
+
   def assertEq(x: Doc, y: Doc): Assertion = {
     val ok = x === y
     if (ok) succeed else fail(debugEq(x, y))
@@ -119,16 +124,13 @@ class PaigesScalacheckTest extends OurFunSuite {
   test("renderStreamTrim and renderTrim are consistent") {
     forAll { (d: Doc, width0: Int) =>
       val width = width0 & 0xFFF
-      assert(d.renderStreamTrim(width).mkString == d.renderTrim(width),
-        s"input=${repr(d)}")
+      assertDoc(d)(d => d.renderStreamTrim(width).mkString == d.renderTrim(width))
     }
   }
 
   test("trim-law: renderTrim is what we expect") {
     forAll { (d: Doc) =>
-      val trim = d.renderTrim(100)
-      val slowTrim = slowRenderTrim(d, 100)
-      assert(trim == slowTrim, s"input=${repr(d)}")
+      assertDoc(d)(d => d.renderTrim(100) == slowRenderTrim(d, 100))
     }
   }
 
@@ -292,7 +294,7 @@ class PaigesScalacheckTest extends OurFunSuite {
 
   test("Union invariant: `a` has 2-right-associated `Concat` nodes") {
     forAll { d: Doc.Union =>
-      assert(PaigesTest.twoRightAssociated(d.a), repr(d))
+      assertDoc(d)(_ => PaigesTest.twoRightAssociated(d.a))
     }
   }
 
@@ -431,7 +433,7 @@ class PaigesScalacheckTest extends OurFunSuite {
         case Nest(_, d) => law(d)
       }
 
-    forAll { d: Doc => assert(law(d), s"repr($d)") }
+    forAll { d: Doc => assertDoc(d)(law) }
   }
 
   test("FlatAlt invariant 3: FlatAlt does not occur on the left side of a union") {
@@ -453,7 +455,7 @@ class PaigesScalacheckTest extends OurFunSuite {
       }
 
     forAll { d: Doc =>
-      assert(law(d, false), s"input=${repr(d)}")
+      assertDoc(d)(law(_, false))
     }
   }
 
@@ -471,7 +473,7 @@ class PaigesScalacheckTest extends OurFunSuite {
       }
 
     forAll { (d: Doc) =>
-      assert(law(d.flatten), s"input=${repr(d)}")
+      assertDoc(d)(x => law(x.flatten))
     }
   }
 }
