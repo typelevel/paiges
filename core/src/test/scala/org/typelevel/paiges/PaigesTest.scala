@@ -71,8 +71,8 @@ object PaigesTest {
       case x :: Nil => x.grouped
       case x :: y :: zs =>
         Union(
-          x.flatten + (sep.flatten + fillSpec(sep, y.flatten :: zs)),
-          x + (sep + Doc.defer(fillSpec(sep, y :: zs))))
+          x.flatten + (sep.flatten + defer(fillSpec(sep, y.flatten :: zs))),
+          x + (sep + defer(fillSpec(sep, y :: zs))))
     }
   }
 }

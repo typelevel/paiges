@@ -9,7 +9,7 @@ import org.typelevel.paiges.Doc
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 class PaigesBenchmark {
 
-  @Param(Array(/*"1", "10", "100",*/ "1000", "10000"))
+  @Param(Array("1", "10", "100", "1000", "10000"))
   var size: Int = 0
 
   var strs: Vector[String] = Vector.empty

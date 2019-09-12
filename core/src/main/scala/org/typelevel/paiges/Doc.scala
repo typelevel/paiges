@@ -448,11 +448,15 @@ sealed abstract class Doc extends Product with Serializable {
   }
 
   /**
-   * This method is similar to flatten, but returns None if no
-   * flattening was needed (i.e. if no newlines or unions were present).
+   * This method is similar to flatten, but returns None if
+   * no change is made to the document.
    *
-   * As with flatten, the resulting Doc (if any) will never render any
-   * newlines, no matter what width is used.
+   * Note, some documents contain hardLine, which cannot be
+   * completely flattened.
+   *
+   * @see flatten and prefer that when you don't care if
+   * flattening has happened, as flatten also may optimize
+   * the original input even when there is no flattening
    */
   def flattenOption: Option[Doc] = {
     val res = flattenBoolean
@@ -464,6 +468,11 @@ sealed abstract class Doc extends Product with Serializable {
    *
    * All flattenable (non-hardLine) newlines are replaced with spaces (and optional indentation
    * is ignored).
+   *
+   * If a hardLine is encountered, an identical value is returned.
+   * Note, it isn't true that x.flattenOption.isEmpty implies x.flatten eq x
+   * because flattening also right associates Concat nodes as it is working
+   * to improve rendering performance.
    */
   def flatten: Doc = flattenBoolean._1
 
@@ -525,18 +534,20 @@ sealed abstract class Doc extends Product with Serializable {
           // is a Line inside, we assume the worst
           // rather than pay the cost to check
           val (dd, bb) = cheat((d, h._2))
+          val next = (Nest(i, dd), bb)
           stack match {
-            case Nil => ((Nest(i, dd), bb), front)
-            case x :: xs => loop(x, xs, (Nest(i, dd), bb) :: front)
+            case Nil => (next, front)
+            case x :: xs => loop(x, xs, next :: front)
           }
         case Align(d) =>
           // This costs stack, but if can't see if there
           // is a Line inside, we assume the worst
           // rather than pay the cost to check
           val (dd, bb) = cheat((d, h._2))
+          val next = (Align(dd), bb)
           stack match {
-            case Nil => ((Align(dd), bb), front)
-            case x :: xs => loop(x, xs, (Align(dd), bb) :: front)
+            case Nil => (next, front)
+            case x :: xs => loop(x, xs, next :: front)
           }
         case d@LazyDoc(_) => loop((d.evaluated, h._2), stack, front)
         case Union(a, _) => loop((a, true), stack, front) // invariant: flatten(union(a, b)) == flatten(a)
@@ -723,9 +734,14 @@ object Doc {
   val lineBreak: Doc = FlatAlt(Line, empty)
 
   /**
+   * Puts a hard line that cannot be removed by grouped
+   * or flattening. This is useful for source code
+   * generation when you absolutely need a new line.
    *
+   * @see lineOr which is useful when you have a string
+   * that can replace newline, e.g. "; " or similar
    */
-  val hardLine: Doc = Line
+  def hardLine: Doc = Line
 
   /**
    * lineOr(d) renders as d if we can fit the rest
@@ -850,6 +866,23 @@ object Doc {
   /**
    * Collapse a collection of documents into one document, delimited
    * by a separator.
+   *
+   *  This works identical to the following code, but is much
+   *  more complex to avoid stack overflows and exponential
+   *  time complexity
+   *  {{{
+   *
+   *  def fill(sep: Doc, ds: List[Doc]): Doc =
+   *    ds match {
+   *      case Nil => empty
+   *      case x :: Nil => x.grouped
+   *      case x :: y :: zs =>
+   *        Union(
+   *          x.flatten + (sep.flatten + fillSpec(sep, y.flatten :: zs)),
+   *          x + (sep + fillSpec(sep, y :: zs)))
+   *    }
+   *
+   *  }}}
    *
    * For example:
    *

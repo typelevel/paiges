@@ -13,8 +13,7 @@ object Generators {
     } yield cs.mkString
 
   val generalString: Gen[String] =
-    asciiString
-    //implicitly[Arbitrary[String]].arbitrary
+    implicitly[Arbitrary[String]].arbitrary
 
   val doc0Gen: Gen[Doc] = Gen.frequency(
     (1, Doc.empty),
@@ -23,9 +22,9 @@ object Generators {
     (1, Doc.lineBreak),
     (1, Doc.lineOrSpace),
     (1, Doc.lineOrEmpty),
-    (2, Doc.hardLine),
-    (10, asciiString.map(text(_))),
-    (10, generalString.map(text(_))),
+    (1, Doc.hardLine),
+    (15, asciiString.map(text(_))),
+    (15, generalString.map(text(_))),
     (3, asciiString.map(Doc.split(_))),
     (3, generalString.map(Doc.split(_))),
     (3, generalString.map(Doc.paragraph(_)))
@@ -40,6 +39,7 @@ object Generators {
 
   val unary: Gen[Doc => Doc] =
     Gen.oneOf(
+      Gen.const({ d: Doc => Doc.defer(d) }),
       Gen.const({ d: Doc => d.grouped }),
       Gen.const({ d: Doc => d.aligned }),
       Gen.const({ d: Doc => Doc.lineOr(d) }),
@@ -54,8 +54,8 @@ object Generators {
       (1, genDoc.map { sep =>
         { ds: List[Doc] => Doc.intercalate(sep, ds) }
       }),
-      (1, Gen.const({ ds: List[Doc] => Doc.spread(ds) })),
-      (1, Gen.const({ ds: List[Doc] => Doc.stack(ds) })),
+      (2, Gen.const({ ds: List[Doc] => Doc.spread(ds) })),
+      (2, Gen.const({ ds: List[Doc] => Doc.stack(ds) })),
       (if (withFill) 1 else 0, gfill)
     )
   }
@@ -66,13 +66,14 @@ object Generators {
     front <- Gen.listOfN(n, genDoc)
   } yield front.foldLeft(start)(Doc.Concat)
 
-  def fill(max: Int): Gen[Doc] = for {
-    n <- Gen.choose(1, max)
-    m <- Gen.choose(1, max)
-    k <- Gen.choose(1, max)
-    l <- Gen.listOfN(n, leftAssoc(m))
-    sep <- leftAssoc(k)
-  } yield Doc.fill(sep, l)
+  def fill(max: Int): Gen[Doc] = {
+    val c1 = Gen.choose(1, max)
+    for {
+      (n, m, k) <- Gen.zip(Gen.choose(0, max), c1, c1)
+      l <- Gen.listOfN(n, leftAssoc(m))
+      sep <- leftAssoc(k)
+    } yield Doc.fill(sep, l)
+  }
 
   val maxDepth = 7
 
@@ -80,44 +81,39 @@ object Generators {
     val recur = Gen.lzy(genTree(depth - 1, withFill))
     val ugen = for {
       u <- unary
-      d <- genTree(depth - 1, withFill)
+      d <- recur
     } yield u(d)
 
     val cgen = for {
       c <- combinators
-      d0 <- genTree(depth - 1, withFill)
-      d1 <- genTree(depth - 1, withFill)
+      d0 <- recur
+      d1 <- recur
     } yield c(d0, d1)
 
     val fgen = for {
+      num <- Gen.choose(0, 12)
       fold <- folds(recur, withFill)
-      num <- Gen.choose(0, 20)
       ds <- Gen.listOfN(num, recur)
     } yield fold(ds)
 
     if (depth <= 0) doc0Gen
-    else if (depth >= maxDepth - 1) {
+    else {
+      // don't include folds, which branch greatly,
+      // except at the top (to avoid making giant docs)
       Gen.frequency(
         // bias to simple stuff
         (6, doc0Gen),
         (1, ugen),
-        (1, recur.map(Doc.defer(_))),
         (2, cgen),
-        (1, fgen))
-    } else {
-      // bias to simple stuff
-      Gen.frequency(
-        (6, doc0Gen),
-        (1, ugen),
-        (2, cgen))
+        (if (depth >= maxDepth - 1) 1 else 0, fgen))
     }
   }
 
   val genDoc: Gen[Doc] =
-    Gen.choose(0, 7).flatMap(genTree(_, withFill = true))
+    Gen.choose(0, maxDepth).flatMap(genTree(_, withFill = true))
 
   val genDocNoFill: Gen[Doc] =
-    Gen.choose(0, 7).flatMap(genTree(_, withFill = false))
+    Gen.choose(0, maxDepth).flatMap(genTree(_, withFill = false))
 
   implicit val arbDoc: Arbitrary[Doc] =
     Arbitrary(genDoc)

@@ -11,7 +11,7 @@ class PaigesScalacheckTest extends AnyFunSuite {
   import PaigesTest._
 
   implicit val generatorDrivenConfig =
-    PropertyCheckConfiguration(minSuccessful = 5000)
+    PropertyCheckConfiguration(minSuccessful = 500)
 
   test("(x = y) -> (x.## = y.##)") {
     forAll { (a: Doc, b: Doc) =>
@@ -193,9 +193,11 @@ class PaigesScalacheckTest extends AnyFunSuite {
       val right = (b + flatC).grouped
       assert(left === right, debugEq(left, right))
 
-      val lhs0 = flatC + b.grouped
-      val rhs0 = (flatC + b).grouped
-      assert(lhs0 === rhs0, debugEq(lhs0, rhs0))
+      if (!flatC.containsHardNewline) {
+        val lhs0 = flatC + b.grouped
+        val rhs0 = (flatC + b).grouped
+        assert(lhs0 === rhs0, debugEq(lhs0, rhs0))
+      }
 
       // since left == right, we could have used those instead of b:
       val lhs1 = left.grouped + flatC
@@ -207,9 +209,9 @@ class PaigesScalacheckTest extends AnyFunSuite {
     val b0 = Concat(Text("b"), Union(Text(" "), FlatAlt(Line, Text(" "))))
     val c0 = Union(Concat(Text("b"), Text(" ")), Concat(Text("b"), FlatAlt(Line, Text(" "))))
     law(b0, c0)
-    // forAll { (b: Doc, c: Doc) =>
-    //   law(b, c)
-    // }
+    forAll { (b: Doc, c: Doc) =>
+      law(b, c)
+    }
   }
 
   test("flatten(group(a)) == flatten(a)") {
@@ -365,7 +367,7 @@ class PaigesScalacheckTest extends AnyFunSuite {
 
   test("fill matches spec") {
     val docsGen = for {
-      n <- Gen.choose(0, 10)
+      n <- Gen.choose(0, 20)
       ds <- Gen.listOfN(n, genDoc)
     } yield ds
     forAll(genDoc, docsGen) { (sep: Doc, ds: List[Doc]) =>
@@ -441,26 +443,6 @@ class PaigesScalacheckTest extends AnyFunSuite {
       assert(law(d, false), s"input=${repr(d)}")
     }
   }
-
-  // test("Line is always wrapped in FlatAlt") {
-  //   import Doc._
-  //   def law(d: Doc, isFlatDef: Boolean): Boolean =
-  //     d match {
-  //       case Empty | Text(_) | HardLine => true
-  //       case Line => isFlatDef
-  //       case FlatAlt(a, b) =>
-  //         law(a, true) && law(b, isFlatDef)
-  //       case Concat(a, b) =>
-  //         law(a, isFlatDef) && law(b, isFlatDef)
-  //       case Union(a, b) =>
-  //         law(a, isFlatDef) && law(b, isFlatDef)
-  //       case f@LazyDoc(_) => law(f.evaluated, isFlatDef)
-  //       case Align(d) => law(d, isFlatDef)
-  //       case Nest(_, d) => law(d, isFlatDef)
-  //     }
-  //
-  //   forAll { d: Doc => assert(law(d, false)) }
-  // }
 
   test("flattened docs never have FlatAlt") {
     import Doc._
