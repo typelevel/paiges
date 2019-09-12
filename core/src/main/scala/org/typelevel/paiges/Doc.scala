@@ -867,7 +867,7 @@ object Doc {
    * Collapse a collection of documents into one document, delimited
    * by a separator.
    *
-   *  This works identical to the following code, but is much
+   *  This is equivalent to the following code, but is much
    *  more complex to avoid stack overflows and exponential
    *  time complexity
    *  {{{

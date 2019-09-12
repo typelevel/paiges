@@ -205,10 +205,6 @@ class PaigesScalacheckTest extends AnyFunSuite {
       assert(lhs1 === rhs1, debugEq(lhs1, rhs1))
     }
 
-    import Doc._
-    val b0 = Concat(Text("b"), Union(Text(" "), FlatAlt(Line, Text(" "))))
-    val c0 = Union(Concat(Text("b"), Text(" ")), Concat(Text("b"), FlatAlt(Line, Text(" "))))
-    law(b0, c0)
     forAll { (b: Doc, c: Doc) =>
       law(b, c)
     }
