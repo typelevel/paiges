@@ -1,7 +1,6 @@
 package org.typelevel.paiges
 
-import cats.Semigroupal
-import cats.Contravariant
+import cats.{ Contravariant, Defer, Semigroupal}
 
 trait CatsDocument {
   implicit val contravariantDocument: Contravariant[Document] =
@@ -15,6 +14,12 @@ trait CatsDocument {
         Document.instance { case (a, b) =>
           fa.document(a) + sep + fb.document(b)
         }
+    }
+
+  implicit val deferDocument: Defer[Document] =
+    new Defer[Document] {
+      def defer[A](d: => Document[A]): Document[A] =
+        Document.defer(d)
     }
 }
 

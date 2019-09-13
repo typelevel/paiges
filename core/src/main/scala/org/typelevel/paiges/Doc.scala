@@ -73,6 +73,29 @@ sealed abstract class Doc extends Product with Serializable {
     this / Doc.text(str)
 
   /**
+   * This makes all newlines indent with the current position plus
+   * i.
+   *  same as nested(i).aligned
+   *
+   * so, Doc.split("this is an example of some text").hang(2).render(0)
+   * would be:
+   * this
+   *   is
+   *   an
+   *   example
+   *   of
+   *   some
+   *   text
+   */
+  def hang(i: Int): Doc = nested(i).aligned
+
+  /**
+   * indent this entire Doc by i
+   * same as (spaces(i) + this).hang(i)
+   */
+  def indent(i: Int): Doc = (Doc.spaces(i) + this).hang(i)
+
+  /**
    * Append the given String to this one, separated by a newline.
    */
   def line(str: String): Doc =
