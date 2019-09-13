@@ -36,7 +36,7 @@ class PaigesScalacheckTest extends OurFunSuite {
     forAll { (a: Doc, b: Doc) =>
       assert(a.## == a.##)
       assert(b.## == b.##)
-      if (a == b) assert(a.## == b.##) else succeed
+      if (a === b) assert(a.## == b.##) else succeed
     }
   }
 
@@ -178,14 +178,16 @@ class PaigesScalacheckTest extends OurFunSuite {
       val maxR = d.render(m)
       val justAfter = (1 to 20).iterator
       val goodW = (justAfter ++ ws.iterator).map { w => (m + w) max m }
-      assert(goodW.forall { w => d.render(w) == maxR })
+      goodW.foreach { w =>
+        assert(d.render(w) == maxR, repr(d))
+      }
     }
   }
 
   test("render(w) == render(0) for w <= 0") {
     forAll { (a: Doc, w: Int) =>
       val wNeg = if (w > 0) -w else w
-      assert(a.render(wNeg) == a.render(0), s"${a.representation(true).render(40)}.render($wNeg) fails")
+      assertDoc(a)(a => a.render(wNeg) == a.render(0))
     }
   }
 
@@ -365,7 +367,7 @@ class PaigesScalacheckTest extends OurFunSuite {
   test("renderWide == render(maxWidth)") {
     forAll { (d: Doc) =>
       val max = d.maxWidth
-      assert(d.renderWideStream.mkString == d.render(max))
+      assertDoc(d)(d => (d.renderWideStream.mkString == d.render(max)))
     }
   }
 
@@ -402,7 +404,8 @@ class PaigesScalacheckTest extends OurFunSuite {
     import Doc._
     def law(d: Doc): Boolean =
       d match {
-        case Empty | Text(_) | Line => true
+        case Styled(d, _) => law(d)
+        case Empty | Text(_) | ZeroWidth(_) | Line => true
         case FlatAlt(a, b) =>
           a.maxWidth <= b.maxWidth
         case Concat(a, b) =>
@@ -421,7 +424,8 @@ class PaigesScalacheckTest extends OurFunSuite {
     import Doc._
     def law(d: Doc): Boolean =
       d match {
-        case Empty | Text(_) | Line => true
+        case Empty | Text(_) | ZeroWidth(_) | Line => true
+        case Styled(d, _) => law(d)
         case FlatAlt(a, b) =>
           a !== b
         case Concat(a, b) =>
@@ -440,7 +444,8 @@ class PaigesScalacheckTest extends OurFunSuite {
     import Doc._
     def law(d: Doc, isLeft: Boolean): Boolean =
       d match {
-        case Empty | Text(_) | Line => true
+        case Styled(d, _) => law(d, isLeft)
+        case Empty | Text(_) | ZeroWidth(_) | Line => true
         case FlatAlt(a, b) => !isLeft && law(a, isLeft) && law(b, isLeft)
         case Concat(a, b) =>
           law(a, isLeft) && law(b, isLeft)
@@ -464,7 +469,8 @@ class PaigesScalacheckTest extends OurFunSuite {
     def law(d: Doc): Boolean =
       d match {
         case FlatAlt(_, _) => false
-        case Empty | Text(_) | Line => true
+        case Empty | Text(_) | ZeroWidth(_) | Line => true
+        case Styled(d, _) => law(d)
         case Concat(a, b) => law(a) && law(b)
         case Union(a, b) => law(a) && law(b)
         case f@LazyDoc(_) => law(f.evaluated)
@@ -474,6 +480,96 @@ class PaigesScalacheckTest extends OurFunSuite {
 
     forAll { (d: Doc) =>
       assertDoc(d)(x => law(x.flatten))
+    }
+  }
+
+  // remove ANSI control strings
+  //
+  // these strings start with ESC and '[' and end with 'm'
+  // they contain numbers and semicolons
+  // i.e. "\u001b[52;1m"
+  def removeControls(s: String): String = {
+    val sb = new StringBuilder
+    var i = 0
+    var good = true
+    val last = s.length - 1
+    while (i <= last) {
+      val c = s.charAt(i)
+      if (good) {
+        if (c == 27 && i < last && s.charAt(i + 1) == '[') good = false
+        else sb.append(c)
+      } else {
+        if (c == 'm') good = true
+        else ()
+      }
+      i += 1
+    }
+    sb.toString
+  }
+
+  test("removeControls(Doc.ansiControl(ns).render(w)) is empty") {
+    forAll { (ns: List[Byte], w: Int) =>
+      val d = Doc.ansiControl(ns.map(_ & 0xff): _*)
+      assert(removeControls(d.render(w)) == "")
+    }
+  }
+
+  test("Doc.unstyle(d).render = removeControls(d.render)") {
+    val good = "hello erik"
+    val bad = "hello \u001b[31;merik"
+    assert(removeControls(bad) == good)
+    forAll { (d: Doc, w: Int) =>
+      assert(Doc.unstyle(d).render(w) == removeControls(d.render(w)))
+    }
+  }
+
+  test("styles are associative under ++") {
+    forAll { (a: Style, b: Style, c: Style) =>
+      assert(((a ++ b) ++ c) == (a ++ (b ++ c)))
+    }
+  }
+
+  test("styles have an Empty identity under ++") {
+    forAll { (a: Style) =>
+      assert((a ++ Style.Empty) == a)
+      assert((Style.Empty ++ a) == a)
+    }
+  }
+
+  test("rhs wins for style fg") {
+    forAll(genFg, genFg) { (a, b) =>
+      assert((a ++ b) == b)
+    }
+  }
+
+  test("rhs wins for style bg") {
+    forAll(genBg, genBg) { (a, b) =>
+      assert((a ++ b) == b)
+    }
+  }
+
+  test("unstyle is idempotent") {
+    forAll { (d0: Doc) =>
+      val d1 = Doc.unstyle(d0)
+      assertEq(Doc.unstyle(d1), d1)
+    }
+  }
+
+  test("unstyle removes all Styled nodes") {
+    import Doc._
+    def law(d: Doc): Boolean =
+      d match {
+        case Styled(_, _) => false
+        case FlatAlt(a, b) => law(a) && law(b)
+        case Empty | Text(_) | ZeroWidth(_) | Line => true
+        case Concat(a, b) => law(a) && law(b)
+        case Union(a, b) => law(a) && law(b)
+        case f@LazyDoc(_) => law(f.evaluated)
+        case Align(d) => law(d)
+        case Nest(_, d) => law(d)
+      }
+    forAll { (d: Doc) =>
+      assertDoc(d)(d => law(Doc.unstyle(d)))
     }
   }
 }
