@@ -244,8 +244,8 @@ sealed abstract class Doc extends Product with Serializable {
    * The expression `d.renderStream(w).mkString` is equivalent to
    * `d.render(w)`.
    */
-  def renderStream(width: Int): Stream[String] =
-    Chunk.best(width, this, false).toStream
+  def renderStream(width: Int): LazyIterable[String] =
+    LazyIterable.fromIterator(Chunk.best(width, this, false))
 
   /**
    * Render this Doc as a stream of strings, treating `width` in the
@@ -256,25 +256,25 @@ sealed abstract class Doc extends Product with Serializable {
    *
    * Lines consisting of only indentation are represented by the empty string.
    */
-  def renderStreamTrim(width: Int): Stream[String] =
-    Chunk.best(width, this, true).toStream
+  def renderStreamTrim(width: Int): LazyIterable[String] =
+    LazyIterable.fromIterator(Chunk.best(width, this, true))
 
   /**
    * Render this Doc as a stream of strings, using
    * the widest possible variant. This is the same
    * as render(Int.MaxValue) except it is more efficient.
    */
-  def renderWideStream: Stream[String] = {
+  def renderWideStream: LazyIterable[String] = {
     @tailrec
-    def loop(pos: Int, lst: List[(Int, Doc)]): Stream[String] = lst match {
-      case Nil => Stream.empty
+    def loop(pos: Int, lst: List[(Int, Doc)]): LazyIterable[String] = lst match {
+      case Nil => LazyIterable.empty
       case (i, Empty) :: z => loop(pos, z)
       case (i, FlatAlt(a, _)) :: z => loop(pos, (i, a) :: z)
       case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z)
       case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
       case (i, Align(d)) :: z => loop(pos, (pos, d) :: z)
-      case (i, Text(s)) :: z => s #:: cheat(pos + s.length, z)
-      case (i, Line) :: z => Chunk.lineToStr(i) #:: cheat(i, z)
+      case (i, Text(s)) :: z => LazyIterable.cons(s, cheat(pos + s.length, z))
+      case (i, Line) :: z => LazyIterable.cons(Chunk.lineToStr(i), cheat(i, z))
       case (i, d@LazyDoc(_)) :: z => loop(pos, (i, d.evaluated) :: z)
       case (i, Union(a, _)) :: z =>
         /*

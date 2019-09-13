@@ -301,11 +301,14 @@ class PaigesScalacheckTest extends OurFunSuite {
   test("Union invariant: the first line of `a` is at least as long as the first line of `b`") {
     forAll(Gen.choose(1, 200), genUnion) { (n, u) =>
       def firstLine(d: Doc) = {
-        def loop(s: Stream[String], acc: List[String]): String =
+        def loop(s: LazyIterable[String], acc: List[String]): String =
           s match {
-            case Stream.Empty => acc.reverse.mkString
-            case head #:: _ if head.contains('\n') => (head.takeWhile(_ != '\n') :: acc).reverse.mkString
-            case head #:: tail => loop(tail, head :: acc)
+            case LazyIterable.Empty =>
+              acc.reverse.mkString
+            case LazyIterable.Cons(head, _) if head.contains('\n') =>
+              (head.takeWhile(_ != '\n') :: acc).reverse.mkString
+            case LazyIterable.Cons(a, continue) =>
+              loop(continue(), a :: acc)
           }
         loop(d.renderStream(n), Nil)
       }
