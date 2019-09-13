@@ -476,4 +476,24 @@ class PaigesScalacheckTest extends OurFunSuite {
       assertDoc(d)(x => law(x.flatten))
     }
   }
+
+  test("hang law") {
+    val ex0 = Doc.split("this is an example").hang(2).render(0)
+    assert(ex0 == "this\n  is\n  an\n  example")
+    forAll { (d: Doc, i0: Int) =>
+      // make a number between 0 and 199
+      val i = (i0 & 0x7fffffff) % 200
+      assertEq(d.hang(i), d.nested(i).aligned)
+    }
+  }
+
+  test("indent law") {
+    val ex0 = Doc.split("this is an example").indent(2).render(0)
+    assert(ex0 == "  this\n  is\n  an\n  example")
+    forAll { (d: Doc, i0: Int) =>
+      // make a number between 0 and 199
+      val i = (i0 & 0x7fffffff) % 200
+      assertEq(d.indent(i), (Doc.spaces(i) + d).nested(i).aligned)
+    }
+  }
 }
