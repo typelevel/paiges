@@ -106,6 +106,7 @@ private[paiges] object Chunk {
       case (i, Doc.Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
       case (_, Doc.Align(d)) :: z => loop(pos, (pos, d) :: z)
       case (_, Doc.Text(s)) :: z => ChunkStream.Item(s, pos + s.length, z)
+      case (_, Doc.ZeroWidth(s)) :: z => ChunkStream.Item(s, pos, z)
       case (i, Doc.Line) :: z => ChunkStream.Item(null, i, z)
       case (i, d@Doc.LazyDoc(_)) :: z => loop(pos, (i, d.evaluated) :: z)
       case (i, Doc.Union(x, y)) :: z =>

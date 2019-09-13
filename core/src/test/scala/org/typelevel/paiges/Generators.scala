@@ -26,6 +26,7 @@ object Generators {
     (1, Doc.hardLine),
     (15, asciiString.map(text(_))),
     (15, generalString.map(text(_))),
+    (3, asciiString.map(Doc.zeroWidth(_))),
     (3, asciiString.map(Doc.split(_))),
     (3, generalString.map(Doc.split(_))),
     (3, generalString.map(Doc.paragraph(_)))
@@ -38,8 +39,52 @@ object Generators {
     { (a: Doc, b: Doc) => a / b },
     { (a: Doc, b: Doc) => a lineOrSpace b })
 
+  val genFg: Gen[Style] = {
+    import Style.Ansi.Fg._
+    val ansi = Gen.oneOf(
+      Black, Red, Green, Yellow, Blue, Magenta, Cyan, White, Default,
+      BrightBlack, BrightRed, BrightGreen, BrightYellow, BrightBlue,
+      BrightMagenta, BrightCyan, BrightWhite)
+    val gc = Gen.choose(-1, 6)
+    val xterm = Gen.oneOf(
+      Gen.choose(-1, 256).map(Style.XTerm.Fg.laxColorCode(_)),
+      Gen.choose(-1, 24).map(Style.XTerm.Fg.laxGray(_)),
+      Gen.zip(gc, gc, gc).map { case (r, g, b) => Style.XTerm.Fg.laxColor(r, g, b) })
+    Gen.oneOf(ansi, xterm)
+  }
+
+  val genBg: Gen[Style] = {
+    import Style.Ansi.Bg._
+    Gen.oneOf(
+      Black, Red, Green, Yellow, Blue, Magenta, Cyan, White, Default,
+      BrightBlack, BrightRed, BrightGreen, BrightYellow, BrightBlue,
+      BrightMagenta, BrightCyan, BrightWhite)
+  }
+
+  val genAttr: Gen[Style] = {
+    import Style.Ansi.Attr._
+    Gen.oneOf(
+      Bold, Faint, Italic, Underline, SlowBlink,
+      FastBlink, Inverse, Conceal, CrossedOut,
+      BoldOff, FaintOff, ItalicOff, UnderlineOff,
+      BlinkOff, InverseOff, ConcealOff, CrossedOutOff)
+  }
+
+  lazy val genStyle: Gen[Style] = {
+    val recur = Gen.lzy(genStyle)
+    Gen.frequency(
+      10 -> genFg,
+      10 -> genBg,
+      10 -> genAttr,
+      5 -> Gen.zip(recur, recur).map { case (s0, s1) => s0 ++ s1 })
+  }
+
+  implicit val arbitraryStyle: Arbitrary[Style] =
+    Arbitrary(genStyle)
+
   val unary: Gen[Doc => Doc] =
     Gen.oneOf(
+      genStyle.map(s => (d: Doc) => d.style(s)),
       Gen.const({ d: Doc => Doc.defer(d) }),
       Gen.const({ d: Doc => d.grouped }),
       Gen.const({ d: Doc => d.aligned }),
@@ -157,6 +202,7 @@ object Generators {
       case Union(a, b) => combine2(a, b)(Union)
       case Concat(a, b) => combine2(a, b)(_ + _)
       case Text(s) => shrink(s).map(text)
+      case ZeroWidth(s) => shrink(s).map(zeroWidth)
       case Nest(i, d) => interleave(shrink(d), combine(d)(_.nested(i)))
       case Align(d) => interleave(shrink(d), combine(d)(_.aligned))
       case Line | Empty => Stream.empty

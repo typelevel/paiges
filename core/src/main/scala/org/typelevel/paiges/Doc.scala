@@ -13,7 +13,7 @@ import scala.util.matching.Regex
  */
 sealed abstract class Doc extends Product with Serializable {
 
-  import Doc.{ Align, Empty, FlatAlt, Text, Line, LazyDoc, Nest, Concat, Union }
+  import Doc.{ Align, Empty, FlatAlt, Text, Line, LazyDoc, Nest, Concat, Union, ZeroWidth }
 
   /**
    * Append the given Doc to this one.
@@ -150,6 +150,30 @@ sealed abstract class Doc extends Product with Serializable {
     lineOrSpace(Doc.text(that))
 
   /**
+   * Apply the given style to this document.
+   *
+   * This will replace all other styling the doc has so far. To avoid
+   * this, consider concatenating documents with separate styles.
+   */
+  def style(style: Style): Doc =
+    Doc.zeroWidth(style.start) + (this.unzero + Doc.zeroWidth(style.end))
+
+  /**
+   * Remove all zero-width nodes from the Doc.
+   */
+  def unzero: Doc =
+    this match {
+      case ZeroWidth(_) => Empty
+      case FlatAlt(a, b) => FlatAlt(a.unzero, Doc.defer(b.unzero))
+      case Concat(a, b) => Concat(a.unzero, b.unzero)
+      case Nest(i, d) => Nest(i, d.unzero)
+      case Union(a, b) => Union(Doc.defer(a.unzero), Doc.defer(b.unzero))
+      case d @ LazyDoc(_) => Doc.defer(d.evaluated.unzero)
+      case Align(d) => Align(d.unzero)
+      case Text(_) | Empty | Line => this
+    }
+
+  /**
    * Bookend this Doc between the given Docs.
    *
    * If the documents (when flattened) all fit on one line, then
@@ -213,6 +237,9 @@ sealed abstract class Doc extends Product with Serializable {
         case Nest(i, d) => loop(d, stack)
         case Align(d) => loop(d, stack)
         case Text(s) =>
+          // shouldn't be empty by construction, but defensive
+          s.isEmpty && loop(Empty, stack)
+        case ZeroWidth(s) =>
           // shouldn't be empty by construction, but defensive
           s.isEmpty && loop(Empty, stack)
         case Line => false
@@ -297,6 +324,7 @@ sealed abstract class Doc extends Product with Serializable {
       case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
       case (i, Align(d)) :: z => loop(pos, (pos, d) :: z)
       case (i, Text(s)) :: z => s #:: cheat(pos + s.length, z)
+      case (i, ZeroWidth(s)) :: z => s #:: cheat(pos, z)
       case (i, Line) :: z => Chunk.lineToStr(i) #:: cheat(i, z)
       case (i, d@LazyDoc(_)) :: z => loop(pos, (i, d.evaluated) :: z)
       case (i, Union(a, _)) :: z =>
@@ -462,6 +490,8 @@ sealed abstract class Doc extends Product with Serializable {
                   else loop(tail, "LazyDoc(() => ...)" +: suffix)
                 case Union(x, y) =>
                   loop(Left(y) :: Right(", ") :: Left(x) :: Right("Union(") :: tail, ")" +: suffix)
+                case ZeroWidth(s) =>
+                  loop(tail, "ZeroWidth(" +: s +: ")" +: suffix)
               }
           }
         case Nil =>
@@ -517,7 +547,7 @@ sealed abstract class Doc extends Product with Serializable {
     @tailrec
     def loop(h: DB, stack: List[DB], front: List[DB]): (DB, List[DB]) =
       h._1 match {
-        case Empty | Text(_) | Line =>
+        case Empty | Text(_) | Line | ZeroWidth(_) =>
           stack match {
             case Nil => (h, front)
             case x :: xs => loop(x, xs, h :: front)
@@ -577,6 +607,7 @@ sealed abstract class Doc extends Product with Serializable {
       case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z, max)
       case (i, Align(d)) :: z => loop(pos, (pos, d) :: z, max)
       case (i, Text(s)) :: z => loop(pos + s.length, z, max)
+      case (i, ZeroWidth(_)) :: z => loop(pos, z, max)
       case (i, Line) :: z => loop(i, z, math.max(max, pos))
       case (i, d@LazyDoc(_)) :: z => loop(pos, (i, d.evaluated) :: z, max)
       case (i, Union(a, _)) :: z =>
@@ -615,6 +646,15 @@ object Doc {
    * The string must not be empty, and may not contain newlines.
    */
   private[paiges] case class Text(str: String) extends Doc
+
+  /**
+   * Works like Text, except its length is treated as zero.
+   *
+   * This is useful for things like ANSI formatting codes. It is only
+   * generated internally during rendering, so it should not appear in
+   * stable Doc values.
+   */
+  private [paiges] case class ZeroWidth(str: String) extends Doc
 
   /**
    * Represents a concatenation of two documents.
@@ -1058,4 +1098,21 @@ object Doc {
       def keyToDoc(s: String): Doc = Doc.text(s) + Doc.char(fill).repeat(fills - s.length) + rightD
       intercalate(line, rows.map { case (k, v) => keyToDoc(k) + v.aligned })
     }
+
+  /**
+   * Introduce some zero-width text.
+   *
+   * WARNING: If this text ends up being seen by the viewer, it will
+   * make the formatting appear incorrect. This is an advanced
+   * feature -- prefer using styling where possible.
+   */
+  def zeroWidth(s: String): Doc =
+    if (s.isEmpty) Empty else ZeroWidth(s)
+
+  /**
+   * Creates a zero-width Doc containing the given ANSI control
+   * sequences.
+   */
+  def ansiControl(ns: Int*): Doc =
+    zeroWidth(ns.mkString("\u001b[", ";", "m"))
 }
