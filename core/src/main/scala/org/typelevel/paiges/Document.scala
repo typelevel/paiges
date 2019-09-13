@@ -11,6 +11,41 @@ object Document {
 
   def apply[A](implicit ev: Document[A]): Document[A] = ev
 
+  private case class LazyDocument[A](thunk: () => Document[A]) extends Document[A] {
+    private var computed: Document[A] = null
+    // This is never a LazyDocument
+    lazy val evaluated: Document[A] = {
+      @annotation.tailrec
+      def loop(d: Document[A], toUpdate: List[LazyDocument[A]]): Document[A] =
+        d match {
+          case lzy@LazyDocument(thunk) =>
+            // note: we are intentionally shadowing thunk here because
+            // we want to make it impossible to accidentally use the outer
+            // thunk
+            //
+            // lzy points to another, and therefore equivalent LazyDocument
+            // short circuit if we this has already computed
+            val lzyC = lzy.computed
+            // lzy isn't computed, add it to the list of LazyDocuments to fill in
+            if (lzyC == null) loop(thunk(), lzy :: toUpdate)
+            else loop(lzyC, toUpdate)
+          case _ =>
+            toUpdate.foreach(_.computed = d)
+            d
+        }
+
+      if (computed == null) {
+        computed = loop(thunk(), Nil)
+      }
+      computed
+    }
+
+    def document(a: A): Doc = evaluated.document(a)
+  }
+
+  def defer[A](doc: => Document[A]): Document[A] =
+    LazyDocument(() => doc)
+
   def instance[A](f: A => Doc): Document[A] =
     new Document[A] {
       def document(a: A): Doc = f(a)

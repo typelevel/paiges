@@ -83,7 +83,7 @@ lazy val coreJS = core.js
 lazy val coreNative = core.native
 
 lazy val cats = crossProject(JSPlatform, JVMPlatform)
-  .crossType(CrossType.Pure)
+  .crossType(CrossType.Full)
   .in(file("cats"))
   .dependsOn(core % "compile->compile;test->test")
   .settings(
@@ -92,11 +92,14 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform)
     moduleName := "paiges-cats",
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core" % "2.0.0",
-      "org.typelevel" %%% "cats-laws" % "2.0.0" % Test),
+      "org.typelevel" %%% "cats-laws" % "2.0.0" % "test",
+      "org.typelevel" %%% "discipline-scalatest" % "1.0.0-M1" % "test"
+      ),
     mimaPreviousArtifacts := previousArtifact(version.value, "cats"))
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings)
   .jvmSettings(commonJvmSettings)
+
 lazy val catsJVM = cats.jvm
 lazy val catsJS = cats.js
 
