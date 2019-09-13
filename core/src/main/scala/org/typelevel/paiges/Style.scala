@@ -144,17 +144,15 @@ object Style {
    */
   object XTerm {
 
-    object Fg {
+    protected abstract class Api {
 
-      def color(r: Double, g: Double, b: Double): Style = {
-        // require(0.0 <= r && r < 1.0, s"red: $r")
-        // require(0.0 <= g && g < 1.0, s"red: $r")
-        // require(0.0 <= b && b < 1.0, s"red: $r")
-        color((r * 6.0).toInt min 5, (g * 6.0).toInt min 5, (b * 6.0).toInt min 5)
-      }
+      protected def start: String
+      protected def fromLine(line: String): Style
 
       /**
        * Uses a 6x6x6 color cube to render 8-bit colors.
+       *
+       * Requires r, g, and b to be in [0, 5].
        */
       def color(r: Int, g: Int, b: Int): Style = {
         require(0 <= r && r <= 5, s"invalid red: $r (should be 0-5)")
@@ -164,43 +162,66 @@ object Style {
         colorCode(16 + 36 * r + 6 * g + b)
       }
 
-      def colorCode(code: Int): Style = {
-        require(16 <= code && code <= 231)
-        Impl(Some(s"38;5;$code"), None, Nil)
-      }
-
-      /**
-       * Uses 24 steps to render 8-bit grayscale.
-       */
-      def gray(step: Int): Style = {
-        require(0 <= step && step <= 23, s"invalid step: $step (should be 0-23)")
-        val code = step + 232
-        Impl(Some(s"38;5;$code"), None, Nil)
-      }
-    }
-
-    object Bg {
-
       /**
        * Uses a 6x6x6 color cube to render 8-bit colors.
+       *
+       * Ensures that integer values are in [0, 5], other values are
+       * squashed into the interval.
        */
-      def color(r: Int, g: Int, b: Int): Style = {
-        require(0 <= r && r <= 5, s"invalid red: $r (should be 0-5)")
-        require(0 <= g && g <= 5, s"invalid green: $g (should be 0-5)")
-        require(0 <= b && b <= 5, s"invalid blue: $b (should be 0-5)")
-        // 16 + 36 × r + 6 × g + b
-        val code = 16 + 36 * r + 6 * g + b
-        Impl(None, Some(s"48;5;$code"), Nil)
+      def laxColor(r: Int, g: Int, b: Int): Style = {
+        def fix(n: Int): Int = Math.max(0, Math.min(5, n))
+        color(fix(r), fix(g), fix(b))
       }
 
       /**
-       * Uses 24 steps to render 8-bit grayscale.
+       * Uses 24 steps to render a gray 8-bit color.
+       *
+       * Step must be in [0, 23].
        */
       def gray(step: Int): Style = {
         require(0 <= step && step <= 23, s"invalid step: $step (should be 0-23)")
-        val code = step + 232
-        Impl(None, Some(s"48;5;$code"), Nil)
+        colorCode(step + 232)
       }
+
+      /**
+       * Uses 24 steps to render a gray 8-bit color.
+       *
+       * Ensures that integer values are in [0, 23], other values are
+       * squashed into the interval.
+       */
+      def laxGray(step: Int): Style =
+        gray(Math.max(0, Math.min(23, step)))
+
+      /**
+       * Renders an 8-bit color from the given code.
+       *
+       * Codes must be in [0, 255].
+       */
+      def colorCode(code: Int): Style = {
+        require(0 <= code && code <= 255)
+        fromLine(s"$start;5;$code")
+      }
+
+      /**
+       * Renders an 8-bit color from the given code.
+       *
+       * Ensures that integer values are in [0, 255], other values are
+       * squashed into the interval.
+       */
+      def laxColorCode(code: Int): Style =
+        colorCode(Math.max(0, Math.min(255, code)))
+    }
+
+    object Fg extends Api {
+      protected val start = "38"
+      protected def fromLine(line: String): Style =
+        Impl(Some(line), None, Nil)
+    }
+
+    object Bg extends Api {
+      protected val start = "48"
+      protected def fromLine(line: String): Style =
+        Impl(None, Some(line), Nil)
     }
   }
 }

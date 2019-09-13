@@ -19,10 +19,10 @@ In the Land of Mordor where the Shadows lie.
 
   // x cycles in [0, 2π).
   def fromAngle(x: Double): Style = {
-    val r = 0.5 + Math.cos(x) / 2.0
-    val g = 0.5 + Math.cos(x - TwoThirdsPi) / 2.0
-    val b = 0.5 + Math.cos(x + TwoThirdsPi) / 2.0
-    Style.XTerm.Fg.color(r, g, b)
+    val r = ((0.5 + Math.cos(x) / 2) * 6).toInt
+    val g = ((0.5 + Math.cos(x - TwoThirdsPi) / 2) * 6).toInt
+    val b = ((0.5 + Math.cos(x + TwoThirdsPi) / 2) * 6).toInt
+    Style.XTerm.Fg.laxColor(r, g, b)
   }
 
   def rainbow(s: String, steps: Int = -1): Doc = {
@@ -41,7 +41,7 @@ In the Land of Mordor where the Shadows lie.
   }
 
   test("rainbow demo") {
-    val demo = rainbow(Quote).render(80) + "\n\n" + rainbow(Quote, 30).render(28)
+    val demo = rainbow(Quote).render(80) + "\n\n" + rainbow(Quote, 7).render(28)
     println(demo)
   }
 }

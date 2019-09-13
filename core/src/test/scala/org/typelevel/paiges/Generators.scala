@@ -41,10 +41,16 @@ object Generators {
 
   val genFg: Gen[Style] = {
     import Style.Ansi.Fg._
-    Gen.oneOf(
+    val ansi = Gen.oneOf(
       Black, Red, Green, Yellow, Blue, Magenta, Cyan, White, Default,
       BrightBlack, BrightRed, BrightGreen, BrightYellow, BrightBlue,
       BrightMagenta, BrightCyan, BrightWhite)
+    val gc = Gen.choose(-1, 6)
+    val xterm = Gen.oneOf(
+      Gen.choose(-1, 256).map(Style.XTerm.Fg.laxColorCode(_)),
+      Gen.choose(-1, 24).map(Style.XTerm.Fg.laxGray(_)),
+      Gen.zip(gc, gc, gc).map { case (r, g, b) => Style.XTerm.Fg.laxColor(r, g, b) })
+    Gen.oneOf(ansi, xterm)
   }
 
   val genBg: Gen[Style] = {
