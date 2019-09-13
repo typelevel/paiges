@@ -557,6 +557,8 @@ class PaigesScalacheckTest extends OurFunSuite {
       }
     forAll { (d: Doc) =>
       assertDoc(d)(d => law(d.unzero))
+    }
+  }
 
   test("hang law") {
     val ex0 = Doc.split("this is an example").hang(2).render(0)
