@@ -1084,7 +1084,7 @@ object Doc {
    * feature -- prefer using styling where possible.
    */
   def zeroWidth(s: String): Doc =
-    ZeroWidth(s)
+    if (s.isEmpty) Empty else ZeroWidth(s)
 
   /**
    * Creates a zero-width Doc containing the given ANSI control
