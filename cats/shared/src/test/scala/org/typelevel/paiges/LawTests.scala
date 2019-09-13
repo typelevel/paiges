@@ -3,7 +3,7 @@ package org.typelevel.paiges
 import cats.Semigroupal
 import cats.Contravariant
 import cats.kernel.{Eq, Monoid}
-import cats.laws.discipline.{ExhaustiveCheck, SemigroupalTests, ContravariantTests, SerializableTests}
+import cats.laws.discipline.{ExhaustiveCheck, SemigroupalTests, ContravariantTests, SerializableTests, DeferTests}
 import cats.kernel.laws.discipline.MonoidTests
 import cats.laws.discipline.eq.catsLawsEqForFn1Exhaustive
 
@@ -12,6 +12,7 @@ import org.scalacheck.Arbitrary
 import org.scalactic.anyvals.{PosZDouble, PosInt, PosZInt}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.prop.Configuration
+
 
 class LawTests extends LawChecking with CatsDocument {
   import org.typelevel.paiges.Generators._
@@ -30,10 +31,14 @@ class LawTests extends LawChecking with CatsDocument {
   implicit def eqForDocument[A: ExhaustiveCheck]: Eq[Document[A]] =
     Eq.by[Document[A], A => Doc](inst => (a: A) => inst.document(a))
 
+  implicit val eqBool: Eq[Boolean] =
+    Eq.instance[Boolean](_ == _)
+
   checkAll("Monoid[Doc]", MonoidTests[Doc].monoid)
 
   checkAll("Contravariant[Document]", ContravariantTests[Document].contravariant[Boolean, Boolean, Boolean])
   checkAll("Contravariant[Document]", SerializableTests.serializable(Contravariant[Document]))
+  checkAll("Defer[Document]", DeferTests[Document].defer[Boolean])
 
   {
     implicit val semigroupalDocument: Semigroupal[Document] =
