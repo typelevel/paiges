@@ -198,9 +198,6 @@ object Generators {
       a #:: b #:: interleave(interleave(sa, sb), sa.flatMap(x => sb.map(y => f(x, y))))
     }
     Shrink {
-      case Styled(d, style) =>
-        val sd = shrink(d)
-        d #:: interleave(sd, sd.map(x => Styled(x, style)))
       case FlatAlt(_, b) => b #:: shrinkDoc.shrink(b)
       case Union(a, b) => combine2(a, b)(Union)
       case Concat(a, b) => combine2(a, b)(_ + _)

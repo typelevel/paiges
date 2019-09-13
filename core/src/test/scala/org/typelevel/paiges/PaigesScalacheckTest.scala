@@ -404,7 +404,6 @@ class PaigesScalacheckTest extends OurFunSuite {
     import Doc._
     def law(d: Doc): Boolean =
       d match {
-        case Styled(d, _) => law(d)
         case Empty | Text(_) | ZeroWidth(_) | Line => true
         case FlatAlt(a, b) =>
           a.maxWidth <= b.maxWidth
@@ -425,7 +424,6 @@ class PaigesScalacheckTest extends OurFunSuite {
     def law(d: Doc): Boolean =
       d match {
         case Empty | Text(_) | ZeroWidth(_) | Line => true
-        case Styled(d, _) => law(d)
         case FlatAlt(a, b) =>
           a !== b
         case Concat(a, b) =>
@@ -444,7 +442,6 @@ class PaigesScalacheckTest extends OurFunSuite {
     import Doc._
     def law(d: Doc, isLeft: Boolean): Boolean =
       d match {
-        case Styled(d, _) => law(d, isLeft)
         case Empty | Text(_) | ZeroWidth(_) | Line => true
         case FlatAlt(a, b) => !isLeft && law(a, isLeft) && law(b, isLeft)
         case Concat(a, b) =>
@@ -470,7 +467,6 @@ class PaigesScalacheckTest extends OurFunSuite {
       d match {
         case FlatAlt(_, _) => false
         case Empty | Text(_) | ZeroWidth(_) | Line => true
-        case Styled(d, _) => law(d)
         case Concat(a, b) => law(a) && law(b)
         case Union(a, b) => law(a) && law(b)
         case f@LazyDoc(_) => law(f.evaluated)
@@ -514,15 +510,6 @@ class PaigesScalacheckTest extends OurFunSuite {
     }
   }
 
-  test("Doc.unstyle(d).render = removeControls(d.render)") {
-    val good = "hello erik"
-    val bad = "hello \u001b[31;merik"
-    assert(removeControls(bad) == good)
-    forAll { (d: Doc, w: Int) =>
-      assert(Doc.unstyle(d).render(w) == removeControls(d.render(w)))
-    }
-  }
-
   test("styles are associative under ++") {
     forAll { (a: Style, b: Style, c: Style) =>
       assert(((a ++ b) ++ c) == (a ++ (b ++ c)))
@@ -548,20 +535,20 @@ class PaigesScalacheckTest extends OurFunSuite {
     }
   }
 
-  test("unstyle is idempotent") {
+  test("unzero is idempotent") {
     forAll { (d0: Doc) =>
-      val d1 = Doc.unstyle(d0)
-      assertEq(Doc.unstyle(d1), d1)
+      val d1 = d0.unzero
+      assertEq(d1.unzero, d1)
     }
   }
 
-  test("unstyle removes all Styled nodes") {
+  test("unzero removes all ZeroWidth nodes") {
     import Doc._
     def law(d: Doc): Boolean =
       d match {
-        case Styled(_, _) => false
+        case ZeroWidth(_) => false
         case FlatAlt(a, b) => law(a) && law(b)
-        case Empty | Text(_) | ZeroWidth(_) | Line => true
+        case Empty | Text(_) | Line => true
         case Concat(a, b) => law(a) && law(b)
         case Union(a, b) => law(a) && law(b)
         case f@LazyDoc(_) => law(f.evaluated)
@@ -569,7 +556,7 @@ class PaigesScalacheckTest extends OurFunSuite {
         case Nest(_, d) => law(d)
       }
     forAll { (d: Doc) =>
-      assertDoc(d)(d => law(Doc.unstyle(d)))
+      assertDoc(d)(d => law(d.unzero))
     }
   }
 }

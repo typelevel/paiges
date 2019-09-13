@@ -40,7 +40,6 @@ object PaigesTest {
         case Nil => false
         case h :: tail =>
           h match {
-            case Styled(d, _) => loop(d :: tail)
             case Line => true
             case Empty | Text(_) | ZeroWidth(_) => loop(tail)
             case FlatAlt(_, b) => loop(b :: tail)
@@ -86,7 +85,6 @@ object PaigesTest {
   def twoRightAssociated(d: Doc): Boolean = {
     import Doc._
     d match {
-      case Styled(d, _) => twoRightAssociated(d)
       case Empty | Text(_) | ZeroWidth(_) | Line => true
       case FlatAlt(a, _) => twoRightAssociated(a)
       case Concat(Concat(Concat(_, _), _), _) => false
