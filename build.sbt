@@ -4,6 +4,19 @@ val Scala211 = "2.11.12"
 val Scala212 = "2.12.8"
 val Scala213 = "2.13.0"
 
+def scalaVersionSpecificFolders(srcName: String, srcBaseDir: java.io.File, scalaVersion: String) = {
+  def extraDirs(suffix: String) =
+    List(CrossType.Pure, CrossType.Full)
+      .flatMap(_.sharedSrcDir(srcBaseDir, srcName).toList.map(f => file(f.getPath + suffix)))
+  CrossVersion.partialVersion(scalaVersion) match {
+    case Some((2, y)) if y <= 12 =>
+      extraDirs("-2.12-")
+    case Some((2, y)) if y >= 13 =>
+      extraDirs("-2.13+")
+    case _ => Nil
+  }
+}
+
 inThisBuild(List(
   organization := "org.typelevel",
   scalaVersion := Scala213,
@@ -164,7 +177,9 @@ lazy val commonSettings = Seq(
       case _ =>
         Nil
     }
-  )
+  ),
+  Compile / unmanagedSourceDirectories ++= scalaVersionSpecificFolders("main", baseDirectory.value, scalaVersion.value),
+  Test / unmanagedSourceDirectories ++= scalaVersionSpecificFolders("test", baseDirectory.value, scalaVersion.value)
 )
 
 lazy val commonJvmSettings = Seq(
