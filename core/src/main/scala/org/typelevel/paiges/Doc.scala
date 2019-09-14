@@ -6,6 +6,9 @@ import java.lang.StringBuilder
 import scala.annotation.tailrec
 import scala.util.matching.Regex
 
+// use LazyList on 2.13, Stream on 2.11, 2.12
+import ScalaVersionCompat._
+
 /**
  * implementation of Wadler's classic "A Prettier Printer"
  *
@@ -294,8 +297,8 @@ sealed abstract class Doc extends Product with Serializable {
    * The expression `d.renderStream(w).mkString` is equivalent to
    * `d.render(w)`.
    */
-  def renderStream(width: Int): Stream[String] =
-    Chunk.best(width, this, false).toStream
+  def renderStream(width: Int): LazyList[String] =
+    lazyListFromIterator(Chunk.best(width, this, false))
 
   /**
    * Render this Doc as a stream of strings, treating `width` in the
@@ -306,18 +309,18 @@ sealed abstract class Doc extends Product with Serializable {
    *
    * Lines consisting of only indentation are represented by the empty string.
    */
-  def renderStreamTrim(width: Int): Stream[String] =
-    Chunk.best(width, this, true).toStream
+  def renderStreamTrim(width: Int): LazyList[String] =
+    lazyListFromIterator(Chunk.best(width, this, true))
 
   /**
    * Render this Doc as a stream of strings, using
    * the widest possible variant. This is the same
    * as render(Int.MaxValue) except it is more efficient.
    */
-  def renderWideStream: Stream[String] = {
+  def renderWideStream: LazyList[String] = {
     @tailrec
-    def loop(pos: Int, lst: List[(Int, Doc)]): Stream[String] = lst match {
-      case Nil => Stream.empty
+    def loop(pos: Int, lst: List[(Int, Doc)]): LazyList[String] = lst match {
+      case Nil => LazyList.empty
       case (i, Empty) :: z => loop(pos, z)
       case (i, FlatAlt(a, _)) :: z => loop(pos, (i, a) :: z)
       case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z)
