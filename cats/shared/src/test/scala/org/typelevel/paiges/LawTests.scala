@@ -35,6 +35,7 @@ class LawTests extends LawChecking with CatsDocument {
     Eq.instance[Boolean](_ == _)
 
   checkAll("Monoid[Doc]", MonoidTests[Doc].monoid)
+  checkAll("Monoid[Style]", MonoidTests[Style].monoid)
 
   checkAll("Contravariant[Document]", ContravariantTests[Document].contravariant[Boolean, Boolean, Boolean])
   checkAll("Contravariant[Document]", SerializableTests.serializable(Contravariant[Document]))
