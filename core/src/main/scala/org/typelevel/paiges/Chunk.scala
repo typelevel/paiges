@@ -131,7 +131,11 @@ private[paiges] object Chunk {
     if (trim) new TrimChunkIterator(stream) else new ChunkIterator(stream)
   }
 
+  //$COVERAGE-OFF$
+  // code of the form `final val x = ...` is inlined. we never
+  // access this field at runtime, but it is still used.
   private[this] final val indentMax = 100
+  //$COVERAGE-ON$
 
   private[this] def makeIndentStr(i: Int): String = "\n" + (" " * i)
 
