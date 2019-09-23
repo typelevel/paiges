@@ -18,7 +18,7 @@ and the fact that it helps you layout pages.
 
 ## Quick Start
 
-Paiges supports Scala 2.10, 2.11, and 2.12. It supports both the JVM
+Paiges supports Scala 2.11, 2.12, and 2.13. It supports both the JVM
 and JS platforms.
 
 To use Paiges in your own project, you can include this snippet in
