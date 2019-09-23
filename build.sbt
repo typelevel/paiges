@@ -201,13 +201,31 @@ lazy val commonNativeSettings = Seq(
 )
 
 def previousArtifact(version: String, proj: String) = {
+  def mod(x: Int, y: Int, z: Int): ModuleID =
+    "org.typelevel" %% s"paiges-$proj" % s"$x.$y.$z"
+
   // the "-dbuild..." part is for Scala community build friendliness
-  val regex = "0\\.([0-9]+)\\.[0-9]+(-SNAPSHOT|-dbuild[a-z0-9]*|\\+.*)?".r
+  val regex = "([0-9]+)\\.([0-9]+)\\.([0-9]+)(-SNAPSHOT|-dbuild[a-z0-9]*|\\+.*)?".r
   version match {
-    case regex("1", _) => Set("org.typelevel" %% s"paiges-$proj" % "0.1.0")
-    case regex("2", _) => Set("org.typelevel" %% s"paiges-$proj" % "0.2.0")
-    case regex("3", _) => Set.empty[ModuleID]
-    case _ => throw new RuntimeException(s"Unexpected paiges version: ${version}")
+    case regex(smajor, sminor, spatch, suffix) =>
+      val (major, minor, patch) = (smajor.toInt, sminor.toInt, spatch.toInt)
+
+      // unless we're in a 0.x release, we need to ensure that our
+      // minor version is compatible with previous minor versions.
+      //
+      // for example, 4.1.1 should be compatible with 4.1.0 and also
+      // with 4.0.0.
+      //
+      // ideally we'd want to ensure that 4.1.1 was compatible with
+      // the latest 4.0.x release (e.g. 4.0.13) but that would require
+      // parsing our full release history; currently the algorithm is
+      // only based on the current version.
+      val minors = if (major > 0) (0 until minor).toSet else Set.empty
+      val patches = (0 until patch).toSet
+      val current = if (suffix.startsWith("+")) Set(mod(major, minor, patch)) else Set.empty[ModuleID]
+      minors.map(mod(major, _, 0)) | patches.map(mod(major, minor, _)) | current
+    case _ =>
+      throw new RuntimeException(s"Could not parse Paiges version: $version")
   }
 }
 
