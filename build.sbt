@@ -205,8 +205,9 @@ def previousArtifact(version: String, proj: String) = {
   val regex = "0\\.([0-9]+)\\.[0-9]+(-SNAPSHOT|-dbuild[a-z0-9]*|\\+.*)?".r
   version match {
     case regex("1", _) => Set("org.typelevel" %% s"paiges-$proj" % "0.1.0")
-    case regex("2", _) => Set.empty[ModuleID]
-    case _ => throw new RuntimeException(s"Unexpected version: ${version}")
+    case regex("2", _) => Set("org.typelevel" %% s"paiges-$proj" % "0.2.0")
+    case regex("3", _) => Set.empty[ModuleID]
+    case _ => throw new RuntimeException(s"Unexpected paiges version: ${version}")
   }
 }
 
