@@ -581,9 +581,9 @@ class PaigesScalacheckTest extends OurFunSuite {
     }
   }
 
-  test("x.line(y) = (x / y)") {
-    forAll { (x: Doc, y: Doc) =>
-      assertEq(x.line(y), x / y)
+  test("x.line(s) = (x :/ s)") {
+    forAll { (x: Doc, s: String) =>
+      assertEq(x.line(s), x :/ s)
     }
   }
 
