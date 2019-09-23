@@ -580,4 +580,22 @@ class PaigesScalacheckTest extends OurFunSuite {
       assertEq(d.indent(i), (Doc.spaces(i) + d).nested(i).aligned)
     }
   }
+
+  test("x.line(s) = (x :/ s)") {
+    forAll { (x: Doc, s: String) =>
+      assertEq(x.line(s), x :/ s)
+    }
+  }
+
+  test("x.lineOrSpace(s) = x.lineOrSpace(Doc.text(s))") {
+    forAll { (x: Doc, s: String) =>
+      assertEq(x.lineOrSpace(s), x.lineOrSpace(Doc.text(s)))
+    }
+  }
+
+  test("Doc.defer(x).representation(true) = x.representation(true)") {
+    forAll { (x: Doc) =>
+      assertEq(Doc.defer(x).representation(true), x.representation(true))
+    }
+  }
 }

@@ -18,14 +18,24 @@ In the Land of Mordor where the Shadows lie.
   val TwoThirdsPi = TwoPi / 3.0
 
   // x cycles in [0, 2π).
-  def fromAngle(x: Double): Style = {
+  def fromAngle(x: Double): (Int, Int, Int) = {
     val r = ((0.5 + Math.cos(x) / 2) * 6).toInt
     val g = ((0.5 + Math.cos(x - TwoThirdsPi) / 2) * 6).toInt
     val b = ((0.5 + Math.cos(x + TwoThirdsPi) / 2) * 6).toInt
+    (r, g, b)
+  }
+
+  def fg(x: Double): Style = {
+    val (r, g, b) = fromAngle(x)
     Style.XTerm.Fg.laxColor(r, g, b)
   }
 
-  def rainbow(s: String, steps: Int = -1): Doc = {
+  def bg(x: Double): Style = {
+    val (r, g, b) = fromAngle(x)
+    Style.XTerm.Bg.laxColor(r, g, b) ++ Style.Ansi.Fg.Black
+  }
+
+  def rainbow(s: String, steps: Int = -1, styler: Double => Style): Doc = {
     val n = if (steps <= 0) s.length else steps
     def loop(acc: Doc, i: Int, j: Int): Doc =
       if (i >= s.length) acc
@@ -34,14 +44,14 @@ In the Land of Mordor where the Shadows lie.
           loop(acc + Doc.lineOrSpace, i + 1, j)
         case c =>
           val x = (j * TwoPi) / n
-          val d0 = Doc.char(c).style(fromAngle(x))
+          val d0 = Doc.char(c).style(styler(x))
           loop(acc + d0, i + 1, j + 1)
       }
     loop(Doc.empty, 0, 0)
   }
 
   test("rainbow demo") {
-    val demo = rainbow(Quote).render(80) + "\n\n" + rainbow(Quote, 7).render(28)
+    val demo = rainbow(Quote, styler = fg).render(80) + "\n\n" + rainbow(Quote, 7, styler = bg).render(28)
     println(demo)
   }
 }
