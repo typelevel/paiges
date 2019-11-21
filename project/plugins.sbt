@@ -1,6 +1,6 @@
 addSbtPlugin("com.geirsson"       % "sbt-ci-release"  % "1.4.31")
 addSbtPlugin("com.typesafe"       % "sbt-mima-plugin" % "0.6.1")
-addSbtPlugin("org.scala-js"       % "sbt-scalajs"     % "0.6.29")
+addSbtPlugin("org.scala-js"       % "sbt-scalajs"     % "0.6.31")
 addSbtPlugin("org.tpolecat"       % "tut-plugin"      % "0.6.13")
 addSbtPlugin("org.xerial.sbt"     % "sbt-sonatype"    % "3.8.1")
 addSbtPlugin("pl.project13.scala" % "sbt-jmh"         % "0.3.7")
