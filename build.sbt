@@ -76,7 +76,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .jvmSettings(commonJvmSettings)
   .platformsSettings(JVMPlatform, JSPlatform)(
     libraryDependencies ++= Seq(
-      "org.scalatest" %%% "scalatest" % "3.1.0-RC3" % Test,
+      "org.scalatest" %%% "scalatest" % "3.1.0" % Test,
       "org.scalatestplus" %%% "scalatestplus-scalacheck" % "3.1.0.0-RC2" % Test,
       "org.scalacheck" %%% "scalacheck" % "1.14.0" % Test
     )
@@ -88,7 +88,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
       _.filter(f => Set("JsonTest.scala", "PaigesTest.scala").contains(f.getName))
     },
     libraryDependencies ++= Seq(
-      "org.scalatest" %%% "scalatest" % "3.1.0-RC3" % Test
+      "org.scalatest" %%% "scalatest" % "3.1.0" % Test
     )
   )
 lazy val coreJVM = core.jvm
