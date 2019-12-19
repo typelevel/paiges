@@ -1,8 +1,8 @@
 import sbtcrossproject.{crossProject, CrossType}
 
 val Scala211 = "2.11.12"
-val Scala212 = "2.12.8"
-val Scala213 = "2.13.0"
+val Scala212 = "2.12.10"
+val Scala213 = "2.13.1"
 
 def scalaVersionSpecificFolders(srcName: String, srcBaseDir: java.io.File, scalaVersion: String) = {
   def extraDirs(suffix: String) =
