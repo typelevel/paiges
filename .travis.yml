@@ -19,22 +19,22 @@ jobs:
       env: PLATFORM="native"
       sudo: required
       before_install:
-      - curl https://raw.githubusercontent.com/scala-native/scala-native/01fbdf7cf6f/scripts/travis_setup.sh | bash -
+        - curl https://raw.githubusercontent.com/scala-native/scala-native/01fbdf7cf6f/scripts/travis_setup.sh | bash -
       script: sbt "++ ${TRAVIS_SCALA_VERSION}" native/checkCI
 
-    - scala: 2.12.8
+    - scala: 2.12.10
       env: PLATFORM="jvm"
       script: sbt "++ ${TRAVIS_SCALA_VERSION}" coverage jvm/checkCI docs/tut coverageReport && codecov
 
-    - scala: 2.12.8
+    - scala: 2.12.10
       env: PLATFORM="js"
       script: sbt "++ ${TRAVIS_SCALA_VERSION}" js/checkCI
 
-    - scala: 2.13.0
+    - scala: 2.13.1
       env: PLATFORM="jvm"
       script: sbt "++ ${TRAVIS_SCALA_VERSION}" jvm/checkCI
 
-    - scala: 2.13.0
+    - scala: 2.13.1
       env: PLATFORM="js"
       script: sbt "++ ${TRAVIS_SCALA_VERSION}" js/checkCI
 
@@ -42,14 +42,14 @@ jobs:
       script: sbt ci-release
 
 install:
- - pip install --user codecov
+  - pip install --user codecov
 
 cache:
   directories:
-  - $HOME/.sbt/boot/scala*
-  - $HOME/.sbt/launchers
-  - $HOME/.ivy2/cache
-  - $HOME/.nvm
+    - $HOME/.sbt/boot/scala*
+    - $HOME/.sbt/launchers
+    - $HOME/.ivy2/cache
+    - $HOME/.nvm
 
 before_cache:
   - du -h -d 1 $HOME/.ivy2/cache
