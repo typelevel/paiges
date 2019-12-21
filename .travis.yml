@@ -1,5 +1,5 @@
 language: scala
-jdk: openjdk10
+jdk: openjdk11
 os: linux
 stages:
   - name: test
