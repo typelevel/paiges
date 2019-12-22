@@ -60,6 +60,9 @@ lazy val js = project.in(file(".js"))
 
 lazy val native = project.in(file(".native"))
   .settings(noPublish)
+  .settings(
+    crossScalaVersions := Seq(Scala211)
+  )
   .aggregate(coreNative)
 
 lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
