@@ -21,7 +21,7 @@ sealed abstract class Style extends Serializable { lhs =>
   def ++(rhs: Style): Style = {
     val Style.Impl(fg0, bg0, sg0) = lhs
     val Style.Impl(fg1, bg1, sg1) = rhs
-    Style.Impl(fg1 orElse fg0, bg1 orElse bg0, sg0 ::: sg1)
+    Style.Impl(fg1.orElse(fg0), bg1.orElse(bg0), sg0 ::: sg1)
   }
 }
 
@@ -144,7 +144,7 @@ object Style {
    */
   object XTerm {
 
-    protected abstract class Api {
+    abstract protected class Api {
 
       protected def start: String
       protected def fromLine(line: String): Style

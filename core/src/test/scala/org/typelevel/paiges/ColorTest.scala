@@ -39,14 +39,15 @@ In the Land of Mordor where the Shadows lie.
     val n = if (steps <= 0) s.length else steps
     def loop(acc: Doc, i: Int, j: Int): Doc =
       if (i >= s.length) acc
-      else s.charAt(i) match {
-        case ' ' =>
-          loop(acc + Doc.lineOrSpace, i + 1, j)
-        case c =>
-          val x = (j * TwoPi) / n
-          val d0 = Doc.char(c).style(styler(x))
-          loop(acc + d0, i + 1, j + 1)
-      }
+      else
+        s.charAt(i) match {
+          case ' ' =>
+            loop(acc + Doc.lineOrSpace, i + 1, j)
+          case c =>
+            val x = (j * TwoPi) / n
+            val d0 = Doc.char(c).style(styler(x))
+            loop(acc + d0, i + 1, j + 1)
+        }
     loop(Doc.empty, 0, 0)
   }
 

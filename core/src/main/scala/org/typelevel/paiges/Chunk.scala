@@ -10,7 +10,7 @@ private[paiges] object Chunk {
    */
   def best(w: Int, d: Doc, trim: Boolean): Iterator[String] = {
 
-    val nonNegW = w max 0
+    val nonNegW = w.max(0)
 
     sealed abstract class ChunkStream
     object ChunkStream {
@@ -52,7 +52,7 @@ private[paiges] object Chunk {
         case ChunkStream.Empty => lineCombiner.finalLine()
         case item: ChunkStream.Item =>
           current = item.step
-          lineCombiner.addItem(item) getOrElse next
+          lineCombiner.addItem(item).getOrElse(next)
       }
     }
 
@@ -99,17 +99,17 @@ private[paiges] object Chunk {
      */
     @tailrec
     def loop(pos: Int, lst: List[(Int, Doc)]): ChunkStream = lst match {
-      case Nil => ChunkStream.Empty
-      case (_, Doc.Empty) :: z => loop(pos, z)
-      case (i, Doc.FlatAlt(a, _)) :: z => loop(pos, (i, a) :: z)
-      case (i, Doc.Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z)
-      case (i, Doc.Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
-      case (_, Doc.Align(d)) :: z => loop(pos, (pos, d) :: z)
-      case (_, Doc.Text(s)) :: z => ChunkStream.Item(s, pos + s.length, z)
-      case (_, Doc.ZeroWidth(s)) :: z => ChunkStream.Item(s, pos, z)
-      case (i, Doc.Line) :: z => ChunkStream.Item(null, i, z)
-      case (i, d@Doc.LazyDoc(_)) :: z => loop(pos, (i, d.evaluated) :: z)
-      case (i, Doc.Union(x, y)) :: z =>
+      case Nil                          => ChunkStream.Empty
+      case (_, Doc.Empty) :: z          => loop(pos, z)
+      case (i, Doc.FlatAlt(a, _)) :: z  => loop(pos, (i, a) :: z)
+      case (i, Doc.Concat(a, b)) :: z   => loop(pos, (i, a) :: (i, b) :: z)
+      case (i, Doc.Nest(j, d)) :: z     => loop(pos, ((i + j), d) :: z)
+      case (_, Doc.Align(d)) :: z       => loop(pos, (pos, d) :: z)
+      case (_, Doc.Text(s)) :: z        => ChunkStream.Item(s, pos + s.length, z)
+      case (_, Doc.ZeroWidth(s)) :: z   => ChunkStream.Item(s, pos, z)
+      case (i, Doc.Line) :: z           => ChunkStream.Item(null, i, z)
+      case (i, d @ Doc.LazyDoc(_)) :: z => loop(pos, (i, d.evaluated) :: z)
+      case (i, Doc.Union(x, y)) :: z    =>
         /*
          * If we can fit the next line from x, we take it.
          */
@@ -134,7 +134,7 @@ private[paiges] object Chunk {
   //$COVERAGE-OFF$
   // code of the form `final val x = ...` is inlined. we never
   // access this field at runtime, but it is still used.
-  private[this] final val indentMax = 100
+  final private[this] val indentMax = 100
   //$COVERAGE-ON$
 
   private[this] def makeIndentStr(i: Int): String = "\n" + (" " * i)

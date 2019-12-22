@@ -18,7 +18,7 @@ object Document {
       @annotation.tailrec
       def loop(d: Document[A], toUpdate: List[LazyDocument[A]]): Document[A] =
         d match {
-          case lzy@LazyDocument(thunk) =>
+          case lzy @ LazyDocument(thunk) =>
             // note: we are intentionally shadowing thunk here because
             // we want to make it impossible to accidentally use the outer
             // thunk

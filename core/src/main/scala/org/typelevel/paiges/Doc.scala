@@ -16,7 +16,7 @@ import ScalaVersionCompat._
  */
 sealed abstract class Doc extends Product with Serializable {
 
-  import Doc.{ Align, Empty, FlatAlt, Text, Line, LazyDoc, Nest, Concat, Union, ZeroWidth }
+  import Doc.{Align, Concat, Empty, FlatAlt, LazyDoc, Line, Nest, Text, Union, ZeroWidth}
 
   /**
    * Append the given Doc to this one.
@@ -120,7 +120,7 @@ sealed abstract class Doc extends Product with Serializable {
    * Append the given Doc to this one, separated by a space.
    */
   def &(that: Doc): Doc =
-    this space that
+    this.space(that)
 
   /**
    * Append the given String to this Doc, separated by a space.
@@ -128,7 +128,7 @@ sealed abstract class Doc extends Product with Serializable {
    * The expression `str &: d` is equivalent to `Doc.text(str) & d`.
    */
   def &:(that: String): Doc =
-    Doc.text(that) space this
+    Doc.text(that).space(this)
 
   /**
    * Append the given String to this Doc, separated by a space.
@@ -136,7 +136,7 @@ sealed abstract class Doc extends Product with Serializable {
    * The expression `d :& str` is equivalent to `d & Doc.text(str)`.
    */
   def :&(that: String): Doc =
-    this space Doc.text(that)
+    this.space(Doc.text(that))
 
   /**
    * Append the given Doc to this one, using a space (if there is
@@ -166,13 +166,13 @@ sealed abstract class Doc extends Product with Serializable {
    */
   def unzero: Doc =
     this match {
-      case ZeroWidth(_) => Empty
-      case FlatAlt(a, b) => FlatAlt(a.unzero, Doc.defer(b.unzero))
-      case Concat(a, b) => Concat(a.unzero, b.unzero)
-      case Nest(i, d) => Nest(i, d.unzero)
-      case Union(a, b) => Union(Doc.defer(a.unzero), Doc.defer(b.unzero))
-      case d @ LazyDoc(_) => Doc.defer(d.evaluated.unzero)
-      case Align(d) => Align(d.unzero)
+      case ZeroWidth(_)           => Empty
+      case FlatAlt(a, b)          => FlatAlt(a.unzero, Doc.defer(b.unzero))
+      case Concat(a, b)           => Concat(a.unzero, b.unzero)
+      case Nest(i, d)             => Nest(i, d.unzero)
+      case Union(a, b)            => Union(Doc.defer(a.unzero), Doc.defer(b.unzero))
+      case d @ LazyDoc(_)         => Doc.defer(d.evaluated.unzero)
+      case Align(d)               => Align(d.unzero)
       case Text(_) | Empty | Line => this
     }
 
@@ -188,9 +188,7 @@ sealed abstract class Doc extends Product with Serializable {
    * and the requested level of indentation will be added as well.
    */
   def bracketBy(left: Doc, right: Doc, indent: Int = 2): Doc =
-    Concat(left,
-      Concat(Concat(Doc.line, this).nested(indent),
-      Concat(Doc.line, right)).grouped)
+    Concat(left, Concat(Concat(Doc.line, this).nested(indent), Concat(Doc.line, right)).grouped)
 
   /**
    * Bookend this Doc between the given Docs.
@@ -204,9 +202,7 @@ sealed abstract class Doc extends Product with Serializable {
    * and the requested level of indentation will be added as well.
    */
   def tightBracketBy(left: Doc, right: Doc, indent: Int = 2): Doc =
-    Concat(left,
-      Concat(Concat(Doc.lineBreak, this).nested(indent),
-      Concat(Doc.lineBreak, right)).grouped)
+    Concat(left, Concat(Concat(Doc.lineBreak, this).nested(indent), Concat(Doc.lineBreak, right)).grouped)
 
   /**
    * Treat this Doc as a group that can be compressed.
@@ -226,10 +222,11 @@ sealed abstract class Doc extends Product with Serializable {
   def isEmpty: Boolean = {
     @tailrec def loop(doc: Doc, stack: List[Doc]): Boolean =
       doc match {
-        case Empty => stack match {
-          case d1 :: tail => loop(d1, tail)
-          case Nil => true
-        }
+        case Empty =>
+          stack match {
+            case d1 :: tail => loop(d1, tail)
+            case Nil        => true
+          }
         case FlatAlt(a, b) => loop(a, b :: stack)
         case Concat(_, Line) =>
           false // minor optimization to short circuit sooner
@@ -237,16 +234,16 @@ sealed abstract class Doc extends Product with Serializable {
           // minor optimization to short circuit sooner
           s.isEmpty && loop(a, stack)
         case Concat(a, b) => loop(a, b :: stack)
-        case Nest(i, d) => loop(d, stack)
-        case Align(d) => loop(d, stack)
-        case Text(s) =>
+        case Nest(i, d)   => loop(d, stack)
+        case Align(d)     => loop(d, stack)
+        case Text(s)      =>
           // shouldn't be empty by construction, but defensive
           s.isEmpty && loop(Empty, stack)
         case ZeroWidth(s) =>
           // shouldn't be empty by construction, but defensive
           s.isEmpty && loop(Empty, stack)
-        case Line => false
-        case d@LazyDoc(_) => loop(d.evaluated, stack)
+        case Line                => false
+        case d @ LazyDoc(_)      => loop(d.evaluated, stack)
         case Union(flattened, _) =>
           // flattening cannot change emptiness
           loop(flattened, stack)
@@ -320,17 +317,17 @@ sealed abstract class Doc extends Product with Serializable {
   def renderWideStream: LazyList[String] = {
     @tailrec
     def loop(pos: Int, lst: List[(Int, Doc)]): LazyList[String] = lst match {
-      case Nil => LazyList.empty
-      case (i, Empty) :: z => loop(pos, z)
-      case (i, FlatAlt(a, _)) :: z => loop(pos, (i, a) :: z)
-      case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z)
-      case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z)
-      case (i, Align(d)) :: z => loop(pos, (pos, d) :: z)
-      case (i, Text(s)) :: z => s #:: cheat(pos + s.length, z)
-      case (i, ZeroWidth(s)) :: z => s #:: cheat(pos, z)
-      case (i, Line) :: z => Chunk.lineToStr(i) #:: cheat(i, z)
-      case (i, d@LazyDoc(_)) :: z => loop(pos, (i, d.evaluated) :: z)
-      case (i, Union(a, _)) :: z =>
+      case Nil                      => LazyList.empty
+      case (i, Empty) :: z          => loop(pos, z)
+      case (i, FlatAlt(a, _)) :: z  => loop(pos, (i, a) :: z)
+      case (i, Concat(a, b)) :: z   => loop(pos, (i, a) :: (i, b) :: z)
+      case (i, Nest(j, d)) :: z     => loop(pos, ((i + j), d) :: z)
+      case (i, Align(d)) :: z       => loop(pos, (pos, d) :: z)
+      case (i, Text(s)) :: z        => s #:: cheat(pos + s.length, z)
+      case (i, ZeroWidth(s)) :: z   => s #:: cheat(pos, z)
+      case (i, Line) :: z           => Chunk.lineToStr(i) #:: cheat(i, z)
+      case (i, d @ LazyDoc(_)) :: z => loop(pos, (i, d.evaluated) :: z)
+      case (i, Union(a, _)) :: z    =>
         /*
          * if we are infinitely wide, a always fits
          */
@@ -357,8 +354,7 @@ sealed abstract class Doc extends Product with Serializable {
         if (n > 0) {
           val dn = loop(d, n)
           Concat(dn, dn)
-        }
-        else {
+        } else {
           Empty
         }
       if ((cnt & 1) == 1) Concat(dn2, d) else dn2
@@ -376,7 +372,7 @@ sealed abstract class Doc extends Product with Serializable {
   def nested(amount: Int): Doc =
     this match {
       case Nest(i, d) => Nest(i + amount, d)
-      case _ => Nest(amount, this)
+      case _          => Nest(amount, this)
     }
 
   /**
@@ -394,7 +390,7 @@ sealed abstract class Doc extends Product with Serializable {
 
   private def writeToGen(width: Int, pw: PrintWriter, trim: Boolean): Unit = {
     val it = Chunk.best(width, this, trim)
-    while(it.hasNext) {
+    while (it.hasNext) {
       pw.append(it.next)
     }
   }
@@ -488,7 +484,7 @@ sealed abstract class Doc extends Product with Serializable {
                   loop(Left(d) :: Right("Align(") :: tail, ")" +: suffix)
                 case Concat(x, y) =>
                   loop(Left(y) :: Right(", ") :: Left(x) :: Right("Concat(") :: tail, ")" +: suffix)
-                case d@LazyDoc(_) =>
+                case d @ LazyDoc(_) =>
                   if (forceLazy) loop(Left(d.evaluated) :: tail, suffix)
                   else loop(tail, "LazyDoc(() => ...)" +: suffix)
                 case Union(x, y) =>
@@ -552,13 +548,13 @@ sealed abstract class Doc extends Product with Serializable {
       h._1 match {
         case Empty | Text(_) | Line | ZeroWidth(_) =>
           stack match {
-            case Nil => (h, front)
+            case Nil     => (h, front)
             case x :: xs => loop(x, xs, h :: front)
           }
         case FlatAlt(_, next) =>
           val change = (next, true)
           stack match {
-            case Nil => (change, front)
+            case Nil     => (change, front)
             case x :: xs => loop(x, xs, change :: front)
           }
         case Nest(i, d) =>
@@ -568,7 +564,7 @@ sealed abstract class Doc extends Product with Serializable {
           val (dd, bb) = cheat((d, h._2))
           val next = (Nest(i, dd), bb)
           stack match {
-            case Nil => (next, front)
+            case Nil     => (next, front)
             case x :: xs => loop(x, xs, next :: front)
           }
         case Align(d) =>
@@ -578,12 +574,12 @@ sealed abstract class Doc extends Product with Serializable {
           val (dd, bb) = cheat((d, h._2))
           val next = (Align(dd), bb)
           stack match {
-            case Nil => (next, front)
+            case Nil     => (next, front)
             case x :: xs => loop(x, xs, next :: front)
           }
-        case d@LazyDoc(_) => loop((d.evaluated, h._2), stack, front)
-        case Union(a, _) => loop((a, true), stack, front) // invariant: flatten(union(a, b)) == flatten(a)
-        case Concat(a, b) => loop((a, h._2), (b, h._2) :: stack, front)
+        case d @ LazyDoc(_) => loop((d.evaluated, h._2), stack, front)
+        case Union(a, _)    => loop((a, true), stack, front) // invariant: flatten(union(a, b)) == flatten(a)
+        case Concat(a, b)   => loop((a, h._2), (b, h._2) :: stack, front)
       }
 
     val (last, front) = loop((this, false), Nil, Nil)
@@ -603,17 +599,17 @@ sealed abstract class Doc extends Product with Serializable {
   def maxWidth: Int = {
     @tailrec
     def loop(pos: Int, lst: List[(Int, Doc)], max: Int): Int = lst match {
-      case Nil => math.max(max, pos)
-      case (i, Empty) :: z => loop(pos, z, max)
+      case Nil                           => math.max(max, pos)
+      case (i, Empty) :: z               => loop(pos, z, max)
       case (i, FlatAlt(default, _)) :: z => loop(pos, (i, default) :: z, max)
-      case (i, Concat(a, b)) :: z => loop(pos, (i, a) :: (i, b) :: z, max)
-      case (i, Nest(j, d)) :: z => loop(pos, ((i + j), d) :: z, max)
-      case (i, Align(d)) :: z => loop(pos, (pos, d) :: z, max)
-      case (i, Text(s)) :: z => loop(pos + s.length, z, max)
-      case (i, ZeroWidth(_)) :: z => loop(pos, z, max)
-      case (i, Line) :: z => loop(i, z, math.max(max, pos))
-      case (i, d@LazyDoc(_)) :: z => loop(pos, (i, d.evaluated) :: z, max)
-      case (i, Union(a, _)) :: z =>
+      case (i, Concat(a, b)) :: z        => loop(pos, (i, a) :: (i, b) :: z, max)
+      case (i, Nest(j, d)) :: z          => loop(pos, ((i + j), d) :: z, max)
+      case (i, Align(d)) :: z            => loop(pos, (pos, d) :: z, max)
+      case (i, Text(s)) :: z             => loop(pos + s.length, z, max)
+      case (i, ZeroWidth(_)) :: z        => loop(pos, z, max)
+      case (i, Line) :: z                => loop(i, z, math.max(max, pos))
+      case (i, d @ LazyDoc(_)) :: z      => loop(pos, (i, d.evaluated) :: z, max)
+      case (i, Union(a, _)) :: z         =>
         // we always go left, take the widest branch
         loop(pos, (i, a) :: z, max)
     }
@@ -657,7 +653,7 @@ object Doc {
    * generated internally during rendering, so it should not appear in
    * stable Doc values.
    */
-  private [paiges] case class ZeroWidth(str: String) extends Doc
+  private[paiges] case class ZeroWidth(str: String) extends Doc
 
   /**
    * Represents a concatenation of two documents.
@@ -683,7 +679,7 @@ object Doc {
       @tailrec
       def loop(d: Doc, toUpdate: List[LazyDoc]): Doc =
         d match {
-          case lzy@LazyDoc(thunk) =>
+          case lzy @ LazyDoc(thunk) =>
             // note: we are intentionally shadowing thunk here because
             // we want to make it impossible to accidentally use the outer
             // thunk
@@ -731,8 +727,9 @@ object Doc {
   private[this] val maxSpaceTable = 20
 
   private[this] val spaceArray: Array[Text] =
-    (1 to maxSpaceTable).map { i => Text(" " * i) }.toArray
-
+    (1 to maxSpaceTable).map { i =>
+      Text(" " * i)
+    }.toArray
 
   /**
    * Defer creation of a Doc until absolutely needed.
@@ -765,6 +762,7 @@ object Doc {
    * is flattened into empty
    */
   val line: Doc = FlatAlt(Line, space)
+
   /**
    * A lineBreak is a line that is flattened into
    * an empty Doc. This is generally useful in code
@@ -829,14 +827,15 @@ object Doc {
    */
   def equivAtWidths(widths: List[Int]): Equiv[Doc] =
     new Equiv[Doc] {
-      def equiv(x: Doc, y: Doc): Boolean = {
+      def equiv(x: Doc, y: Doc): Boolean =
         widths.forall(w => x.render(w) == y.render(w)) &&
           x.renderWideStream.mkString == y.renderWideStream.mkString
-      }
     }
 
   private[this] val charTable: Array[Doc] =
-    (32 to 126).map { i => Text(i.toChar.toString) }.toArray
+    (32 to 126).map { i =>
+      Text(i.toChar.toString)
+    }.toArray
 
   /**
    * Build a document from a single character.
@@ -866,10 +865,11 @@ object Doc {
     // this ensures that our concatenations are right-associated.
     @tailrec def parse(i: Int, limit: Int, doc: Doc): Doc =
       if (i < 0) tx(0, limit) + doc
-      else str.charAt(i) match {
-        case '\n' => parse(i - 1, i, line + (tx(i + 1, limit) + doc))
-        case _ => parse(i - 1, limit, doc)
-      }
+      else
+        str.charAt(i) match {
+          case '\n' => parse(i - 1, i, line + (tx(i + 1, limit) + doc))
+          case _    => parse(i - 1, limit, doc)
+        }
 
     if (str == "") Empty
     else if (str.length == 1) {
@@ -877,8 +877,7 @@ object Doc {
       if ((' ' <= c) && (c <= '~')) charTable(c.toInt - 32)
       else if (c == '\n') line
       else Text(str)
-    }
-    else if (str.indexOf('\n') < 0) Text(str)
+    } else if (str.indexOf('\n') < 0) Text(str)
     else parse(str.length - 1, str.length, Empty)
   }
 
@@ -965,9 +964,7 @@ object Doc {
           } else {
             val leftRest = defer(recurse(yf, yf, ys, 0))
             val rest = defer(recurse(yd, yf, ys, 0))
-            Union(
-              xf + (flatSep + leftRest),
-              xd + (sepd + rest))
+            Union(xf + (flatSep + leftRest), xd + (sepd + rest))
           }
       }
 
@@ -991,9 +988,7 @@ object Doc {
           } else {
             val leftRest = defer(recurse(yf, yf, ys, 0))
             val rest = defer(recurse(yd, yf, ys, 0))
-            Union(
-              xf + (sepd + leftRest),
-              xd + (sepd + rest))
+            Union(xf + (sepd + leftRest), xd + (sepd + rest))
           }
       }
 
@@ -1019,7 +1014,8 @@ object Doc {
    * the resulting concatenations are all right-associated.
    */
   def foldDocs(ds: Iterable[Doc])(fn: (Doc, Doc) => Doc): Doc =
-    if (ds.isEmpty) Doc.empty else {
+    if (ds.isEmpty) Doc.empty
+    else {
       val xs = ds.toArray
       var d = xs(xs.length - 1)
       var i = xs.length - 2
@@ -1053,7 +1049,10 @@ object Doc {
    */
   def intercalate(sep: Doc, ds: Iterable[Doc]): Doc =
     if (sep.isEmpty) foldDocs(ds)(Concat(_, _))
-    else foldDocs(ds) { (a, b) => Concat(a, Concat(sep, b)) }
+    else
+      foldDocs(ds) { (a, b) =>
+        Concat(a, Concat(sep, b))
+      }
 
   /**
    * Concatenate the given documents together.

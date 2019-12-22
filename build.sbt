@@ -17,14 +17,15 @@ def scalaVersionSpecificFolders(srcName: String, srcBaseDir: java.io.File, scala
   }
 }
 
-inThisBuild(List(
-  organization := "org.typelevel",
-  scalaVersion := Scala213,
-  crossScalaVersions := Seq(Scala211, Scala212, Scala213),
-  licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
-  homepage := Some(url("https://github.com/typelevel/paiges")),
-  pomExtra := (
-    <developers>
+inThisBuild(
+  List(
+    organization := "org.typelevel",
+    scalaVersion := Scala213,
+    crossScalaVersions := Seq(Scala211, Scala212, Scala213),
+    licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
+    homepage := Some(url("https://github.com/typelevel/paiges")),
+    pomExtra := (
+      <developers>
       <developer>
         <id>johnynek</id>
         <name>Oscar Boykin</name>
@@ -41,24 +42,28 @@ inThisBuild(List(
         <url>http://github.com/non/</url>
       </developer>
     </developers>
-  ),
-  coverageMinimum := 60,
-  coverageFailOnMinimum := false
-))
+    ),
+    coverageMinimum := 60,
+    coverageFailOnMinimum := false
+  )
+)
 
 crossScalaVersions := Nil
 noPublish
 
 // Aggregate for JVM projects, for example run `jvm/test` to run only JVM tests.
-lazy val jvm = project.in(file(".jvm"))
+lazy val jvm = project
+  .in(file(".jvm"))
   .settings(noPublish)
   .aggregate(coreJVM, catsJVM)
 
-lazy val js = project.in(file(".js"))
+lazy val js = project
+  .in(file(".js"))
   .settings(noPublish)
   .aggregate(coreJS, catsJS)
 
-lazy val native = project.in(file(".native"))
+lazy val native = project
+  .in(file(".native"))
   .settings(noPublish)
   .aggregate(coreNative)
 
@@ -107,8 +112,9 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform)
       "org.typelevel" %%% "cats-core" % "2.0.0",
       "org.typelevel" %%% "cats-laws" % "2.0.0" % "test",
       "org.typelevel" %%% "discipline-scalatest" % "1.0.0-RC1" % "test"
-      ),
-    mimaPreviousArtifacts := previousArtifact(version.value, "cats"))
+    ),
+    mimaPreviousArtifacts := previousArtifact(version.value, "cats")
+  )
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings)
   .jvmSettings(commonJvmSettings)
@@ -116,16 +122,18 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform)
 lazy val catsJVM = cats.jvm
 lazy val catsJS = cats.js
 
-lazy val benchmark = project.in(file("benchmark"))
+lazy val benchmark = project
+  .in(file("benchmark"))
   .dependsOn(coreJVM, catsJVM)
   .settings(
     noPublish,
     crossScalaVersions := List(Scala212),
-    name := "paiges-benchmark",
+    name := "paiges-benchmark"
   )
   .enablePlugins(JmhPlugin)
 
-lazy val docs = project.in(file("docs"))
+lazy val docs = project
+  .in(file("docs"))
   .dependsOn(coreJVM, catsJVM)
   .enablePlugins(TutPlugin)
   .settings(
@@ -141,16 +149,19 @@ lazy val docs = project.in(file("docs"))
 
 lazy val commonSettings = Seq(
   // The validation steps that we run in CI.
-  TaskKey[Unit]("checkCI") := Def.sequential(
-    test.in(Test),
-    doc.in(Compile),
-    mimaReportBinaryIssues
-  ).value,
+  TaskKey[Unit]("checkCI") := Def
+    .sequential(
+      test.in(Test),
+      doc.in(Compile),
+      mimaReportBinaryIssues
+    )
+    .value,
   // scalac options are defined in commonSettings instead of inThisBuild
   // because we customize the settings based on scalaVersion.
   scalacOptions ++= Seq(
     "-deprecation",
-    "-encoding", "UTF-8",
+    "-encoding",
+    "UTF-8",
     "-feature",
     "-language:existentials",
     "-language:higherKinds",
@@ -160,11 +171,12 @@ lazy val commonSettings = Seq(
     "-Xlint",
     "-Ywarn-dead-code",
     "-Ywarn-numeric-widen",
-    "-Ywarn-value-discard"),
+    "-Ywarn-value-discard"
+  ),
   // HACK: without these lines, the console is basically unusable,
   // since all imports are reported as being unused (and then become
   // fatal errors).
-  scalacOptions in (Compile, console) ~= {_.filterNot("-Xlint" == _)},
+  scalacOptions in (Compile, console) ~= { _.filterNot("-Xlint" == _) },
   scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value,
   scalacOptions ++= (
     CrossVersion.partialVersion(scalaVersion.value) match {
@@ -182,8 +194,7 @@ lazy val commonSettings = Seq(
   Test / unmanagedSourceDirectories ++= scalaVersionSpecificFolders("test", baseDirectory.value, scalaVersion.value)
 )
 
-lazy val commonJvmSettings = Seq(
-  testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oDF"))
+lazy val commonJvmSettings = Seq(testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oDF"))
 
 lazy val commonJsSettings = Seq(
   scalaJSStage in Global := FastOptStage,
