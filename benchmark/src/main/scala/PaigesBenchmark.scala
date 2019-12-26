@@ -15,9 +15,8 @@ class PaigesBenchmark {
   var strs: Vector[String] = Vector.empty
 
   @Setup
-  def setup(): Unit = {
+  def setup(): Unit =
     strs = (1 to size).map(_.toString).toVector
-  }
 
   @Benchmark
   def mkstring(): String =
@@ -29,11 +28,19 @@ class PaigesBenchmark {
 
   @Benchmark
   def docConcat(): String =
-    strs.foldLeft(Doc.empty) { (d1, s) => d1 :+ s }.render(0)
+    strs
+      .foldLeft(Doc.empty) { (d1, s) =>
+        d1 :+ s
+      }
+      .render(0)
 
   @Benchmark
   def docConcatComma(): String =
-    strs.foldLeft(Doc.empty) { (d1, s) => d1 :+ ", " :+ s }.render(0)
+    strs
+      .foldLeft(Doc.empty) { (d1, s) =>
+        d1 :+ ", " :+ s
+      }
+      .render(0)
 
   @Benchmark
   def intercalate(): String =

@@ -16,7 +16,7 @@ object PaigesTest {
     val maxW = Integer.max(x.maxWidth, y.maxWidth)
     (0 until maxW).find(w => !Doc.orderingAtWidth(w).equiv(x, y)) match {
       case Some(w) => s"$w: ${repr(x)} != ${repr(y)} (${esc(x.render(w))} != ${esc(y.render(w))})"
-      case None => sys.error("should not happen")
+      case None    => sys.error("should not happen")
     }
   }
 
@@ -24,7 +24,7 @@ object PaigesTest {
     val maxW = Integer.max(x.maxWidth, y.maxWidth)
     (0 until maxW).find(w => Doc.orderingAtWidth(w).equiv(x, y)) match {
       case Some(w) => s"$w: ${repr(x)} == ${repr(y)} (${esc(x.render(w))} == ${esc(y.render(w))})"
-      case None => sys.error("should not happen")
+      case None    => sys.error("should not happen")
     }
   }
 
@@ -40,14 +40,14 @@ object PaigesTest {
         case Nil => false
         case h :: tail =>
           h match {
-            case Line => true
+            case Line                           => true
             case Empty | Text(_) | ZeroWidth(_) => loop(tail)
-            case FlatAlt(_, b) => loop(b :: tail)
-            case Concat(a, b) => loop(a :: b :: tail)
-            case Nest(_, d) => loop(d :: tail)
-            case Align(d) => loop(d :: tail)
-            case d@LazyDoc(_) => loop(d.evaluated :: tail)
-            case Union(a, b) => loop(a :: b :: tail)
+            case FlatAlt(_, b)                  => loop(b :: tail)
+            case Concat(a, b)                   => loop(a :: b :: tail)
+            case Nest(_, d)                     => loop(d :: tail)
+            case Align(d)                       => loop(d :: tail)
+            case d @ LazyDoc(_)                 => loop(d.evaluated :: tail)
+            case Union(a, b)                    => loop(a :: b :: tail)
           }
       }
     loop(doc :: Nil)
@@ -75,10 +75,11 @@ object PaigesTest {
     parts match {
       case Nil => sys.error("unreachable")
       case other =>
-        other.map { str =>
-          str.reverse.dropWhile(_ == ' ').reverse
-        }
-        .mkString("\n")
+        other
+          .map { str =>
+            str.reverse.dropWhile(_ == ' ').reverse
+          }
+          .mkString("\n")
     }
   }
 
@@ -86,14 +87,14 @@ object PaigesTest {
     import Doc._
     d match {
       case Empty | Text(_) | ZeroWidth(_) | Line => true
-      case FlatAlt(a, _) => twoRightAssociated(a)
-      case Concat(Concat(Concat(_, _), _), _) => false
+      case FlatAlt(a, _)                         => twoRightAssociated(a)
+      case Concat(Concat(Concat(_, _), _), _)    => false
       case Concat(a, b) =>
         twoRightAssociated(a) && twoRightAssociated(b)
-      case Union(a, _) => twoRightAssociated(a)
-      case f@LazyDoc(_) => twoRightAssociated(f.evaluated)
-      case Align(d) => twoRightAssociated(d)
-      case Nest(_, d) => twoRightAssociated(d)
+      case Union(a, _)    => twoRightAssociated(a)
+      case f @ LazyDoc(_) => twoRightAssociated(f.evaluated)
+      case Align(d)       => twoRightAssociated(d)
+      case Nest(_, d)     => twoRightAssociated(d)
     }
   }
 
@@ -101,12 +102,11 @@ object PaigesTest {
   def fillSpec(sep: Doc, ds: List[Doc]): Doc = {
     import Doc._
     ds match {
-      case Nil => empty
+      case Nil      => empty
       case x :: Nil => x.grouped
       case x :: y :: zs =>
-        Union(
-          x.flatten + (sep.flatten + defer(fillSpec(sep, y.flatten :: zs))),
-          x + (sep + defer(fillSpec(sep, y :: zs))))
+        Union(x.flatten + (sep.flatten + defer(fillSpec(sep, y.flatten :: zs))),
+              x + (sep + defer(fillSpec(sep, y :: zs))))
     }
   }
 }
@@ -116,23 +116,27 @@ class PaigesTest extends AnyFunSuite {
   import PaigesTest._
 
   test("basic test") {
-     assert((text("hello") + text("world")).render(100) == "helloworld")
+    assert((text("hello") + text("world")).render(100) == "helloworld")
   }
 
   test("nested test") {
-    assert((text("yo") + (text("yo\nho\nho").nested(2))).render(100) ==
-"""yoyo
+    assert(
+      (text("yo") + (text("yo\nho\nho").nested(2))).render(100) ==
+        """yoyo
   ho
-  ho""")
+  ho"""
+    )
   }
 
   test("paper example") {
     val g = (((text("hello") :/ "a").grouped :/ "b").grouped :/ "c").grouped
-    assert(g.render(5) ==
-"""hello
+    assert(
+      g.render(5) ==
+        """hello
 a
 b
-c""")
+c"""
+    )
     assert(g.render(11) == "hello a b c")
   }
 
@@ -144,9 +148,10 @@ c""")
     assert(d2.render(100) == words.mkString("", " ", "\n  love, Oscar"))
   }
 
-
   test("test paragraph") {
-    val p = Doc.paragraph("This  is      some crazy\n text that should       loook super normal\n\n after we get rid of      the spaces")
+    val p = Doc.paragraph(
+      "This  is      some crazy\n text that should       loook super normal\n\n after we get rid of      the spaces"
+    )
     assert(p.render(10) == """This is
 some crazy
 text that
@@ -160,13 +165,15 @@ the spaces""")
   }
 
   test("dangling space 1") {
-    val d = Doc.stack(
-      List(
-        Doc.text("a"),
-        Doc.text("b"),
-        Doc.empty
+    val d = Doc
+      .stack(
+        List(
+          Doc.text("a"),
+          Doc.text("b"),
+          Doc.empty
+        )
       )
-    ).nested(2)
+      .nested(2)
     val expected = "a\n  b\n"
     assert(d.renderTrim(100) == expected)
     assert(d.renderTrim(100) == slowRenderTrim(d, 100))
@@ -174,15 +181,17 @@ the spaces""")
   }
 
   test("dangling space 2") {
-    val d = Doc.stack(
-      List(
-        Doc.empty,
-        Doc.text("a"),
-        Doc.empty,
-        Doc.empty,
-        Doc.text("b")
+    val d = Doc
+      .stack(
+        List(
+          Doc.empty,
+          Doc.text("a"),
+          Doc.empty,
+          Doc.empty,
+          Doc.text("b")
+        )
       )
-    ).nested(2)
+      .nested(2)
     val expected = "\n  a\n\n\n  b"
     assert(d.renderTrim(100) == expected)
     assert(d.renderTrim(100) == slowRenderTrim(d, 100))
@@ -199,6 +208,7 @@ the spaces""")
   }
 
   test("hard union cases") {
+
     /**
      * if s == space, and n == line
      * we know that:
@@ -239,16 +249,44 @@ the spaces""")
   }
 
   test("test json map example") {
-    val kvs = (0 to 20).map { i => text("\"%s\": %s".format(s"key$i", i)) }
+    val kvs = (0 to 20).map { i =>
+      text("\"%s\": %s".format(s"key$i", i))
+    }
     val parts = Doc.fill(Doc.comma + Doc.lineOrSpace, kvs)
 
     val map = parts.bracketBy(Doc.text("{"), Doc.text("}"))
-    assert(map.render(1000) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.mkString("{ ", ", ", " }"))
-    assert(map.render(20) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.map("  " + _).mkString("{\n", ",\n", "\n}"))
+    assert(
+      map.render(1000) == (0 to 20)
+        .map { i =>
+          "\"%s\": %s".format(s"key$i", i)
+        }
+        .mkString("{ ", ", ", " }")
+    )
+    assert(
+      map.render(20) == (0 to 20)
+        .map { i =>
+          "\"%s\": %s".format(s"key$i", i)
+        }
+        .map("  " + _)
+        .mkString("{\n", ",\n", "\n}")
+    )
 
     val map2 = parts.tightBracketBy(Doc.text("{"), Doc.text("}"))
-    assert(map2.render(1000) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.mkString("{", ", ", "}"))
-    assert(map2.render(20) == (0 to 20).map { i => "\"%s\": %s".format(s"key$i", i) }.map("  " + _).mkString("{\n", ",\n", "\n}"))
+    assert(
+      map2.render(1000) == (0 to 20)
+        .map { i =>
+          "\"%s\": %s".format(s"key$i", i)
+        }
+        .mkString("{", ", ", "}")
+    )
+    assert(
+      map2.render(20) == (0 to 20)
+        .map { i =>
+          "\"%s\": %s".format(s"key$i", i)
+        }
+        .map("  " + _)
+        .mkString("{\n", ",\n", "\n}")
+    )
   }
 
   test("maxWidth is stack safe") {
@@ -265,24 +303,24 @@ the spaces""")
     // render a tight list:
     val res = text("(") + Doc.intercalate((Doc.comma + Doc.lineBreak).grouped, (1 to 20).map(Doc.str)) + text(")")
     assert(res.render(10) == """(1,2,3,4,
-                                |5,6,7,8,9,
-                                |10,11,12,
-                                |13,14,15,
-                                |16,17,18,
-                                |19,20)""".stripMargin)
+                               |5,6,7,8,9,
+                               |10,11,12,
+                               |13,14,15,
+                               |16,17,18,
+                               |19,20)""".stripMargin)
     assert(res.renderWideStream.mkString == (1 to 20).mkString("(", ",", ")"))
   }
   test("align works as expected") {
     import Doc._
     // render with alignment
-    val d1 = text("fooooo ") + (text("bar") line text("baz")).aligned
+    val d1 = text("fooooo ") + text("bar").line(text("baz")).aligned
 
     assert(d1.render(0) == """fooooo bar
                              |       baz""".stripMargin)
   }
 
   test("fill example") {
-    import Doc.{ comma, text, fill }
+    import Doc.{comma, fill, text}
     val ds = text("1") :: text("2") :: text("3") :: Nil
     val doc = fill(comma + Doc.line, ds)
 
@@ -295,7 +333,8 @@ the spaces""")
     val caseMatch = List(
       ("Item1(x)", Doc.text("callItem(x)")),
       ("ItemXandItemY(x, y)", Doc.text("callItem(x)") / Doc.text("callItem(y)")),
-      ("ItemXandItemYandZ(x, y, z)", Doc.text("callItem(x)") / Doc.text("callItem(y)") / Doc.text("callItem(z)")))
+      ("ItemXandItemYandZ(x, y, z)", Doc.text("callItem(x)") / Doc.text("callItem(y)") / Doc.text("callItem(z)"))
+    )
 
     val expected = """case Item1(x)                   => callItem(x)
                      |case ItemXandItemY(x, y)        => callItem(x)
@@ -330,7 +369,7 @@ the spaces""")
   }
 
   test("cat") {
-    assert(Doc.cat(List("1", "2", "3") map Doc.text).render(80) == "123")
+    assert(Doc.cat(List("1", "2", "3").map(Doc.text)).render(80) == "123")
   }
 
   test("defer doesn't evaluate immediately") {

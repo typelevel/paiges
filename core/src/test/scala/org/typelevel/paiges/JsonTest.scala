@@ -10,13 +10,13 @@ sealed abstract class Json {
 }
 
 object Json {
-  import Doc.{text, str}
+  import Doc.{str, text}
 
   def escape(str: String): String =
     str.flatMap {
-      case '\\' => "\\\\"
-      case '\n' => "\\n"
-      case '"' => "\""
+      case '\\'  => "\\\\"
+      case '\n'  => "\\n"
+      case '"'   => "\""
       case other => other.toString
     }
 
@@ -37,14 +37,17 @@ object Json {
   }
   case class JArray(toVector: Vector[Json]) extends Json {
     def toDoc = {
-      val parts = Doc.intercalate(Doc.comma, toVector.map { j => (Doc.line + j.toDoc).grouped })
+      val parts = Doc.intercalate(Doc.comma, toVector.map { j =>
+        (Doc.line + j.toDoc).grouped
+      })
       "[" +: ((parts :+ " ]").nested(2))
     }
   }
   case class JObject(toMap: Map[String, Json]) extends Json {
     def toDoc = {
-      val kvs = toMap.map { case (s, j) =>
-        JString(s).toDoc + text(":") + ((Doc.lineOrSpace + j.toDoc).nested(2))
+      val kvs = toMap.map {
+        case (s, j) =>
+          JString(s).toDoc + text(":") + ((Doc.lineOrSpace + j.toDoc).nested(2))
       }
       val parts = Doc.fill(Doc.comma, kvs)
       parts.bracketBy(text("{"), text("}"))
@@ -56,7 +59,9 @@ class JsonTest extends AnyFunSuite {
   import Json._
 
   test("test nesteded array json example") {
-    val inner = JArray((1 to 20).map { i => JInt(i) }.toVector)
+    val inner = JArray((1 to 20).map { i =>
+      JInt(i)
+    }.toVector)
     val outer = JArray(Vector(inner, inner, inner))
 
     assert(outer.toDoc.render(20) == """[

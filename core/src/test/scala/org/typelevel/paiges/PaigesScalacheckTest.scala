@@ -143,7 +143,7 @@ class PaigesScalacheckTest extends OurFunSuite {
   test("space works as expected") {
     forAll { (a: String, b: String) =>
       val res = s"$a $b"
-      assert((text(a) space b).render(0) == res)
+      assert(text(a).space(b).render(0) == res)
       assert((text(a) & text(b)).render(0) == res)
       assert((text(a) :& b).render(0) == res)
       assert((a &: text(b)).render(0) == res)
@@ -155,8 +155,7 @@ class PaigesScalacheckTest extends OurFunSuite {
       if (d.isEmpty) {
         val ok = (0 to d.maxWidth).forall(d.render(_).isEmpty)
         assert(ok, s"${d.representation(true).render(50)} has nonEmpty renderings")
-      }
-      else succeed
+      } else succeed
     }
   }
 
@@ -177,7 +176,9 @@ class PaigesScalacheckTest extends OurFunSuite {
       val m = d.maxWidth
       val maxR = d.render(m)
       val justAfter = (1 to 20).iterator
-      val goodW = (justAfter ++ ws.iterator).map { w => (m + w) max m }
+      val goodW = (justAfter ++ ws.iterator).map { w =>
+        (m + w).max(m)
+      }
       goodW.foreach { w =>
         assert(d.render(w) == maxR, repr(d))
       }
@@ -198,6 +199,7 @@ class PaigesScalacheckTest extends OurFunSuite {
   }
 
   test("group law") {
+
     /**
      * group(x) = (x' | x) where x' is flatten(x)
      *
@@ -264,7 +266,7 @@ class PaigesScalacheckTest extends OurFunSuite {
         ()
       } else {
         bc.grouped match {
-          case d@Union(b, c) =>
+          case d @ Union(b, c) =>
             val lhs = Concat(a, d)
             val rhs = Union(Concat(a, b), Concat(a, c))
             assertEq(lhs, rhs)
@@ -279,7 +281,7 @@ class PaigesScalacheckTest extends OurFunSuite {
     forAll { (ab: Doc, cGen: Doc) =>
       val c = cGen.flatten
       ab.grouped match {
-        case d@Union(a, b) =>
+        case d @ Union(a, b) =>
           assertEq(Concat(d, c), Union(Concat(a, c), Concat(b, c)))
         case _ =>
       }
@@ -287,11 +289,15 @@ class PaigesScalacheckTest extends OurFunSuite {
   }
 
   test("Union invariant: `a.flatten == b.flatten`") {
-    forAll { d: Doc.Union => assertEq(d.a.flatten, d.b.flatten) }
+    forAll { d: Doc.Union =>
+      assertEq(d.a.flatten, d.b.flatten)
+    }
   }
 
   test("Union invariant: `a != b`") {
-    forAll { d: Doc.Union => assertNeq(d.a, d.b) }
+    forAll { d: Doc.Union =>
+      assertNeq(d.a, d.b)
+    }
   }
 
   test("Union invariant: `a` has 2-right-associated `Concat` nodes") {
@@ -307,8 +313,9 @@ class PaigesScalacheckTest extends OurFunSuite {
           if (!s.hasNext) acc.reverse.mkString
           else {
             val head = s.next
-            if (head.contains('\n')) { (head.takeWhile(_ != '\n') :: acc).reverse.mkString }
-            else loop(s, head :: acc)
+            if (head.contains('\n')) {
+              (head.takeWhile(_ != '\n') :: acc).reverse.mkString
+            } else loop(s, head :: acc)
           }
         loop(d.renderStream(n).iterator, Nil)
       }
@@ -323,6 +330,7 @@ class PaigesScalacheckTest extends OurFunSuite {
   }
 
   test("Doc.repeat matches naive implementation") {
+
     /**
      * comparing large equal documents can be very slow
      * :(
@@ -333,13 +341,14 @@ class PaigesScalacheckTest extends OurFunSuite {
     val smallInt = Gen.choose(0, 10)
 
     def simple(n: Int, d: Doc, acc: Doc): Doc =
-      if(n <= 0) acc else simple(n - 1, d, acc + d)
+      if (n <= 0) acc else simple(n - 1, d, acc + d)
 
     forAll(smallTree, smallInt) { (d: Doc, small: Int) =>
       assertEq(simple(small, d, Doc.empty), (d * small))
     }
   }
   test("(d * a) * b == d * (a * b)") {
+
     /**
      * comparing large equal documents can be very slow
      * :(
@@ -412,12 +421,14 @@ class PaigesScalacheckTest extends OurFunSuite {
           law(a) && law(b)
         case Union(a, b) =>
           law(a) && law(b)
-        case f@LazyDoc(_) => law(f.evaluated)
-        case Align(d) => law(d)
-        case Nest(_, d) => law(d)
+        case f @ LazyDoc(_) => law(f.evaluated)
+        case Align(d)       => law(d)
+        case Nest(_, d)     => law(d)
       }
 
-    forAll { d: Doc => assert(law(d)) }
+    forAll { d: Doc =>
+      assert(law(d))
+    }
   }
 
   test("FlatAlt invariant 2: default != whenFlat (otherwise the FlatAlt is redundant)") {
@@ -431,12 +442,14 @@ class PaigesScalacheckTest extends OurFunSuite {
           law(a) && law(b)
         case Union(a, b) =>
           law(a) && law(b)
-        case f@LazyDoc(_) => law(f.evaluated)
-        case Align(d) => law(d)
-        case Nest(_, d) => law(d)
+        case f @ LazyDoc(_) => law(f.evaluated)
+        case Align(d)       => law(d)
+        case Nest(_, d)     => law(d)
       }
 
-    forAll { d: Doc => assertDoc(d)(law) }
+    forAll { d: Doc =>
+      assertDoc(d)(law)
+    }
   }
 
   test("FlatAlt invariant 3: FlatAlt does not occur on the left side of a union") {
@@ -444,7 +457,7 @@ class PaigesScalacheckTest extends OurFunSuite {
     def law(d: Doc, isLeft: Boolean): Boolean =
       d match {
         case Empty | Text(_) | ZeroWidth(_) | Line => true
-        case FlatAlt(a, b) => !isLeft && law(a, isLeft) && law(b, isLeft)
+        case FlatAlt(a, b)                         => !isLeft && law(a, isLeft) && law(b, isLeft)
         case Concat(a, b) =>
           law(a, isLeft) && law(b, isLeft)
         case Union(a, b) =>
@@ -452,9 +465,9 @@ class PaigesScalacheckTest extends OurFunSuite {
           // once we see a union its right side could have a FlatAlt
           // but its left side must not.
           law(a, true) && law(b, false)
-        case f@LazyDoc(_) => law(f.evaluated, isLeft)
-        case Align(d) => law(d, isLeft)
-        case Nest(_, d) => law(d, isLeft)
+        case f @ LazyDoc(_) => law(f.evaluated, isLeft)
+        case Align(d)       => law(d, isLeft)
+        case Nest(_, d)     => law(d, isLeft)
       }
 
     forAll { d: Doc =>
@@ -466,13 +479,13 @@ class PaigesScalacheckTest extends OurFunSuite {
     import Doc._
     def law(d: Doc): Boolean =
       d match {
-        case FlatAlt(_, _) => false
+        case FlatAlt(_, _)                         => false
         case Empty | Text(_) | ZeroWidth(_) | Line => true
-        case Concat(a, b) => law(a) && law(b)
-        case Union(a, b) => law(a) && law(b)
-        case f@LazyDoc(_) => law(f.evaluated)
-        case Align(d) => law(d)
-        case Nest(_, d) => law(d)
+        case Concat(a, b)                          => law(a) && law(b)
+        case Union(a, b)                           => law(a) && law(b)
+        case f @ LazyDoc(_)                        => law(f.evaluated)
+        case Align(d)                              => law(d)
+        case Nest(_, d)                            => law(d)
       }
 
     forAll { (d: Doc) =>
@@ -547,14 +560,14 @@ class PaigesScalacheckTest extends OurFunSuite {
     import Doc._
     def law(d: Doc): Boolean =
       d match {
-        case ZeroWidth(_) => false
-        case FlatAlt(a, b) => law(a) && law(b)
+        case ZeroWidth(_)           => false
+        case FlatAlt(a, b)          => law(a) && law(b)
         case Empty | Text(_) | Line => true
-        case Concat(a, b) => law(a) && law(b)
-        case Union(a, b) => law(a) && law(b)
-        case f@LazyDoc(_) => law(f.evaluated)
-        case Align(d) => law(d)
-        case Nest(_, d) => law(d)
+        case Concat(a, b)           => law(a) && law(b)
+        case Union(a, b)            => law(a) && law(b)
+        case f @ LazyDoc(_)         => law(f.evaluated)
+        case Align(d)               => law(d)
+        case Nest(_, d)             => law(d)
       }
     forAll { (d: Doc) =>
       assertDoc(d)(d => law(d.unzero))

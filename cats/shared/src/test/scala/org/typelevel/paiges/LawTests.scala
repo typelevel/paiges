@@ -3,16 +3,15 @@ package org.typelevel.paiges
 import cats.Semigroupal
 import cats.Contravariant
 import cats.kernel.{Eq, Monoid}
-import cats.laws.discipline.{ExhaustiveCheck, SemigroupalTests, ContravariantTests, SerializableTests, DeferTests}
+import cats.laws.discipline.{ContravariantTests, DeferTests, ExhaustiveCheck, SemigroupalTests, SerializableTests}
 import cats.kernel.laws.discipline.MonoidTests
 import cats.laws.discipline.eq.catsLawsEqForFn1Exhaustive
 
 import org.typelevel.discipline.scalatest.Discipline
 import org.scalacheck.Arbitrary
-import org.scalactic.anyvals.{PosZDouble, PosInt, PosZInt}
+import org.scalactic.anyvals.{PosInt, PosZDouble, PosZInt}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.prop.Configuration
-
 
 class LawTests extends LawChecking with CatsDocument {
   import org.typelevel.paiges.Generators._
@@ -57,7 +56,8 @@ abstract class LawChecking extends AnyFunSuite with Configuration with Disciplin
       maxDiscardedFactor = if (Platform.isJvm) PosZDouble(5.0) else PosZDouble(50.0),
       minSize = PosZInt(0),
       sizeRange = if (Platform.isJvm) PosZInt(10) else PosZInt(5),
-      workers = PosInt(1))
+      workers = PosInt(1)
+    )
 
   // The scalacheck defaults 'sizeRange' (100) is too high for Scala-js, so we reduce to 10.
   // We also set `minSuccessful` to 100 unconditionally.

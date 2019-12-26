@@ -68,6 +68,6 @@ class DocumentTest extends AnyFunSuite {
   test("Ops") {
     import Document.ops._
     assert(("a".doc + "b".doc).render(80) == "ab")
-    assert((1.doc space "is" space true.doc).render(80) == "1 is true")
+    assert(1.doc.space("is").space(true.doc).render(80) == "1 is true")
   }
 }
