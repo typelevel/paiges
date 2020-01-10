@@ -85,7 +85,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .platformsSettings(JVMPlatform, JSPlatform)(
     libraryDependencies ++= Seq(
       "org.scalatest" %%% "scalatest" % "3.1.0" % Test,
-      "org.scalatestplus" %%% "scalatestplus-scalacheck" % "3.1.0.0-RC2" % Test,
+      "org.scalatestplus" %%% "scalacheck-1-14" % "3.1.0.1" % Test,
       "org.scalacheck" %%% "scalacheck" % "1.14.3" % Test
     )
   )
@@ -114,7 +114,7 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform)
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core" % "2.0.0",
       "org.typelevel" %%% "cats-laws" % "2.0.0" % "test",
-      "org.typelevel" %%% "discipline-scalatest" % "1.0.0-RC1" % "test"
+      "org.typelevel" %%% "discipline-scalatest" % "1.0.0-RC2" % "test"
     ),
     mimaPreviousArtifacts := previousArtifact(version.value, "cats")
   )
