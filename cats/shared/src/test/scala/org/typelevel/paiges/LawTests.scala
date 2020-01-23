@@ -7,7 +7,7 @@ import cats.laws.discipline.{ContravariantTests, DeferTests, ExhaustiveCheck, Se
 import cats.kernel.laws.discipline.MonoidTests
 import cats.laws.discipline.eq.catsLawsEqForFn1Exhaustive
 
-import org.typelevel.discipline.scalatest.Discipline
+import org.typelevel.discipline.scalatest.FunSuiteDiscipline
 import org.scalacheck.Arbitrary
 import org.scalactic.anyvals.{PosInt, PosZDouble, PosZInt}
 import org.scalatest.funsuite.AnyFunSuite
@@ -48,7 +48,7 @@ class LawTests extends LawChecking with CatsDocument {
   }
 }
 
-abstract class LawChecking extends AnyFunSuite with Configuration with Discipline {
+abstract class LawChecking extends AnyFunSuite with Configuration with FunSuiteDiscipline {
 
   lazy val checkConfiguration: PropertyCheckConfiguration =
     PropertyCheckConfiguration(
