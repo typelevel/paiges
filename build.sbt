@@ -114,7 +114,7 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform)
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core" % "2.0.0",
       "org.typelevel" %%% "cats-laws" % "2.0.0" % Test,
-      "org.typelevel" %%% "discipline-scalatest" % "1.0.0-RC4" % Test
+      "org.typelevel" %%% "discipline-scalatest" % "1.0.0" % Test
     ),
     mimaPreviousArtifacts := previousArtifact(version.value, "cats")
   )
