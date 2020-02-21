@@ -21,7 +21,7 @@ inThisBuild(
   List(
     organization := "org.typelevel",
     scalaVersion := Scala213,
-    crossScalaVersions := Seq(Scala211, Scala212, Scala213),
+    crossScalaVersions := Seq(Scala212, Scala213),
     licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
     homepage := Some(url("https://github.com/typelevel/paiges")),
     pomExtra := (
@@ -110,8 +110,8 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform)
     name := "paiges-cats",
     moduleName := "paiges-cats",
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core" % "2.0.0",
-      "org.typelevel" %%% "cats-laws" % "2.0.0" % Test,
+      "org.typelevel" %%% "cats-core" % "2.1.1",
+      "org.typelevel" %%% "cats-laws" % "2.1.1" % Test,
       "org.typelevel" %%% "discipline-scalatest" % "1.0.1" % Test
     ),
     mimaPreviousArtifacts := previousArtifact(version.value, "cats")
@@ -201,8 +201,6 @@ lazy val commonJsSettings = Seq(
   scalaJSStage in Global := FastOptStage,
   parallelExecution := false,
   jsEnv := new org.scalajs.jsenv.nodejs.NodeJSEnv(),
-  // batch mode decreases the amount of memory needed to compile scala.js code
-  scalaJSOptimizerOptions := scalaJSOptimizerOptions.value.withBatchMode(scala.sys.env.get("TRAVIS").isDefined),
   coverageEnabled := false
 )
 
