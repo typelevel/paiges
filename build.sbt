@@ -84,9 +84,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .jvmSettings(commonJvmSettings)
   .platformsSettings(JVMPlatform, JSPlatform)(
     libraryDependencies ++= Seq(
-      "org.scalatest" %%% "scalatest" % "3.1.0" % Test,
-      "org.scalatestplus" %%% "scalacheck-1-14" % "3.1.1.1" % Test,
-      "org.scalacheck" %%% "scalacheck" % "1.14.3" % Test
+      "org.scalatestplus" %%% "scalacheck-1-14" % "3.1.1.1" % Test
     )
   )
   .nativeSettings(
@@ -96,7 +94,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
       _.filter(f => Set("JsonTest.scala", "PaigesTest.scala").contains(f.getName))
     },
     libraryDependencies ++= Seq(
-      "org.scalatest" %%% "scalatest" % "3.1.0" % Test
+      "org.scalatest" %%% "scalatest" % "3.1.1" % Test
     )
   )
 lazy val coreJVM = core.jvm
@@ -114,7 +112,7 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform)
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core" % "2.0.0",
       "org.typelevel" %%% "cats-laws" % "2.0.0" % Test,
-      "org.typelevel" %%% "discipline-scalatest" % "1.0.0" % Test
+      "org.typelevel" %%% "discipline-scalatest" % "1.0.1" % Test
     ),
     mimaPreviousArtifacts := previousArtifact(version.value, "cats")
   )
