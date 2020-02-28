@@ -232,7 +232,7 @@ def previousArtifact(version: String, proj: String) = {
       // only based on the current version.
       val minors = if (major > 0) (0 until minor).toSet else Set.empty
       val patches = (0 until patch).toSet
-      val current = if (suffix.startsWith("+")) Set(mod(major, minor, patch)) else Set.empty[ModuleID]
+      val current = if (suffix != null && suffix.startsWith("+")) Set(mod(major, minor, patch)) else Set.empty[ModuleID]
       minors.map(mod(major, _, 0)) | patches.map(mod(major, minor, _)) | current
     case _ =>
       throw new RuntimeException(s"Could not parse Paiges version: $version")
