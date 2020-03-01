@@ -1,6 +1,5 @@
 import sbtcrossproject.{crossProject, CrossType}
 
-val Scala211 = "2.11.12"
 val Scala212 = "2.12.10"
 val Scala213 = "2.13.1"
 
@@ -48,7 +47,6 @@ inThisBuild(
   )
 )
 
-crossScalaVersions := Nil
 noPublish
 
 // Aggregate for JVM projects, for example run `jvm/test` to run only JVM tests.
@@ -62,44 +60,24 @@ lazy val js = project
   .settings(noPublish)
   .aggregate(coreJS, catsJS)
 
-lazy val native = project
-  .in(file(".native"))
-  .settings(noPublish)
-  .settings(
-    crossScalaVersions := Seq(Scala211)
-  )
-  .aggregate(coreNative)
-
-lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
+lazy val core = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Pure)
   .in(file("core"))
   .settings(
     commonSettings,
     name := "paiges-core",
     moduleName := "paiges-core",
-    mimaPreviousArtifacts := previousArtifact(version.value, "core")
-  )
-  .disablePlugins(JmhPlugin)
-  .jsSettings(commonJsSettings)
-  .jvmSettings(commonJvmSettings)
-  .platformsSettings(JVMPlatform, JSPlatform)(
+    mimaPreviousArtifacts := previousArtifact(version.value, "core"),
     libraryDependencies ++= Seq(
       "org.scalatestplus" %%% "scalacheck-1-14" % "3.1.1.1" % Test
     )
   )
-  .nativeSettings(
-    commonNativeSettings,
-    scalacOptions in Compile -= "-Xfatal-warnings",
-    sources in Test ~= {
-      _.filter(f => Set("JsonTest.scala", "PaigesTest.scala").contains(f.getName))
-    },
-    libraryDependencies ++= Seq(
-      "org.scalatest" %%% "scalatest" % "3.1.1" % Test
-    )
-  )
+  .disablePlugins(JmhPlugin)
+  .jsSettings(commonJsSettings)
+  .jvmSettings(commonJvmSettings)
+
 lazy val coreJVM = core.jvm
 lazy val coreJS = core.js
-lazy val coreNative = core.native
 
 lazy val cats = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Full)
@@ -202,12 +180,6 @@ lazy val commonJsSettings = Seq(
   parallelExecution := false,
   jsEnv := new org.scalajs.jsenv.nodejs.NodeJSEnv(),
   coverageEnabled := false
-)
-
-lazy val commonNativeSettings = Seq(
-  nativeLinkStubs := true,
-  scalaVersion := Scala211,
-  crossScalaVersions := Seq(Scala211)
 )
 
 def previousArtifact(version: String, proj: String) = {

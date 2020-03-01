@@ -7,21 +7,6 @@ stages:
     if: (branch = master AND type = push) OR (tag IS present)
 jobs:
   include:
-    - scala: 2.11.12
-      env: PLATFORM="jvm"
-      script: sbt "++ ${TRAVIS_SCALA_VERSION}" jvm/checkCI
-
-    - scala: 2.11.12
-      env: PLATFORM="js"
-      script: sbt "++ ${TRAVIS_SCALA_VERSION}" js/checkCI
-
-    - scala: 2.11.12
-      env: PLATFORM="native"
-      sudo: required
-      before_install:
-        - curl https://raw.githubusercontent.com/scala-native/scala-native/01fbdf7cf6f/scripts/travis_setup.sh | bash -
-      script: sbt "++ ${TRAVIS_SCALA_VERSION}" native/checkCI
-
     - name: checks
       scala: 2.12.10
       script: sbt scalafmtCheckAll scalafmtSbtCheck
