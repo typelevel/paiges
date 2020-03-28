@@ -33,15 +33,10 @@ object Generators {
   )
 
   val combinators: Gen[(Doc, Doc) => Doc] =
-    Gen.oneOf({ (a: Doc, b: Doc) =>
-      a + b
-    }, { (a: Doc, b: Doc) =>
-      a.space(b)
-    }, { (a: Doc, b: Doc) =>
-      a / b
-    }, { (a: Doc, b: Doc) =>
-      a.lineOrSpace(b)
-    })
+    Gen.oneOf((a: Doc, b: Doc) => a + b,
+              (a: Doc, b: Doc) => a.space(b),
+              (a: Doc, b: Doc) => a / b,
+              (a: Doc, b: Doc) => a.lineOrSpace(b))
 
   val genFg: Gen[Style] = {
     import Style.Ansi.Fg._
@@ -126,38 +121,20 @@ object Generators {
   val unary: Gen[Doc => Doc] =
     Gen.oneOf(
       genStyle.map(s => (d: Doc) => d.style(s)),
-      Gen.const({ d: Doc =>
-        Doc.defer(d)
-      }),
-      Gen.const({ d: Doc =>
-        d.grouped
-      }),
-      Gen.const({ d: Doc =>
-        d.aligned
-      }),
-      Gen.const({ d: Doc =>
-        Doc.lineOr(d)
-      }),
-      Gen.choose(0, 40).map { i => d: Doc =>
-        d.nested(i)
-      }
+      Gen.const { d: Doc => Doc.defer(d) },
+      Gen.const { d: Doc => d.grouped },
+      Gen.const { d: Doc => d.aligned },
+      Gen.const { d: Doc => Doc.lineOr(d) },
+      Gen.choose(0, 40).map(i => (d: Doc) => d.nested(i))
     )
 
   def folds(genDoc: Gen[Doc], withFill: Boolean): Gen[(List[Doc] => Doc)] = {
-    val gfill = genDoc.map { sep => ds: List[Doc] =>
-      Doc.fill(sep, ds.take(8))
-    }
+    val gfill = genDoc.map(sep => (ds: List[Doc]) => Doc.fill(sep, ds.take(8)))
 
     Gen.frequency(
-      (1, genDoc.map { sep => ds: List[Doc] =>
-        Doc.intercalate(sep, ds)
-      }),
-      (2, Gen.const({ ds: List[Doc] =>
-        Doc.spread(ds)
-      })),
-      (2, Gen.const({ ds: List[Doc] =>
-        Doc.stack(ds)
-      })),
+      (1, genDoc.map(sep => (ds: List[Doc]) => Doc.intercalate(sep, ds))),
+      (2, Gen.const { ds: List[Doc] => Doc.spread(ds) }),
+      (2, Gen.const { ds: List[Doc] => Doc.stack(ds) }),
       (if (withFill) 1 else 0, gfill)
     )
   }
@@ -205,11 +182,12 @@ object Generators {
       // don't include folds, which branch greatly,
       // except at the top (to avoid making giant docs)
       Gen.frequency(
-                    // bias to simple stuff
-                    (6, doc0Gen),
-                    (1, ugen),
-                    (2, cgen),
-                    (if (depth >= maxDepth - 1) 1 else 0, fgen))
+        // bias to simple stuff
+        (6, doc0Gen),
+        (1, ugen),
+        (2, cgen),
+        (if (depth >= maxDepth - 1) 1 else 0, fgen)
+      )
     }
   }
 

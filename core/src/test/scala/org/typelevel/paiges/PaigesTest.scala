@@ -76,9 +76,7 @@ object PaigesTest {
       case Nil => sys.error("unreachable")
       case other =>
         other
-          .map { str =>
-            str.reverse.dropWhile(_ == ' ').reverse
-          }
+          .map(str => str.reverse.dropWhile(_ == ' ').reverse)
           .mkString("\n")
     }
   }
@@ -249,24 +247,18 @@ the spaces""")
   }
 
   test("test json map example") {
-    val kvs = (0 to 20).map { i =>
-      text("\"%s\": %s".format(s"key$i", i))
-    }
+    val kvs = (0 to 20).map(i => text("\"%s\": %s".format(s"key$i", i)))
     val parts = Doc.fill(Doc.comma + Doc.lineOrSpace, kvs)
 
     val map = parts.bracketBy(Doc.text("{"), Doc.text("}"))
     assert(
       map.render(1000) == (0 to 20)
-        .map { i =>
-          "\"%s\": %s".format(s"key$i", i)
-        }
+        .map(i => "\"%s\": %s".format(s"key$i", i))
         .mkString("{ ", ", ", " }")
     )
     assert(
       map.render(20) == (0 to 20)
-        .map { i =>
-          "\"%s\": %s".format(s"key$i", i)
-        }
+        .map(i => "\"%s\": %s".format(s"key$i", i))
         .map("  " + _)
         .mkString("{\n", ",\n", "\n}")
     )
@@ -274,16 +266,12 @@ the spaces""")
     val map2 = parts.tightBracketBy(Doc.text("{"), Doc.text("}"))
     assert(
       map2.render(1000) == (0 to 20)
-        .map { i =>
-          "\"%s\": %s".format(s"key$i", i)
-        }
+        .map(i => "\"%s\": %s".format(s"key$i", i))
         .mkString("{", ", ", "}")
     )
     assert(
       map2.render(20) == (0 to 20)
-        .map { i =>
-          "\"%s\": %s".format(s"key$i", i)
-        }
+        .map(i => "\"%s\": %s".format(s"key$i", i))
         .map("  " + _)
         .mkString("{\n", ",\n", "\n}")
     )

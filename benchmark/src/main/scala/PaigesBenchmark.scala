@@ -29,17 +29,13 @@ class PaigesBenchmark {
   @Benchmark
   def docConcat(): String =
     strs
-      .foldLeft(Doc.empty) { (d1, s) =>
-        d1 :+ s
-      }
+      .foldLeft(Doc.empty)((d1, s) => d1 :+ s)
       .render(0)
 
   @Benchmark
   def docConcatComma(): String =
     strs
-      .foldLeft(Doc.empty) { (d1, s) =>
-        d1 :+ ", " :+ s
-      }
+      .foldLeft(Doc.empty)((d1, s) => d1 :+ ", " :+ s)
       .render(0)
 
   @Benchmark

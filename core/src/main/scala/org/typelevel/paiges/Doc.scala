@@ -727,9 +727,7 @@ object Doc {
   private[this] val maxSpaceTable = 20
 
   private[this] val spaceArray: Array[Text] =
-    (1 to maxSpaceTable).map { i =>
-      Text(" " * i)
-    }.toArray
+    (1 to maxSpaceTable).map(i => Text(" " * i)).toArray
 
   /**
    * Defer creation of a Doc until absolutely needed.
@@ -833,9 +831,7 @@ object Doc {
     }
 
   private[this] val charTable: Array[Doc] =
-    (32 to 126).map { i =>
-      Text(i.toChar.toString)
-    }.toArray
+    (32 to 126).map(i => Text(i.toChar.toString)).toArray
 
   /**
    * Build a document from a single character.
@@ -1050,9 +1046,7 @@ object Doc {
   def intercalate(sep: Doc, ds: Iterable[Doc]): Doc =
     if (sep.isEmpty) foldDocs(ds)(Concat(_, _))
     else
-      foldDocs(ds) { (a, b) =>
-        Concat(a, Concat(sep, b))
-      }
+      foldDocs(ds)((a, b) => Concat(a, Concat(sep, b)))
 
   /**
    * Concatenate the given documents together.
