@@ -125,14 +125,14 @@ object Generators {
       Gen.const { d: Doc => d.grouped },
       Gen.const { d: Doc => d.aligned },
       Gen.const { d: Doc => Doc.lineOr(d) },
-      Gen.choose(0, 40).map(i => d: Doc => d.nested(i))
+      Gen.choose(0, 40).map(i => (d: Doc) => d.nested(i))
     )
 
   def folds(genDoc: Gen[Doc], withFill: Boolean): Gen[(List[Doc] => Doc)] = {
-    val gfill = genDoc.map(sep => ds: List[Doc] => Doc.fill(sep, ds.take(8)))
+    val gfill = genDoc.map(sep => (ds: List[Doc]) => Doc.fill(sep, ds.take(8)))
 
     Gen.frequency(
-      (1, genDoc.map(sep => ds: List[Doc] => Doc.intercalate(sep, ds))),
+      (1, genDoc.map(sep => (ds: List[Doc]) => Doc.intercalate(sep, ds))),
       (2, Gen.const { ds: List[Doc] => Doc.spread(ds) }),
       (2, Gen.const { ds: List[Doc] => Doc.stack(ds) }),
       (if (withFill) 1 else 0, gfill)
