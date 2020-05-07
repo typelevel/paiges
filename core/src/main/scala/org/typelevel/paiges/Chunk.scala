@@ -36,7 +36,7 @@ private[paiges] object Chunk {
     }
 
     class ChunkIterator(var current: ChunkStream) extends Iterator[String] {
-      def hasNext: Boolean = (current != ChunkStream.Empty)
+      def hasNext: Boolean = current != ChunkStream.Empty
       def next: String = {
         val item = current.asInstanceOf[ChunkStream.Item]
         val res = item.stringChunk
@@ -48,12 +48,13 @@ private[paiges] object Chunk {
     class TrimChunkIterator(var current: ChunkStream) extends Iterator[String] {
       private val lineCombiner = new TrimChunkIterator.LineCombiner
       def hasNext: Boolean = current != ChunkStream.Empty || lineCombiner.nonEmpty
-      def next: String = current match {
-        case ChunkStream.Empty => lineCombiner.finalLine()
-        case item: ChunkStream.Item =>
-          current = item.step
-          lineCombiner.addItem(item).getOrElse(next)
-      }
+      def next: String =
+        current match {
+          case ChunkStream.Empty => lineCombiner.finalLine()
+          case item: ChunkStream.Item =>
+            current = item.step
+            lineCombiner.addItem(item).getOrElse(next)
+        }
     }
 
     object TrimChunkIterator {
@@ -98,31 +99,32 @@ private[paiges] object Chunk {
      * we cheat below in non-tail positions
      */
     @tailrec
-    def loop(pos: Int, lst: List[(Int, Doc)]): ChunkStream = lst match {
-      case Nil                          => ChunkStream.Empty
-      case (_, Doc.Empty) :: z          => loop(pos, z)
-      case (i, Doc.FlatAlt(a, _)) :: z  => loop(pos, (i, a) :: z)
-      case (i, Doc.Concat(a, b)) :: z   => loop(pos, (i, a) :: (i, b) :: z)
-      case (i, Doc.Nest(j, d)) :: z     => loop(pos, ((i + j), d) :: z)
-      case (_, Doc.Align(d)) :: z       => loop(pos, (pos, d) :: z)
-      case (_, Doc.Text(s)) :: z        => ChunkStream.Item(s, pos + s.length, z)
-      case (_, Doc.ZeroWidth(s)) :: z   => ChunkStream.Item(s, pos, z)
-      case (i, Doc.Line) :: z           => ChunkStream.Item(null, i, z)
-      case (i, d @ Doc.LazyDoc(_)) :: z => loop(pos, (i, d.evaluated) :: z)
-      case (i, Doc.Union(x, y)) :: z    =>
-        /*
-         * If we can fit the next line from x, we take it.
-         */
-        val first = cheat(pos, (i, x) :: z)
-        /*
-         * Note that in Union the left side is always 2-right-associated.
-         * This means the "fits" branch in rendering
-         * always has a 2-right-associated Doc which means it is O(w)
-         * to find if you can fit in width w.
-         */
-        if (fits(pos, first)) first
-        else loop(pos, (i, y) :: z)
-    }
+    def loop(pos: Int, lst: List[(Int, Doc)]): ChunkStream =
+      lst match {
+        case Nil                          => ChunkStream.Empty
+        case (_, Doc.Empty) :: z          => loop(pos, z)
+        case (i, Doc.FlatAlt(a, _)) :: z  => loop(pos, (i, a) :: z)
+        case (i, Doc.Concat(a, b)) :: z   => loop(pos, (i, a) :: (i, b) :: z)
+        case (i, Doc.Nest(j, d)) :: z     => loop(pos, ((i + j), d) :: z)
+        case (_, Doc.Align(d)) :: z       => loop(pos, (pos, d) :: z)
+        case (_, Doc.Text(s)) :: z        => ChunkStream.Item(s, pos + s.length, z)
+        case (_, Doc.ZeroWidth(s)) :: z   => ChunkStream.Item(s, pos, z)
+        case (i, Doc.Line) :: z           => ChunkStream.Item(null, i, z)
+        case (i, d @ Doc.LazyDoc(_)) :: z => loop(pos, (i, d.evaluated) :: z)
+        case (i, Doc.Union(x, y)) :: z    =>
+          /*
+           * If we can fit the next line from x, we take it.
+           */
+          val first = cheat(pos, (i, x) :: z)
+          /*
+           * Note that in Union the left side is always 2-right-associated.
+           * This means the "fits" branch in rendering
+           * always has a 2-right-associated Doc which means it is O(w)
+           * to find if you can fit in width w.
+           */
+          if (fits(pos, first)) first
+          else loop(pos, (i, y) :: z)
+      }
 
     def cheat(pos: Int, lst: List[(Int, Doc)]) =
       loop(pos, lst)
