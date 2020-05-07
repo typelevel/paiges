@@ -34,9 +34,8 @@ object Document {
             d
         }
 
-      if (computed == null) {
+      if (computed == null)
         computed = loop(thunk(), Nil)
-      }
       computed
     }
 
@@ -92,10 +91,11 @@ object Document {
   }
 
   trait ToDocumentOps {
-    implicit def toDocumentOps[A](target: A)(implicit tc: Document[A]): Ops[A] = new Ops[A] {
-      val instance: Document[A] = tc
-      val self: A = target
-    }
+    implicit def toDocumentOps[A](target: A)(implicit tc: Document[A]): Ops[A] =
+      new Ops[A] {
+        val instance: Document[A] = tc
+        val self: A = target
+      }
   }
 
   object ops extends ToDocumentOps

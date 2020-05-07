@@ -104,7 +104,8 @@ object PaigesTest {
       case x :: Nil => x.grouped
       case x :: y :: zs =>
         Union(x.flatten + (sep.flatten + defer(fillSpec(sep, y.flatten :: zs))),
-              x + (sep + defer(fillSpec(sep, y :: zs))))
+              x + (sep + defer(fillSpec(sep, y :: zs)))
+        )
     }
   }
 }
@@ -282,7 +283,7 @@ the spaces""")
   }
 
   test("renderWide is stack safe") {
-    val nums = (1 to 100000)
+    val nums = 1 to 100000
     assert(Doc.intercalate(Doc.lineOrSpace, nums.map(Doc.str)).renderWideStream.mkString == nums.mkString(" "))
   }
 

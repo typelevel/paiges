@@ -259,9 +259,8 @@ sealed abstract class Doc extends Product with Serializable {
   private def renderGen(width: Int, trim: Boolean): String = {
     val bldr = new StringBuilder
     val it = Chunk.best(width, this, trim)
-    while (it.hasNext) {
+    while (it.hasNext)
       bldr.append(it.next)
-    }
     bldr.toString
   }
 
@@ -316,23 +315,24 @@ sealed abstract class Doc extends Product with Serializable {
    */
   def renderWideStream: LazyList[String] = {
     @tailrec
-    def loop(pos: Int, lst: List[(Int, Doc)]): LazyList[String] = lst match {
-      case Nil                      => LazyList.empty
-      case (i, Empty) :: z          => loop(pos, z)
-      case (i, FlatAlt(a, _)) :: z  => loop(pos, (i, a) :: z)
-      case (i, Concat(a, b)) :: z   => loop(pos, (i, a) :: (i, b) :: z)
-      case (i, Nest(j, d)) :: z     => loop(pos, ((i + j), d) :: z)
-      case (i, Align(d)) :: z       => loop(pos, (pos, d) :: z)
-      case (i, Text(s)) :: z        => s #:: cheat(pos + s.length, z)
-      case (i, ZeroWidth(s)) :: z   => s #:: cheat(pos, z)
-      case (i, Line) :: z           => Chunk.lineToStr(i) #:: cheat(i, z)
-      case (i, d @ LazyDoc(_)) :: z => loop(pos, (i, d.evaluated) :: z)
-      case (i, Union(a, _)) :: z    =>
-        /*
-         * if we are infinitely wide, a always fits
-         */
-        loop(pos, (i, a) :: z)
-    }
+    def loop(pos: Int, lst: List[(Int, Doc)]): LazyList[String] =
+      lst match {
+        case Nil                      => LazyList.empty
+        case (i, Empty) :: z          => loop(pos, z)
+        case (i, FlatAlt(a, _)) :: z  => loop(pos, (i, a) :: z)
+        case (i, Concat(a, b)) :: z   => loop(pos, (i, a) :: (i, b) :: z)
+        case (i, Nest(j, d)) :: z     => loop(pos, ((i + j), d) :: z)
+        case (i, Align(d)) :: z       => loop(pos, (pos, d) :: z)
+        case (i, Text(s)) :: z        => s #:: cheat(pos + s.length, z)
+        case (i, ZeroWidth(s)) :: z   => s #:: cheat(pos, z)
+        case (i, Line) :: z           => Chunk.lineToStr(i) #:: cheat(i, z)
+        case (i, d @ LazyDoc(_)) :: z => loop(pos, (i, d.evaluated) :: z)
+        case (i, Union(a, _)) :: z    =>
+          /*
+           * if we are infinitely wide, a always fits
+           */
+          loop(pos, (i, a) :: z)
+      }
     def cheat(pos: Int, lst: List[(Int, Doc)]) =
       loop(pos, lst)
 
@@ -354,9 +354,8 @@ sealed abstract class Doc extends Product with Serializable {
         if (n > 0) {
           val dn = loop(d, n)
           Concat(dn, dn)
-        } else {
+        } else
           Empty
-        }
       if ((cnt & 1) == 1) Concat(dn2, d) else dn2
     }
     if (count <= 0) Empty
@@ -390,9 +389,8 @@ sealed abstract class Doc extends Product with Serializable {
 
   private def writeToGen(width: Int, pw: PrintWriter, trim: Boolean): Unit = {
     val it = Chunk.best(width, this, trim)
-    while (it.hasNext) {
+    while (it.hasNext)
       pw.append(it.next)
-    }
   }
 
   /**
@@ -598,21 +596,22 @@ sealed abstract class Doc extends Product with Serializable {
    */
   def maxWidth: Int = {
     @tailrec
-    def loop(pos: Int, lst: List[(Int, Doc)], max: Int): Int = lst match {
-      case Nil                           => math.max(max, pos)
-      case (i, Empty) :: z               => loop(pos, z, max)
-      case (i, FlatAlt(default, _)) :: z => loop(pos, (i, default) :: z, max)
-      case (i, Concat(a, b)) :: z        => loop(pos, (i, a) :: (i, b) :: z, max)
-      case (i, Nest(j, d)) :: z          => loop(pos, ((i + j), d) :: z, max)
-      case (i, Align(d)) :: z            => loop(pos, (pos, d) :: z, max)
-      case (i, Text(s)) :: z             => loop(pos + s.length, z, max)
-      case (i, ZeroWidth(_)) :: z        => loop(pos, z, max)
-      case (i, Line) :: z                => loop(i, z, math.max(max, pos))
-      case (i, d @ LazyDoc(_)) :: z      => loop(pos, (i, d.evaluated) :: z, max)
-      case (i, Union(a, _)) :: z         =>
-        // we always go left, take the widest branch
-        loop(pos, (i, a) :: z, max)
-    }
+    def loop(pos: Int, lst: List[(Int, Doc)], max: Int): Int =
+      lst match {
+        case Nil                           => math.max(max, pos)
+        case (i, Empty) :: z               => loop(pos, z, max)
+        case (i, FlatAlt(default, _)) :: z => loop(pos, (i, default) :: z, max)
+        case (i, Concat(a, b)) :: z        => loop(pos, (i, a) :: (i, b) :: z, max)
+        case (i, Nest(j, d)) :: z          => loop(pos, ((i + j), d) :: z, max)
+        case (i, Align(d)) :: z            => loop(pos, (pos, d) :: z, max)
+        case (i, Text(s)) :: z             => loop(pos + s.length, z, max)
+        case (i, ZeroWidth(_)) :: z        => loop(pos, z, max)
+        case (i, Line) :: z                => loop(i, z, math.max(max, pos))
+        case (i, d @ LazyDoc(_)) :: z      => loop(pos, (i, d.evaluated) :: z, max)
+        case (i, Union(a, _)) :: z         =>
+          // we always go left, take the widest branch
+          loop(pos, (i, a) :: z, max)
+      }
 
     loop(0, (0, this) :: Nil, 0)
   }
@@ -695,9 +694,8 @@ object Doc {
             d
         }
 
-      if (computed == null) {
+      if (computed == null)
         computed = loop(thunk(), Nil)
-      }
       computed
     }
   }

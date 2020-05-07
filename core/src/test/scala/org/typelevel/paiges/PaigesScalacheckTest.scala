@@ -115,7 +115,7 @@ class PaigesScalacheckTest extends OurFunSuite {
 
   test("renderStreamTrim and renderTrim are consistent") {
     forAll { (d: Doc, width0: Int) =>
-      val width = width0 & 0xFFF
+      val width = width0 & 0xfff
       assertDoc(d)(d => d.renderStreamTrim(width).mkString == d.renderTrim(width))
     }
   }
@@ -236,9 +236,9 @@ class PaigesScalacheckTest extends OurFunSuite {
     import Doc._
     forAll { (aGen: Doc, bc: Doc) =>
       val a = aGen.flatten
-      if (containsHardLine(a)) {
+      if (containsHardLine(a))
         ()
-      } else {
+      else
         bc.grouped match {
           case d @ Union(b, c) =>
             val lhs = Concat(a, d)
@@ -246,7 +246,6 @@ class PaigesScalacheckTest extends OurFunSuite {
             assertEq(lhs, rhs)
           case _ =>
         }
-      }
     }
   }
 
@@ -281,9 +280,9 @@ class PaigesScalacheckTest extends OurFunSuite {
           if (!s.hasNext) acc.reverse.mkString
           else {
             val head = s.next
-            if (head.contains('\n')) {
+            if (head.contains('\n'))
               (head.takeWhile(_ != '\n') :: acc).reverse.mkString
-            } else loop(s, head :: acc)
+            else loop(s, head :: acc)
           }
         loop(d.renderStream(n).iterator, Nil)
       }
@@ -453,13 +452,11 @@ class PaigesScalacheckTest extends OurFunSuite {
     val last = s.length - 1
     while (i <= last) {
       val c = s.charAt(i)
-      if (good) {
+      if (good)
         if (c == 27 && i < last && s.charAt(i + 1) == '[') good = false
         else sb.append(c)
-      } else {
-        if (c == 'm') good = true
-        else ()
-      }
+      else if (c == 'm') good = true
+      else ()
       i += 1
     }
     sb.toString
