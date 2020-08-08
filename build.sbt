@@ -69,8 +69,8 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
     moduleName := "paiges-core",
     mimaPreviousArtifacts := previousArtifact(version.value, "core"),
     libraryDependencies ++= Seq(
-      "org.scalatestplus" %%% "scalacheck-1-14" % "3.2.0.0" % Test,
-      "org.scalatest" %%% "scalatest-funsuite" % "3.2.1" % Test
+      "org.scalatestplus" %%% "scalacheck-1-14" % "3.2.1.0" % Test,
+      "org.scalatest" %%% "scalatest-funsuite" % "3.2.0" % Test
     )
   )
   .disablePlugins(JmhPlugin)
