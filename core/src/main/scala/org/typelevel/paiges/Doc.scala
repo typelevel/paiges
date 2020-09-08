@@ -433,8 +433,8 @@ sealed abstract class Doc extends Product with Serializable {
       if (i < s.length) shash(hash(n, s.charAt(i)), s, i + 1) else n
 
     // Always go left to avoid triggering the lazy fill evaluation.
-    renderWideStream.foldLeft(0xdead60d5) {
-      case (n, s) => shash(n, s, 0)
+    renderWideStream.foldLeft(0xdead60d5) { case (n, s) =>
+      shash(n, s, 0)
     }
   }
 
@@ -532,8 +532,8 @@ sealed abstract class Doc extends Product with Serializable {
     type DB = (Doc, Boolean)
 
     def finish(last: DB, front: List[DB]): DB =
-      front.foldLeft(last) {
-        case ((d1, c1), (d0, c2)) => (Concat(d0, d1), c1 || c2)
+      front.foldLeft(last) { case ((d1, c1), (d0, c2)) =>
+        (Concat(d0, d1), c1 || c2)
       }
 
     def cheat(h: DB): DB = {
