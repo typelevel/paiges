@@ -43,9 +43,8 @@ object Json {
   }
   case class JObject(toMap: Map[String, Json]) extends Json {
     def toDoc = {
-      val kvs = toMap.map {
-        case (s, j) =>
-          JString(s).toDoc + text(":") + ((Doc.lineOrSpace + j.toDoc).nested(2))
+      val kvs = toMap.map { case (s, j) =>
+        JString(s).toDoc + text(":") + ((Doc.lineOrSpace + j.toDoc).nested(2))
       }
       val parts = Doc.fill(Doc.comma, kvs)
       parts.bracketBy(text("{"), text("}"))
