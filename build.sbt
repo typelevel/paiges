@@ -69,7 +69,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
     moduleName := "paiges-core",
     mimaPreviousArtifacts := previousArtifact(version.value, "core"),
     libraryDependencies ++= Seq(
-      "org.scalatestplus" %%% "scalacheck-1-14" % "3.2.2.0" % Test,
+      "org.scalatestplus" %%% "scalacheck-1-15" % "3.2.3.0" % Test,
       "org.scalatest" %%% "scalatest-funsuite" % "3.2.3" % Test
     )
   )
