@@ -2,6 +2,7 @@ import sbtcrossproject.{crossProject, CrossType}
 
 val Scala212 = "2.12.10"
 val Scala213 = "2.13.1"
+val Scala3 = "3.0.0-M1"
 
 def scalaVersionSpecificFolders(srcName: String, srcBaseDir: java.io.File, scalaVersion: String) = {
   def extraDirs(suffix: String) =
@@ -12,6 +13,8 @@ def scalaVersionSpecificFolders(srcName: String, srcBaseDir: java.io.File, scala
       extraDirs("-2.12-")
     case Some((2, y)) if y >= 13 =>
       extraDirs("-2.13+")
+    case Some((3, _)) =>
+      extraDirs("-2.13+")
     case _ => Nil
   }
 }
@@ -20,7 +23,7 @@ inThisBuild(
   List(
     organization := "org.typelevel",
     scalaVersion := Scala213,
-    crossScalaVersions := Seq(Scala212, Scala213),
+    crossScalaVersions := Seq(Scala212, Scala213, Scala3),
     licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
     homepage := Some(url("https://github.com/typelevel/paiges")),
     pomExtra := (
@@ -89,8 +92,8 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform)
     name := "paiges-cats",
     moduleName := "paiges-cats",
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core" % "2.2.0",
-      "org.typelevel" %%% "cats-laws" % "2.2.0" % Test,
+      "org.typelevel" %%% "cats-core" % "2.3.0-M2",
+      "org.typelevel" %%% "cats-laws" % "2.3.0-M2" % Test,
       "org.typelevel" %%% "discipline-scalatest" % "2.1.0" % Test
     ),
     mimaPreviousArtifacts := previousArtifact(version.value, "cats")
