@@ -260,7 +260,7 @@ sealed abstract class Doc extends Product with Serializable {
     val bldr = new StringBuilder
     val it = Chunk.best(width, this, trim)
     while (it.hasNext)
-      bldr.append(it.next)
+      bldr.append(it.next())
     bldr.toString
   }
 
@@ -390,7 +390,7 @@ sealed abstract class Doc extends Product with Serializable {
   private def writeToGen(width: Int, pw: PrintWriter, trim: Boolean): Unit = {
     val it = Chunk.best(width, this, trim)
     while (it.hasNext)
-      pw.append(it.next)
+      pw.append(it.next())
   }
 
   /**

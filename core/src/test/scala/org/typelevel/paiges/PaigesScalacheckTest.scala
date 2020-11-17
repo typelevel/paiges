@@ -29,7 +29,7 @@ class PaigesScalacheckTest extends OurFunSuite {
   import Generators._
   import PaigesTest._
 
-  implicit val generatorDrivenConfig =
+  implicit val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 500)
 
   test("(x = y) -> (x.## = y.##)") {
@@ -229,7 +229,7 @@ class PaigesScalacheckTest extends OurFunSuite {
   }
 
   test("a.aligned.aligned == a.aligned") {
-    forAll { a: Doc => assertEq(a.aligned.aligned, a.aligned) }
+    forAll((a: Doc) => assertEq(a.aligned.aligned, a.aligned))
   }
 
   test("a is flat ==> Concat(a, Union(b, c)) === Union(Concat(a, b), Concat(a, c))") {
@@ -262,15 +262,15 @@ class PaigesScalacheckTest extends OurFunSuite {
   }
 
   test("Union invariant: `a.flatten == b.flatten`") {
-    forAll { d: Doc.Union => assertEq(d.a.flatten, d.b.flatten) }
+    forAll((d: Doc.Union) => assertEq(d.a.flatten, d.b.flatten))
   }
 
   test("Union invariant: `a != b`") {
-    forAll { d: Doc.Union => assertNeq(d.a, d.b) }
+    forAll((d: Doc.Union) => assertNeq(d.a, d.b))
   }
 
   test("Union invariant: `a` has 2-right-associated `Concat` nodes") {
-    forAll { d: Doc.Union => assertDoc(d)(_ => PaigesTest.twoRightAssociated(d.a)) }
+    forAll((d: Doc.Union) => assertDoc(d)(_ => PaigesTest.twoRightAssociated(d.a)))
   }
 
   test("Union invariant: the first line of `a` is at least as long as the first line of `b`") {
@@ -279,7 +279,7 @@ class PaigesScalacheckTest extends OurFunSuite {
         def loop(s: Iterator[String], acc: List[String]): String =
           if (!s.hasNext) acc.reverse.mkString
           else {
-            val head = s.next
+            val head = s.next()
             if (head.contains('\n'))
               (head.takeWhile(_ != '\n') :: acc).reverse.mkString
             else loop(s, head :: acc)
@@ -300,7 +300,7 @@ class PaigesScalacheckTest extends OurFunSuite {
      * comparing large equal documents can be very slow
      * :(
      */
-    implicit val generatorDrivenConfig =
+    implicit val generatorDrivenConfig: PropertyCheckConfiguration =
       PropertyCheckConfiguration(minSuccessful = 30)
     val smallTree = Gen.choose(0, 3).flatMap(genTree(_, withFill = true))
     val smallInt = Gen.choose(0, 10)
@@ -316,7 +316,7 @@ class PaigesScalacheckTest extends OurFunSuite {
      * comparing large equal documents can be very slow
      * :(
      */
-    implicit val generatorDrivenConfig =
+    implicit val generatorDrivenConfig: PropertyCheckConfiguration =
       PropertyCheckConfiguration(minSuccessful = 30)
     val smallTree = Gen.choose(0, 3).flatMap(genTree(_, withFill = true))
     val smallInt = Gen.choose(0, 3)
@@ -381,7 +381,7 @@ class PaigesScalacheckTest extends OurFunSuite {
         case Nest(_, d)     => law(d)
       }
 
-    forAll { d: Doc => assert(law(d)) }
+    forAll((d: Doc) => assert(law(d)))
   }
 
   test("FlatAlt invariant 2: default != whenFlat (otherwise the FlatAlt is redundant)") {
@@ -400,7 +400,7 @@ class PaigesScalacheckTest extends OurFunSuite {
         case Nest(_, d)     => law(d)
       }
 
-    forAll { d: Doc => assertDoc(d)(law) }
+    forAll((d: Doc) => assertDoc(d)(law))
   }
 
   test("FlatAlt invariant 3: FlatAlt does not occur on the left side of a union") {
@@ -421,7 +421,7 @@ class PaigesScalacheckTest extends OurFunSuite {
         case Nest(_, d)     => law(d, isLeft)
       }
 
-    forAll { d: Doc => assertDoc(d)(law(_, false)) }
+    forAll((d: Doc) => assertDoc(d)(law(_, false)))
   }
 
   test("flattened docs never have FlatAlt") {

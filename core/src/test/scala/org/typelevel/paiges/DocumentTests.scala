@@ -7,7 +7,7 @@ class DocumentTest extends AnyFunSuite {
   import Doc.text
   import PaigesTest._
 
-  implicit val generatorDrivenConfig =
+  implicit val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 500)
 
   def document[A](a: A)(implicit d: Document[A]): Doc =

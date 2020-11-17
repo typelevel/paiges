@@ -20,7 +20,7 @@ class LawTests extends LawChecking with CatsDocument {
   implicit val docEq: Eq[Doc] =
     Eq.instance((x: Doc, y: Doc) => PaigesTest.docEquiv.equiv(x, y))
 
-  implicit def monoidTests[A: Eq: Arbitrary: Monoid] = MonoidTests[A]
+  implicit def monoidTests[A: Eq: Arbitrary: Monoid]: MonoidTests[A] = MonoidTests[A]
 
   implicit def arbitraryForDocument[A]: Arbitrary[Document[A]] =
     Arbitrary(Document.useToString[A])
