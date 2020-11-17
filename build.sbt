@@ -23,7 +23,6 @@ inThisBuild(
   List(
     organization := "org.typelevel",
     scalaVersion := Scala213,
-    crossScalaVersions := Seq(Scala212, Scala213, Scala3),
     licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
     homepage := Some(url("https://github.com/typelevel/paiges")),
     pomExtra := (
@@ -183,9 +182,13 @@ lazy val commonSettings = Seq(
   Test / unmanagedSourceDirectories ++= scalaVersionSpecificFolders("test", baseDirectory.value, scalaVersion.value)
 )
 
-lazy val commonJvmSettings = Seq(testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oDF"))
+lazy val commonJvmSettings = Seq(
+  crossScalaVersions := Seq(Scala212, Scala213, Scala3),
+  testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oDF")
+)
 
 lazy val commonJsSettings = Seq(
+  crossScalaVersions := Seq(Scala212, Scala213),
   scalaJSStage in Global := FastOptStage,
   parallelExecution := false,
   jsEnv := new org.scalajs.jsenv.nodejs.NodeJSEnv(),
