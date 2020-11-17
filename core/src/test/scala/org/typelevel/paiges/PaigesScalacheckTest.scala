@@ -279,7 +279,7 @@ class PaigesScalacheckTest extends OurFunSuite {
         def loop(s: Iterator[String], acc: List[String]): String =
           if (!s.hasNext) acc.reverse.mkString
           else {
-            val head = s.next
+            val head = s.next()
             if (head.contains('\n'))
               (head.takeWhile(_ != '\n') :: acc).reverse.mkString
             else loop(s, head :: acc)

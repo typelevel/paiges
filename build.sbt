@@ -70,7 +70,10 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
     commonSettings,
     name := "paiges-core",
     moduleName := "paiges-core",
-    mimaPreviousArtifacts := previousArtifact(version.value, "core"),
+    mimaPreviousArtifacts := {
+      if (isDotty.value) Set.empty
+      else previousArtifact(version.value, "core")
+    },
     libraryDependencies ++= Seq(
       "org.scalatestplus" %%% "scalacheck-1-15" % "3.2.3.0" % Test,
       "org.scalatest" %%% "scalatest-funsuite" % "3.2.3" % Test
@@ -96,7 +99,10 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform)
       "org.typelevel" %%% "cats-laws" % "2.3.0-M2" % Test,
       "org.typelevel" %%% "discipline-scalatest" % "2.1.0" % Test
     ),
-    mimaPreviousArtifacts := previousArtifact(version.value, "cats")
+    mimaPreviousArtifacts := {
+      if (isDotty.value) Set.empty
+      else previousArtifact(version.value, "cats")
+    }
   )
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings)

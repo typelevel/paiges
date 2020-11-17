@@ -37,7 +37,7 @@ private[paiges] object Chunk {
 
     class ChunkIterator(var current: ChunkStream) extends Iterator[String] {
       def hasNext: Boolean = current != ChunkStream.Empty
-      def next: String = {
+      def next(): String = {
         val item = current.asInstanceOf[ChunkStream.Item]
         val res = item.stringChunk
         current = item.step
@@ -48,12 +48,12 @@ private[paiges] object Chunk {
     class TrimChunkIterator(var current: ChunkStream) extends Iterator[String] {
       private val lineCombiner = new TrimChunkIterator.LineCombiner
       def hasNext: Boolean = current != ChunkStream.Empty || lineCombiner.nonEmpty
-      def next: String =
+      def next(): String =
         current match {
           case ChunkStream.Empty => lineCombiner.finalLine()
           case item: ChunkStream.Item =>
             current = item.step
-            lineCombiner.addItem(item).getOrElse(next)
+            lineCombiner.addItem(item).getOrElse(next())
         }
     }
 
