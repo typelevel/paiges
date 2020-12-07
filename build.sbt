@@ -37,7 +37,8 @@ ThisBuild / githubWorkflowBuild := Seq(
                    cond = Some(JvmCond + " && " + Scala212Cond)
   ),
   WorkflowStep.Sbt(List("coverage", "jvm/checkCI", "docs/tut", "coverageReport"),
-                   name = Some("Validate JVM (scala 2)")
+                   name = Some("Validate JVM (scala 2)"),
+                   cond = Some(JvmCond + " && " + Scala212Cond)
   ),
   WorkflowStep.Run(List("codecov"),
                    name = Some("Upload Codecov Results"),

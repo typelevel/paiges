@@ -72,6 +72,7 @@ jobs:
         run: pip install codecov
 
       - name: Validate JVM (scala 2)
+        if: matrix.platform == 'jvm' && matrix.scala == '2.12.12'
         run: sbt ++${{ matrix.scala }} coverage jvm/checkCI docs/tut coverageReport
 
       - name: Upload Codecov Results
