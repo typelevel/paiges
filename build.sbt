@@ -32,7 +32,7 @@ ThisBuild / githubWorkflowBuild := Seq(
                    params = Map("python-version" -> "3.x"),
                    cond = Some(JvmCond + " && " + Scala212Cond)
   ),
-  WorkflowStep.Run(List("pip install --user codecov"),
+  WorkflowStep.Run(List("pip install codecov"),
                    name = Some("Setup codecov"),
                    cond = Some(JvmCond + " && " + Scala212Cond)
   ),
