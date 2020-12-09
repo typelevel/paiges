@@ -1,8 +1,74 @@
 import sbtcrossproject.{crossProject, CrossType}
 
-val Scala212 = "2.12.10"
-val Scala213 = "2.13.1"
+val Scala212 = "2.12.12"
+val Scala213 = "2.13.4"
 val Scala3 = "3.0.0-M1"
+
+ThisBuild / crossScalaVersions := Seq(Scala213, Scala212)
+ThisBuild / scalaVersion := Scala213
+
+ThisBuild / githubWorkflowJavaVersions := Seq("adopt@1.11")
+
+ThisBuild / githubWorkflowBuildMatrixAdditions += "platform" -> List("jvm", "js")
+
+val JvmCond = s"matrix.platform == 'jvm'"
+val JsCond = s"matrix.platform == 'js'"
+
+val Scala2Cond = s"matrix.scala != '$Scala3'"
+val Scala3Cond = s"matrix.scala == '$Scala3')"
+
+val Scala212Cond = s"matrix.scala == '$Scala212'"
+
+ThisBuild / githubWorkflowBuild := Seq(
+  WorkflowStep.Sbt(List("js/checkCI"), name = Some("Validate JavaScript"), cond = Some(JsCond)),
+  WorkflowStep.Sbt(List("jvm/checkCI"),
+                   name = Some("Validate JVM"),
+                   cond = Some(JvmCond + " && " + s"matrix.scala != '$Scala212'")
+  ),
+  WorkflowStep.Use("actions",
+                   "setup-python",
+                   "v2",
+                   name = Some("Setup Python"),
+                   params = Map("python-version" -> "3.x"),
+                   cond = Some(JvmCond + " && " + Scala212Cond)
+  ),
+  WorkflowStep.Run(List("pip install codecov"),
+                   name = Some("Setup codecov"),
+                   cond = Some(JvmCond + " && " + Scala212Cond)
+  ),
+  WorkflowStep.Sbt(List("coverage", "jvm/checkCI", "docs/tut", "coverageReport"),
+                   name = Some("Validate JVM (scala 2)"),
+                   cond = Some(JvmCond + " && " + Scala212Cond)
+  ),
+  WorkflowStep.Run(List("codecov"),
+                   name = Some("Upload Codecov Results"),
+                   cond = Some(JvmCond + " && " + Scala212Cond)
+  ),
+  WorkflowStep.Sbt(List("mimaReportBinaryIssues"),
+                   name = Some("Binary compatibility ${{ matrix.scala }}"),
+                   cond = Some(JvmCond + " && " + Scala212Cond)
+  )
+)
+
+ThisBuild / githubWorkflowAddedJobs ++= Seq(
+  WorkflowJob(
+    "checks",
+    "Format Scala code",
+    githubWorkflowJobSetup.value.toList ::: List(
+      WorkflowStep.Sbt(List("scalafmtCheckAll"), cond = Some(JvmCond + " && " + Scala212Cond)),
+      WorkflowStep.Sbt(List("scalafmtSbtCheck"), cond = Some(JvmCond + " && " + Scala212Cond))
+    ),
+    scalas = crossScalaVersions.value.toList
+  )
+)
+
+ThisBuild / githubWorkflowArtifactUpload := false
+
+ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
+ThisBuild / githubWorkflowPublishTargetBranches :=
+  Seq(RefPredicate.StartsWith(Ref.Tag("v")))
+
+ThisBuild / githubWorkflowPublish := Seq(WorkflowStep.Sbt(List("ci-release")))
 
 def scalaVersionSpecificFolders(srcName: String, srcBaseDir: java.io.File, scalaVersion: String) = {
   def extraDirs(suffix: String) =
