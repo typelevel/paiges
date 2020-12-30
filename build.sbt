@@ -163,7 +163,7 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform)
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core" % "2.3.0",
       "org.typelevel" %%% "cats-laws" % "2.3.0" % Test,
-      "org.typelevel" %%% "discipline-scalatest" % "2.1.0" % Test
+      "org.typelevel" %%% "discipline-scalatest" % "2.1.1" % Test
     ),
     mimaPreviousArtifacts := {
       if (isDotty.value) Set.empty
