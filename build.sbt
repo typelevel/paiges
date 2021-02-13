@@ -204,6 +204,12 @@ lazy val docs = project
   )
 
 lazy val commonSettings = Seq(
+  publishTo := {
+    if ((ThisBuild / isVersionStable).value)
+      Some("Releases".at("https://oss.sonatype.org/service/local/staging/deploy/maven2"))
+    else
+      None
+  },
   // The validation steps that we run in CI.
   TaskKey[Unit]("checkCI") := Def
     .sequential(
