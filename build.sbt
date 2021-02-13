@@ -95,22 +95,26 @@ inThisBuild(
     homepage := Some(url("https://github.com/typelevel/paiges")),
     pomExtra := (
       <developers>
-      <developer>
-        <id>johnynek</id>
-        <name>Oscar Boykin</name>
-        <url>http://github.com/johnynek/</url>
-      </developer>
-      <developer>
-        <id>coltfred</id>
-        <name>Colt Frederickson</name>
-        <url>http://github.com/coltfred/</url>
-      </developer>
-      <developer>
-        <id>non</id>
-        <name>Erik Osheim</name>
-        <url>http://github.com/non/</url>
-      </developer>
-    </developers>
+        <developer>
+          <id>johnynek</id>
+          <name>Oscar Boykin</name>
+          <url>http://github.com/johnynek/</url>
+        </developer>
+        <developer>
+          <id>coltfred</id>
+          <name>Colt Frederickson</name>
+          <url>http://github.com/coltfred/</url>
+        </developer>
+        <developer>
+          <id>non</id>
+          <name>Erik Osheim</name>
+          <url>http://github.com/non/</url>
+        </developer>
+      </developers>
+      <scm>
+        <url>https://github.com/typelevel/paiges</url>
+        <connection>scm:git:git://github.com/typelevel/paiges.git</connection>
+      </scm>
     ),
     coverageMinimum := 60,
     coverageFailOnMinimum := false
