@@ -26,9 +26,7 @@ ThisBuild / githubWorkflowBuild := Seq(
                    name = Some("Validate JVM"),
                    cond = Some(JvmCond + " && " + s"matrix.scala != '$Scala212'")
   ),
-  WorkflowStep.Use("actions",
-                   "setup-python",
-                   "v2",
+  WorkflowStep.Use(UseRef.Public("actions", "setup-python", "v2"),
                    name = Some("Setup Python"),
                    params = Map("python-version" -> "3.x"),
                    cond = Some(JvmCond + " && " + Scala212Cond)
