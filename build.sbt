@@ -44,10 +44,11 @@ ThisBuild / githubWorkflowBuild := Seq(
                    name = Some("Upload Codecov Results"),
                    cond = Some(JvmCond + " && " + Scala212Cond)
   ),
-  WorkflowStep.Sbt(List("mimaReportBinaryIssues"),
+  // disabled temporarily
+  /*WorkflowStep.Sbt(List("mimaReportBinaryIssues"),
                    name = Some("Binary compatibility ${{ matrix.scala }}"),
                    cond = Some(JvmCond + " && " + Scala212Cond)
-  )
+  )*/
 )
 
 ThisBuild / githubWorkflowAddedJobs ++= Seq(
@@ -64,11 +65,11 @@ ThisBuild / githubWorkflowAddedJobs ++= Seq(
 
 ThisBuild / githubWorkflowArtifactUpload := false
 
+ThisBuild / githubWorkflowPublish := Seq()
+
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches :=
   Seq(RefPredicate.StartsWith(Ref.Tag("v")))
-
-ThisBuild / githubWorkflowPublish := Seq(WorkflowStep.Sbt(List("ci-release")))
 
 def scalaVersionSpecificFolders(srcName: String, srcBaseDir: java.io.File, scalaVersion: String) = {
   def extraDirs(suffix: String) =
@@ -160,9 +161,9 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform)
     name := "paiges-cats",
     moduleName := "paiges-cats",
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core" % "2.3.1",
-      "org.typelevel" %%% "cats-laws" % "2.3.1" % Test,
-      "org.typelevel" %%% "discipline-scalatest" % "2.1.0" % Test
+      "org.typelevel" %%% "cats-core" % "2.3.0",
+      "org.typelevel" %%% "cats-laws" % "2.3.0" % Test,
+      "org.typelevel" %%% "discipline-scalatest" % "2.1.1" % Test
     ),
     mimaPreviousArtifacts := {
       if (isDotty.value) Set.empty
