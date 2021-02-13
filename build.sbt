@@ -45,11 +45,10 @@ ThisBuild / githubWorkflowBuild := Seq(
                    name = Some("Upload Codecov Results"),
                    cond = Some(JvmCond + " && " + Scala212Cond)
   ),
-  // disabled temporarily
-  /*WorkflowStep.Sbt(List("mimaReportBinaryIssues"),
+  WorkflowStep.Sbt(List("mimaReportBinaryIssues"),
                    name = Some("Binary compatibility ${{ matrix.scala }}"),
                    cond = Some(JvmCond + " && " + Scala212Cond)
-  )*/
+  )
 )
 
 ThisBuild / githubWorkflowAddedJobs ++= Seq(

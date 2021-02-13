@@ -84,6 +84,10 @@ jobs:
         if: matrix.platform == 'jvm' && matrix.scala == '2.12.12'
         run: codecov
 
+      - name: Binary compatibility ${{ matrix.scala }}
+        if: matrix.platform == 'jvm' && matrix.scala == '2.12.12'
+        run: sbt ++${{ matrix.scala }} mimaReportBinaryIssues
+
   publish:
     name: Publish Artifacts
     needs: [build]
