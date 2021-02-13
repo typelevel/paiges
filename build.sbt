@@ -2,20 +2,21 @@ import sbtcrossproject.{crossProject, CrossType}
 
 val Scala212 = "2.12.12"
 val Scala213 = "2.13.4"
-val Scala3 = "3.0.0-M3"
 
-ThisBuild / crossScalaVersions := Seq(Scala213, Scala212)
+ThisBuild / crossScalaVersions := Seq(Scala213, Scala212, "3.0.0-M2", "3.0.0-M3")
 ThisBuild / scalaVersion := Scala213
 
 ThisBuild / githubWorkflowJavaVersions := Seq("adopt@1.11")
 
 ThisBuild / githubWorkflowBuildMatrixAdditions += "platform" -> List("jvm", "js")
 
+ThisBuild / githubWorkflowBuildMatrixExclusions ++=
+  (ThisBuild / crossScalaVersions).value.filter(_.startsWith("3.")).map { dottyVersion =>
+    MatrixExclude(Map("platform" -> "js", "scala" -> dottyVersion))
+  }
+
 val JvmCond = s"matrix.platform == 'jvm'"
 val JsCond = s"matrix.platform == 'js'"
-
-val Scala2Cond = s"matrix.scala != '$Scala3'"
-val Scala3Cond = s"matrix.scala == '$Scala3')"
 
 val Scala212Cond = s"matrix.scala == '$Scala212'"
 
@@ -161,8 +162,8 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform)
     name := "paiges-cats",
     moduleName := "paiges-cats",
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core" % "2.3.0",
-      "org.typelevel" %%% "cats-laws" % "2.3.0" % Test,
+      "org.typelevel" %%% "cats-core" % "2.4.1",
+      "org.typelevel" %%% "cats-laws" % "2.4.1" % Test,
       "org.typelevel" %%% "discipline-scalatest" % "2.1.1" % Test
     ),
     mimaPreviousArtifacts := {
@@ -246,16 +247,22 @@ lazy val commonSettings = Seq(
     }
   ),
   Compile / unmanagedSourceDirectories ++= scalaVersionSpecificFolders("main", baseDirectory.value, scalaVersion.value),
-  Test / unmanagedSourceDirectories ++= scalaVersionSpecificFolders("test", baseDirectory.value, scalaVersion.value)
+  Test / unmanagedSourceDirectories ++= scalaVersionSpecificFolders("test", baseDirectory.value, scalaVersion.value),
+  Compile / doc / sources := {
+    val old = (Compile / doc / sources).value
+    if (isDotty.value)
+      Seq()
+    else
+      old
+  }
 )
 
 lazy val commonJvmSettings = Seq(
-  crossScalaVersions := Seq(Scala212, Scala213, Scala3),
   testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oDF")
 )
 
 lazy val commonJsSettings = Seq(
-  crossScalaVersions := Seq(Scala212, Scala213),
+  crossScalaVersions := crossScalaVersions.value.filter(_.startsWith("2.")),
   scalaJSStage in Global := FastOptStage,
   parallelExecution := false,
   jsEnv := new org.scalajs.jsenv.nodejs.NodeJSEnv(),
