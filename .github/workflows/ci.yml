@@ -23,14 +23,12 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.5, 2.12.12, 3.0.0-M2, 3.0.0-M3]
+        scala: [2.13.5, 2.12.13, 3.0.0-RC2]
         java: [adopt@1.11]
-        platform: [jvm, js]
+        platform: [jvm, js, native]
         exclude:
-          - platform: js
-            scala: 3.0.0-M2
-          - platform: js
-            scala: 3.0.0-M3
+          - platform: native
+            scala: 3.0.0-RC2
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout current branch (full)
@@ -62,30 +60,34 @@ jobs:
         if: matrix.platform == 'js'
         run: sbt ++${{ matrix.scala }} js/checkCI
 
+      - name: Validate Native
+        if: matrix.platform == 'native'
+        run: sbt ++${{ matrix.scala }} native/checkCI
+
       - name: Validate JVM
-        if: matrix.platform == 'jvm' && matrix.scala != '2.12.12'
+        if: matrix.platform == 'jvm' && matrix.scala != '2.12.13'
         run: sbt ++${{ matrix.scala }} jvm/checkCI
 
       - name: Setup Python
-        if: matrix.platform == 'jvm' && matrix.scala == '2.12.12'
+        if: matrix.platform == 'jvm' && matrix.scala == '2.12.13'
         uses: actions/setup-python@v2
         with:
           python-version: 3.x
 
       - name: Setup codecov
-        if: matrix.platform == 'jvm' && matrix.scala == '2.12.12'
+        if: matrix.platform == 'jvm' && matrix.scala == '2.12.13'
         run: pip install codecov
 
       - name: Validate JVM (scala 2)
-        if: matrix.platform == 'jvm' && matrix.scala == '2.12.12'
-        run: sbt ++${{ matrix.scala }} coverage jvm/checkCI docs/mdoc coverageReport
+        if: matrix.platform == 'jvm' && matrix.scala == '2.12.13'
+        run: sbt ++${{ matrix.scala }} jvm/checkCI docs/mdoc
 
       - name: Upload Codecov Results
-        if: matrix.platform == 'jvm' && matrix.scala == '2.12.12'
+        if: matrix.platform == 'jvm' && matrix.scala == '2.12.13'
         run: codecov
 
       - name: Binary compatibility ${{ matrix.scala }}
-        if: matrix.platform == 'jvm' && matrix.scala == '2.12.12'
+        if: matrix.platform == 'jvm' && matrix.scala == '2.12.13'
         run: sbt ++${{ matrix.scala }} mimaReportBinaryIssues
 
   publish:
@@ -126,7 +128,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.5, 2.12.12, 3.0.0-M2, 3.0.0-M3]
+        scala: [2.13.5, 2.12.13, 3.0.0-RC2]
         java: [adopt@1.8]
     runs-on: ${{ matrix.os }}
     steps:
@@ -152,8 +154,8 @@ jobs:
             ~/Library/Caches/Coursier/v1
           key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
 
-      - if: matrix.platform == 'jvm' && matrix.scala == '2.12.12'
+      - if: matrix.platform == 'jvm' && matrix.scala == '2.12.13'
         run: sbt ++${{ matrix.scala }} scalafmtCheckAll
 
-      - if: matrix.platform == 'jvm' && matrix.scala == '2.12.12'
+      - if: matrix.platform == 'jvm' && matrix.scala == '2.12.13'
         run: sbt ++${{ matrix.scala }} scalafmtSbtCheck

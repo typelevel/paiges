@@ -1,27 +1,29 @@
 import sbtcrossproject.{crossProject, CrossType}
 
-val Scala212 = "2.12.12"
+val Scala212 = "2.12.13"
 val Scala213 = "2.13.5"
 
-ThisBuild / crossScalaVersions := Seq(Scala213, Scala212, "3.0.0-M2", "3.0.0-M3")
+ThisBuild / crossScalaVersions := Seq(Scala213, Scala212, "3.0.0-RC2")
 ThisBuild / scalaVersion := Scala213
 
 ThisBuild / githubWorkflowJavaVersions := Seq("adopt@1.11")
 
-ThisBuild / githubWorkflowBuildMatrixAdditions += "platform" -> List("jvm", "js")
+ThisBuild / githubWorkflowBuildMatrixAdditions += "platform" -> List("jvm", "js", "native")
 
 ThisBuild / githubWorkflowBuildMatrixExclusions ++=
   (ThisBuild / crossScalaVersions).value.filter(_.startsWith("3.")).map { dottyVersion =>
-    MatrixExclude(Map("platform" -> "js", "scala" -> dottyVersion))
+    MatrixExclude(Map("platform" -> "native", "scala" -> dottyVersion))
   }
 
 val JvmCond = s"matrix.platform == 'jvm'"
 val JsCond = s"matrix.platform == 'js'"
+val NativeCond = s"matrix.platform == 'native'"
 
 val Scala212Cond = s"matrix.scala == '$Scala212'"
 
 ThisBuild / githubWorkflowBuild := Seq(
   WorkflowStep.Sbt(List("js/checkCI"), name = Some("Validate JavaScript"), cond = Some(JsCond)),
+  WorkflowStep.Sbt(List("native/checkCI"), name = Some("Validate Native"), cond = Some(NativeCond)),
   WorkflowStep.Sbt(List("jvm/checkCI"),
                    name = Some("Validate JVM"),
                    cond = Some(JvmCond + " && " + s"matrix.scala != '$Scala212'")
@@ -35,7 +37,8 @@ ThisBuild / githubWorkflowBuild := Seq(
                    name = Some("Setup codecov"),
                    cond = Some(JvmCond + " && " + Scala212Cond)
   ),
-  WorkflowStep.Sbt(List("coverage", "jvm/checkCI", "docs/mdoc", "coverageReport"),
+  // Avoid coverage, see https://github.com/scoverage/sbt-scoverage/issues/319
+  WorkflowStep.Sbt(List(/*"coverage",*/ "jvm/checkCI", "docs/mdoc"/*, "coverageReport"*/),
                    name = Some("Validate JVM (scala 2)"),
                    cond = Some(JvmCond + " && " + Scala212Cond)
   ),
@@ -131,7 +134,12 @@ lazy val js = project
   .settings(noPublish)
   .aggregate(coreJS, catsJS)
 
-lazy val core = crossProject(JSPlatform, JVMPlatform)
+lazy val native = project
+  .in(file(".native"))
+  .settings(noPublish)
+  .aggregate(coreNative, catsNative)
+
+lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .crossType(CrossType.Pure)
   .in(file("core"))
   .settings(
@@ -143,18 +151,20 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
       else previousArtifact(version.value, "core")
     },
     libraryDependencies ++= Seq(
-      "org.scalatestplus" %%% "scalacheck-1-15" % "3.2.3.0" % Test,
-      "org.scalatest" %%% "scalatest-funsuite" % "3.2.3" % Test
+      "org.scalatestplus" %%% "scalacheck-1-15" % "3.2.7.0" % Test,
+      "org.scalatest" %%% "scalatest-funsuite" % "3.2.7" % Test
     )
   )
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings)
   .jvmSettings(commonJvmSettings)
+  .nativeSettings(commonNativeSettings)
 
 lazy val coreJVM = core.jvm
 lazy val coreJS = core.js
+lazy val coreNative = core.native
 
-lazy val cats = crossProject(JSPlatform, JVMPlatform)
+lazy val cats = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .crossType(CrossType.Full)
   .in(file("cats"))
   .dependsOn(core % "compile->compile;test->test")
@@ -163,9 +173,9 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform)
     name := "paiges-cats",
     moduleName := "paiges-cats",
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core" % "2.4.1",
-      "org.typelevel" %%% "cats-laws" % "2.4.1" % Test,
-      "org.typelevel" %%% "discipline-scalatest" % "2.1.1" % Test
+      "org.typelevel" %%% "cats-core" % "2.5.0",
+      "org.typelevel" %%% "cats-laws" % "2.5.0" % Test,
+      "org.typelevel" %%% "discipline-scalatest" % "2.1.3" % Test
     ),
     mimaPreviousArtifacts := {
       if (isDotty.value) Set.empty
@@ -175,9 +185,11 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform)
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings)
   .jvmSettings(commonJvmSettings)
+  .nativeSettings(commonNativeSettings)
 
 lazy val catsJVM = cats.jvm
 lazy val catsJS = cats.js
+lazy val catsNative = cats.native
 
 lazy val benchmark = project
   .in(file("benchmark"))
@@ -270,10 +282,14 @@ lazy val commonJvmSettings = Seq(
 )
 
 lazy val commonJsSettings = Seq(
-  crossScalaVersions := crossScalaVersions.value.filter(_.startsWith("2.")),
   scalaJSStage in Global := FastOptStage,
   parallelExecution := false,
   jsEnv := new org.scalajs.jsenv.nodejs.NodeJSEnv(),
+  coverageEnabled := false
+)
+
+lazy val commonNativeSettings = Seq(
+  crossScalaVersions := crossScalaVersions.value.filter(_.startsWith("2.")),
   coverageEnabled := false
 )
 
