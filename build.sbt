@@ -35,7 +35,7 @@ ThisBuild / githubWorkflowBuild := Seq(
                    name = Some("Setup codecov"),
                    cond = Some(JvmCond + " && " + Scala212Cond)
   ),
-  WorkflowStep.Sbt(List("coverage", "jvm/checkCI", "docs/tut", "coverageReport"),
+  WorkflowStep.Sbt(List("coverage", "jvm/checkCI", "docs/mdoc", "coverageReport"),
                    name = Some("Validate JVM (scala 2)"),
                    cond = Some(JvmCond + " && " + Scala212Cond)
   ),
@@ -192,12 +192,13 @@ lazy val benchmark = project
 lazy val docs = project
   .in(file("docs"))
   .dependsOn(coreJVM, catsJVM)
-  .enablePlugins(TutPlugin)
+  .enablePlugins(MdocPlugin)
   .settings(
     noPublish,
     crossScalaVersions := List(Scala212),
     name := "paiges-docs",
-    scalacOptions in Tut := {
+    mdocIn := baseDirectory.in(LocalRootProject).value / "docs" / "src" / "main" / "mdoc",
+    scalacOptions in mdoc := {
       val testOptions = scalacOptions.in(test).value
       val unwantedOptions = Set("-Xlint", "-Xfatal-warnings")
       testOptions.filterNot(unwantedOptions)

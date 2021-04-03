@@ -8,7 +8,7 @@ Paiges is an implementation of Philip Wadler's
 To get started, you'll want to import `Doc`. This is the basis for
 Paiges, and is likely the only type you'll need to work with:
 
-```tut:book
+```scala mdoc
 import org.typelevel.paiges.Doc
 ```
 
@@ -18,7 +18,7 @@ Many documents are defined in terms of other documents, but to get
 started you'll need to create documents to represent chunks of text.
 Here are three good ways to do it.
 
-```tut:book
+```scala mdoc
 // unbroken text from a String
 val cat = Doc.text("cat")
 
@@ -34,7 +34,7 @@ val doc = Doc.paragraph(
 
 We can use a single line of text to contrast these methods:
 
-```tut:silent
+```scala mdoc:silent
 val howl = "I saw the best minds of my generation destroyed by madness..."
 ```
 
@@ -42,14 +42,14 @@ The first two, `Doc.text` and `Doc.str`, create a fragment of text that
 will always render exactly as shown. This means that if you create a
 very long piece of text, it won't be wrapped to fit smaller widths.
 
-```tut:book
+```scala mdoc
 Doc.text(howl).render(40)
 ```
 
 By contrast, `Doc.paragraph` will add line breaks to make the document
 fit:
 
-```tut:book
+```scala mdoc
 Doc.paragraph(howl).render(40)
 ```
 
@@ -85,7 +85,7 @@ allows Paiges to render at different widths so efficiently.
 Documents are concatenation with `+`. As a convenience, Paiges also
 provides `+:` and `:+` to prepend or append a string.
 
-```tut:book
+```scala mdoc
 val doc1 = Doc.text("my pet is a ") + Doc.text("cat")
 val doc2 = Doc.text("my pet is a ") :+ "cat"
 val doc3 = "my pet is a " +: Doc.text("cat")
@@ -103,7 +103,7 @@ There are also several other types of concatenation (which can all be
 written in terms of `+`). For example, `/` concatenates documents with
 a newline in between:
 
-```tut:book
+```scala mdoc
 // equivalent to Doc.text("first line") + Doc.line + Doc.text("second line")
 val doc5 = Doc.text("first line")  / Doc.text("second line")
 val doc6 = Doc.text("first line")  :/ "second line"
