@@ -78,7 +78,7 @@ jobs:
 
       - name: Validate JVM (scala 2)
         if: matrix.platform == 'jvm' && matrix.scala == '2.12.12'
-        run: sbt ++${{ matrix.scala }} coverage jvm/checkCI docs/tut coverageReport
+        run: sbt ++${{ matrix.scala }} coverage jvm/checkCI docs/mdoc coverageReport
 
       - name: Upload Codecov Results
         if: matrix.platform == 'jvm' && matrix.scala == '2.12.12'
