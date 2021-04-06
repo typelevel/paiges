@@ -67,10 +67,7 @@ ThisBuild / githubWorkflowAddedJobs ++= Seq(
 ThisBuild / githubWorkflowArtifactUpload := false
 
 ThisBuild / githubWorkflowPublish := Seq()
-
-ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
-ThisBuild / githubWorkflowPublishTargetBranches :=
-  Seq(RefPredicate.StartsWith(Ref.Tag("v")))
+ThisBuild / githubWorkflowPublishTargetBranches := Seq()
 
 def scalaVersionSpecificFolders(srcName: String, srcBaseDir: java.io.File, scalaVersion: String) = {
   def extraDirs(suffix: String) =
