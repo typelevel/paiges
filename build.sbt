@@ -37,8 +37,7 @@ ThisBuild / githubWorkflowBuild := Seq(
                    name = Some("Setup codecov"),
                    cond = Some(JvmCond + " && " + Scala212Cond)
   ),
-  // Avoid coverage, see https://github.com/scoverage/sbt-scoverage/issues/319
-  WorkflowStep.Sbt(List(/*"coverage",*/ "jvm/checkCI", "docs/mdoc"/*, "coverageReport"*/),
+  WorkflowStep.Sbt(List("coverage", "jvm/checkCI", "docs/mdoc", "coverageReport"),
                    name = Some("Validate JVM (scala 2)"),
                    cond = Some(JvmCond + " && " + Scala212Cond)
   ),
