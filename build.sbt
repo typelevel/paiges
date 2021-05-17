@@ -1,7 +1,7 @@
 import sbtcrossproject.{crossProject, CrossType}
 
 val Scala212 = "2.12.13"
-val Scala213 = "2.13.5"
+val Scala213 = "2.13.6"
 
 ThisBuild / crossScalaVersions := Seq(Scala213, Scala212, "3.0.0-RC2")
 ThisBuild / scalaVersion := Scala213
