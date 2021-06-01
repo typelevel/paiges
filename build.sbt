@@ -1,9 +1,9 @@
 import sbtcrossproject.{crossProject, CrossType}
 
-val Scala212 = "2.12.13"
+val Scala212 = "2.12.14"
 val Scala213 = "2.13.6"
 
-ThisBuild / crossScalaVersions := Seq(Scala213, Scala212, "3.0.0-RC2")
+ThisBuild / crossScalaVersions := Seq(Scala213, Scala212, "3.0.0")
 ThisBuild / scalaVersion := Scala213
 
 ThisBuild / githubWorkflowJavaVersions := Seq("adopt@1.11")
@@ -143,12 +143,12 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
     name := "paiges-core",
     moduleName := "paiges-core",
     mimaPreviousArtifacts := {
-      if (isDotty.value) Set.empty
+      if (scalaVersion.value.startsWith("3")) Set.empty
       else previousArtifact(version.value, "core")
     },
     libraryDependencies ++= Seq(
-      "org.scalatestplus" %%% "scalacheck-1-15" % "3.2.7.0" % Test,
-      "org.scalatest" %%% "scalatest-funsuite" % "3.2.7" % Test
+      "org.scalatestplus" %%% "scalacheck-1-15" % "3.2.9.0" % Test,
+      "org.scalatest" %%% "scalatest-funsuite" % "3.2.9" % Test
     )
   )
   .disablePlugins(JmhPlugin)
@@ -169,12 +169,12 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform, NativePlatform)
     name := "paiges-cats",
     moduleName := "paiges-cats",
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core" % "2.6.0",
-      "org.typelevel" %%% "cats-laws" % "2.6.0" % Test,
-      "org.typelevel" %%% "discipline-scalatest" % "2.1.3" % Test
+      "org.typelevel" %%% "cats-core" % "2.6.1",
+      "org.typelevel" %%% "cats-laws" % "2.6.1" % Test,
+      "org.typelevel" %%% "discipline-scalatest" % "2.1.5" % Test
     ),
     mimaPreviousArtifacts := {
-      if (isDotty.value) Set.empty
+      if (scalaVersion.value.startsWith("3")) Set.empty
       else previousArtifact(version.value, "cats")
     }
   )
@@ -263,14 +263,7 @@ lazy val commonSettings = Seq(
     }
   ),
   Compile / unmanagedSourceDirectories ++= scalaVersionSpecificFolders("main", baseDirectory.value, scalaVersion.value),
-  Test / unmanagedSourceDirectories ++= scalaVersionSpecificFolders("test", baseDirectory.value, scalaVersion.value),
-  Compile / doc / sources := {
-    val old = (Compile / doc / sources).value
-    if (isDotty.value)
-      Seq()
-    else
-      old
-  }
+  Test / unmanagedSourceDirectories ++= scalaVersionSpecificFolders("test", baseDirectory.value, scalaVersion.value)
 )
 
 lazy val commonJvmSettings = Seq(
