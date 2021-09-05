@@ -18,18 +18,18 @@ and the fact that it helps you layout pages.
 
 ## Quick Start
 
-Paiges supports Scala 2.11, 2.12, and 2.13. It supports both the JVM
-and JS platforms.
+Paiges supports Scala 2.11, 2.12, 2.13, and 3. It supports JVM, Scala.js, 
+and Scala Native platforms.
 
 To use Paiges in your own project, you can include this snippet in
 your `build.sbt` file:
 
 ```scala
 // use this snippet for the JVM
-libraryDependencies += "org.typelevel" %% "paiges-core" % "0.3.0"
+libraryDependencies += "org.typelevel" %% "paiges-core" % "0.4.2"
 
-// use this snippet for JS, or cross-building
-libraryDependencies += "org.typelevel" %%% "paiges-core" % "0.3.0
+// use this snippet for JS, Native, or cross-building
+libraryDependencies += "org.typelevel" %%% "paiges-core" % "0.4.2"
 ```
 
 Paiges also provides types to work with Cats via the *paiges-cats*
@@ -37,10 +37,10 @@ module:
 
 ```scala
 // use this snippet for the JVM
-libraryDependencies += "org.typelevel" %% "paiges-cats" % "0.3.0"
+libraryDependencies += "org.typelevel" %% "paiges-cats" % "0.4.2"
 
-// use this snippet for JS, or cross-building
-libraryDependencies += "org.typelevel" %%% "paiges-cats" % "0.3.0"
+// use this snippet for JS, Native, or cross-building
+libraryDependencies += "org.typelevel" %%% "paiges-cats" % "0.4.2"
 ```
 
 ## Description
@@ -105,7 +105,7 @@ c.render(60)
 // )
 ```
 
-For more examples, see the [tutorial](docs/src/main/tut/intro.md).
+For more examples, see the [tutorial](docs/src/main/mdoc/intro.md).
 
 ## Benchmarks
 
