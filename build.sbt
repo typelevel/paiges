@@ -147,8 +147,8 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
       else previousArtifact(version.value, "core")
     },
     libraryDependencies ++= Seq(
-      "org.scalatestplus" %%% "scalacheck-1-15" % "3.2.9.0" % Test,
-      "org.scalatest" %%% "scalatest-funsuite" % "3.2.10" % Test
+      "org.scalatestplus" %%% "scalacheck-1-15" % "3.2.10.0" % Test,
+      "org.scalatest" %%% "scalatest-funsuite" % "3.2.9" % Test
     )
   )
   .disablePlugins(JmhPlugin)
