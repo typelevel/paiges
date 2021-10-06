@@ -1,4 +1,4 @@
-addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "1.0.0")
+addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "1.0.1")
 addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.7.0")
 addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.2.23" )
 addSbtPlugin("org.xerial.sbt" % "sbt-sonatype" % "3.9.10")
