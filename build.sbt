@@ -3,7 +3,7 @@ import sbtcrossproject.{crossProject, CrossType}
 val Scala212 = "2.12.15"
 val Scala213 = "2.13.6"
 
-ThisBuild / crossScalaVersions := Seq(Scala213, Scala212, "3.0.2")
+ThisBuild / crossScalaVersions := Seq(Scala213, Scala212, "3.1.0")
 ThisBuild / scalaVersion := Scala213
 
 ThisBuild / githubWorkflowJavaVersions := Seq("adopt@1.11")
@@ -147,8 +147,8 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
       else previousArtifact(version.value, "core")
     },
     libraryDependencies ++= Seq(
-      "org.scalatestplus" %%% "scalacheck-1-15" % "3.2.9.0" % Test,
-      "org.scalatest" %%% "scalatest-funsuite" % "3.2.9" % Test
+      "org.scalatestplus" %%% "scalacheck-1-15" % "3.2.10.0" % Test,
+      "org.scalatest" %%% "scalatest-funsuite" % "3.2.10" % Test
     )
   )
   .disablePlugins(JmhPlugin)

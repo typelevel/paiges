@@ -22,12 +22,12 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.6, 2.12.15, 3.0.2]
+        scala: [2.13.6, 2.12.14, 3.1.0]
         java: [adopt@1.11]
         platform: [jvm, js, native]
         exclude:
           - platform: native
-            scala: 3.0.2
+            scala: 3.1.0
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout current branch (full)
@@ -94,7 +94,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.6, 2.12.15, 3.0.2]
+        scala: [2.13.6, 2.12.14, 3.1.0]
         java: [adopt@1.8]
     runs-on: ${{ matrix.os }}
     steps:
