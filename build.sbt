@@ -15,7 +15,6 @@ ThisBuild / developers := List(
   tlGitHubDev("non", "Erik Osheim")
 )
 
-
 def scalaVersionSpecificFolders(srcName: String, srcBaseDir: java.io.File, scalaVersion: String) = {
   def extraDirs(suffix: String) =
     List(CrossType.Pure, CrossType.Full)
@@ -64,7 +63,7 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform, NativePlatform)
       "org.typelevel" %%% "cats-core" % "2.7.0",
       "org.typelevel" %%% "cats-laws" % "2.7.0" % Test,
       "org.typelevel" %%% "discipline-scalatest" % "2.1.5" % Test
-    ),
+    )
   )
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings)
@@ -118,9 +117,6 @@ lazy val commonJvmSettings = Seq(
 )
 
 lazy val commonJsSettings = Seq(
-  Global / scalaJSStage := FastOptStage,
-  parallelExecution := false,
-  jsEnv := new org.scalajs.jsenv.nodejs.NodeJSEnv(),
   coverageEnabled := false
 )
 
