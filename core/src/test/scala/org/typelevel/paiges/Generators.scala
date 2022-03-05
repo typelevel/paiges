@@ -1,3 +1,19 @@
+/*
+ * Copyright 2022 Typelevel
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.typelevel.paiges
 
 import org.scalacheck.Shrink.shrink
@@ -234,6 +250,21 @@ object Generators {
     def combine2[A](a: A, b: A)(f: (A, A) => A)(implicit F: Shrink[A]): Stream[A] = {
       val (sa, sb) = (shrink(a), shrink(b))
       a #:: b #:: interleave(interleave(sa, sb), sa.flatMap(x => sb.map(y => f(x, y))))
+    }
+    Shrink {
+      case FlatAlt(_, b)  => b #:: shrinkDoc.shrink(b)
+      case Union(a, b)    => combine2(a, b)(Union)
+      case Concat(a, b)   => combine2(a, b)(_ + _)
+      case Text(s)        => shrink(s).map(text)
+      case ZeroWidth(s)   => shrink(s).map(zeroWidth)
+      case Nest(i, d)     => interleave(shrink(d), combine(d)(_.nested(i)))
+      case Align(d)       => interleave(shrink(d), combine(d)(_.aligned))
+      case Line | Empty   => Stream.empty
+      case d @ LazyDoc(_) => d.evaluated #:: shrink(d.evaluated)
+    }
+  }
+}
+, sb), sa.flatMap(x => sb.map(y => f(x, y))))
     }
     Shrink {
       case FlatAlt(_, b)  => b #:: shrinkDoc.shrink(b)
