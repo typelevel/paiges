@@ -31,8 +31,6 @@ def scalaVersionSpecificFolders(srcName: String, srcBaseDir: java.io.File, scala
   }
 }
 
-//noPublish
-
 lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .crossType(CrossType.Pure)
   .in(file("core"))
@@ -80,8 +78,8 @@ lazy val catsNative = cats.native
 lazy val benchmark = project
   .in(file("benchmark"))
   .dependsOn(coreJVM, catsJVM)
+  .enablePlugins(NoPublishPlugin)
   .settings(
-    noPublish,
     crossScalaVersions := List(Scala212),
     name := "paiges-benchmark"
   )
@@ -91,8 +89,8 @@ lazy val docs = project
   .in(file("docs"))
   .dependsOn(coreJVM, catsJVM)
   .enablePlugins(MdocPlugin)
+  .enablePlugins(NoPublishPlugin)
   .settings(
-    noPublish,
     crossScalaVersions := List(Scala212),
     name := "paiges-docs",
     mdocIn := (LocalRootProject / baseDirectory).value / "docs" / "src" / "main" / "mdoc"
@@ -130,11 +128,5 @@ lazy val commonNativeSettings = Seq(
   crossScalaVersions := (ThisBuild / crossScalaVersions).value.filter(_.startsWith("2.")),
   // Remove when native is published for the default previous versions
   tlVersionIntroduced := List("2.12", "2.13").map(_ -> "0.4.1").toMap,
-  coverageEnabled := false
-)
-
-lazy val noPublish = commonSettings ++ Seq(
-  publish / skip := true,
-  mimaPreviousArtifacts := Set.empty,
   coverageEnabled := false
 )
