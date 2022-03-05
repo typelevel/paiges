@@ -264,18 +264,3 @@ object Generators {
     }
   }
 }
-, sb), sa.flatMap(x => sb.map(y => f(x, y))))
-    }
-    Shrink {
-      case FlatAlt(_, b)  => b #:: shrinkDoc.shrink(b)
-      case Union(a, b)    => combine2(a, b)(Union)
-      case Concat(a, b)   => combine2(a, b)(_ + _)
-      case Text(s)        => shrink(s).map(text)
-      case ZeroWidth(s)   => shrink(s).map(zeroWidth)
-      case Nest(i, d)     => interleave(shrink(d), combine(d)(_.nested(i)))
-      case Align(d)       => interleave(shrink(d), combine(d)(_.aligned))
-      case Line | Empty   => Stream.empty
-      case d @ LazyDoc(_) => d.evaluated #:: shrink(d.evaluated)
-    }
-  }
-}
