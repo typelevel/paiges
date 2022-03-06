@@ -163,7 +163,7 @@ object Generators {
       n <- Gen.choose(1, max)
       start <- genDoc
       front <- Gen.listOfN(n, genDoc)
-    } yield front.foldLeft(start)(Doc.Concat)
+    } yield front.foldLeft(start)(Doc.Concat(_, _))
 
   def fill(max: Int): Gen[Doc] = {
     // we start at 1 because fill(d, Nil) == Empty
@@ -254,7 +254,7 @@ object Generators {
     }
     Shrink {
       case FlatAlt(_, b)  => b #:: shrinkDoc.shrink(b)
-      case Union(a, b)    => combine2(a, b)(Union)
+      case Union(a, b)    => combine2(a, b)(Union(_, _))
       case Concat(a, b)   => combine2(a, b)(_ + _)
       case Text(s)        => shrink(s).map(text)
       case ZeroWidth(s)   => shrink(s).map(zeroWidth)
