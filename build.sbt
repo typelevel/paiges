@@ -1,10 +1,13 @@
 val Scala212 = "2.12.15"
 val Scala213 = "2.13.8"
+val Scala3Version = "3.1.0"
 
 ThisBuild / tlBaseVersion := "0.4"
 
 ThisBuild / scalaVersion := Scala213
-ThisBuild / crossScalaVersions := Seq(Scala213, Scala212, "3.1.0")
+ThisBuild / crossScalaVersions := Seq(Scala213, Scala212, Scala3Version)
+ThisBuild / githubWorkflowBuildMatrixExclusions +=
+  MatrixExclude(Map("project" -> "rootNative", "scala" -> Scala3Version))
 
 lazy val root = tlCrossRootProject.aggregate(core, cats)
 
