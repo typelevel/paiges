@@ -243,6 +243,7 @@ object Generators {
       if (xs.isEmpty) ys
       else if (ys.isEmpty) xs
       else xs.head #:: ys.head #:: interleave(xs.tail, ys.tail)
+
     def combine[A](a: A)(f: A => A)(implicit F: Shrink[A]): Stream[A] = {
       val sa = shrink(a)
       a #:: interleave(sa, sa.map(f))

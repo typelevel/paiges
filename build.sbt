@@ -9,6 +9,9 @@ ThisBuild / crossScalaVersions := Seq(Scala213, Scala212, Scala3Version)
 ThisBuild / githubWorkflowBuildMatrixExclusions +=
   MatrixExclude(Map("project" -> "rootNative", "scala" -> Scala3Version))
 
+// TODO: 2.13 has warnings for using Stream, but scalacheck Shrink
+ThisBuild / tlFatalWarningsInCi := false
+
 lazy val root = tlCrossRootProject.aggregate(core, cats)
 
 ThisBuild / developers := List(
