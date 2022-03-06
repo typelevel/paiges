@@ -1,72 +1,40 @@
-import sbtcrossproject.{crossProject, CrossType}
-
 val Scala212 = "2.12.15"
 val Scala213 = "2.13.8"
+val Scala3Version = "3.1.0"
 
-ThisBuild / crossScalaVersions := Seq(Scala213, Scala212, "3.1.0")
+ThisBuild / tlBaseVersion := "0.4"
+
 ThisBuild / scalaVersion := Scala213
+ThisBuild / tlVersionIntroduced := Map("3" -> "0.4.2")
+ThisBuild / crossScalaVersions := Seq(Scala213, Scala212, Scala3Version)
+ThisBuild / githubWorkflowBuildMatrixExclusions +=
+  MatrixExclude(Map("project" -> "rootNative", "scala" -> Scala3Version))
 
-ThisBuild / githubWorkflowJavaVersions := Seq("adopt@1.11")
-
-ThisBuild / githubWorkflowBuildMatrixAdditions += "platform" -> List("jvm", "js", "native")
-
-ThisBuild / githubWorkflowBuildMatrixExclusions ++=
-  (ThisBuild / crossScalaVersions).value.filter(_.startsWith("3.")).map { dottyVersion =>
-    MatrixExclude(Map("platform" -> "native", "scala" -> dottyVersion))
-  }
-
-val JvmCond = s"matrix.platform == 'jvm'"
-val JsCond = s"matrix.platform == 'js'"
-val NativeCond = s"matrix.platform == 'native'"
-
-val Scala212Cond = s"matrix.scala == '$Scala212'"
-
-ThisBuild / githubWorkflowBuild := Seq(
-  WorkflowStep.Sbt(List("js/checkCI"), name = Some("Validate JavaScript"), cond = Some(JsCond)),
-  WorkflowStep.Sbt(List("native/checkCI"), name = Some("Validate Native"), cond = Some(NativeCond)),
-  WorkflowStep.Sbt(List("jvm/checkCI"),
-                   name = Some("Validate JVM"),
-                   cond = Some(JvmCond + " && " + s"matrix.scala != '$Scala212'")
-  ),
-  WorkflowStep.Use(UseRef.Public("actions", "setup-python", "v2"),
-                   name = Some("Setup Python"),
-                   params = Map("python-version" -> "3.x"),
-                   cond = Some(JvmCond + " && " + Scala212Cond)
-  ),
-  WorkflowStep.Run(List("pip install codecov"),
-                   name = Some("Setup codecov"),
-                   cond = Some(JvmCond + " && " + Scala212Cond)
-  ),
-  WorkflowStep.Sbt(List("coverage", "jvm/checkCI", "docs/mdoc", "coverageReport"),
-                   name = Some("Validate JVM (scala 2)"),
-                   cond = Some(JvmCond + " && " + Scala212Cond)
-  ),
-  WorkflowStep.Run(List("codecov"),
-                   name = Some("Upload Codecov Results"),
-                   cond = Some(JvmCond + " && " + Scala212Cond)
-  ),
-  WorkflowStep.Sbt(List("mimaReportBinaryIssues"),
-                   name = Some("Binary compatibility ${{ matrix.scala }}"),
-                   cond = Some(JvmCond + " && " + Scala212Cond)
-  )
-)
-
-ThisBuild / githubWorkflowAddedJobs ++= Seq(
+// Setup coverage
+ThisBuild / githubWorkflowAddedJobs +=
   WorkflowJob(
-    "checks",
-    "Format Scala code",
-    githubWorkflowJobSetup.value.toList ::: List(
-      WorkflowStep.Sbt(List("scalafmtCheckAll"), cond = Some(JvmCond + " && " + Scala212Cond)),
-      WorkflowStep.Sbt(List("scalafmtSbtCheck"), cond = Some(JvmCond + " && " + Scala212Cond))
-    ),
-    scalas = crossScalaVersions.value.toList
+    id = "coverage",
+    name = "Generate coverage report",
+    scalas = List("2.13.8"),
+    steps = List(WorkflowStep.Checkout) ++ WorkflowStep.SetupJava(
+      githubWorkflowJavaVersions.value.toList
+    ) ++ githubWorkflowGeneratedCacheSteps.value ++ List(
+      WorkflowStep.Sbt(List("coverage", "rootJVM/test", "coverageAggregate")),
+      WorkflowStep.Run(List("bash <(curl -s https://codecov.io/bash)"))
+    )
   )
+
+ThisBuild / tlCiReleaseBranches := Seq("master")
+ThisBuild / tlSitePublishBranch := Some("master")
+
+lazy val root = tlCrossRootProject.aggregate(core, cats)
+
+ThisBuild / developers := List(
+  // your GitHub handle and name
+  tlGitHubDev("johnynek", "Oscar Boykin"),
+  tlGitHubDev("coltfred", "Colt Frederickson"),
+  tlGitHubDev("non", "Erik Osheim")
 )
-
-ThisBuild / githubWorkflowArtifactUpload := false
-
-ThisBuild / githubWorkflowPublish := Seq()
-ThisBuild / githubWorkflowPublishTargetBranches := Seq()
 
 def scalaVersionSpecificFolders(srcName: String, srcBaseDir: java.io.File, scalaVersion: String) = {
   def extraDirs(suffix: String) =
@@ -83,58 +51,6 @@ def scalaVersionSpecificFolders(srcName: String, srcBaseDir: java.io.File, scala
   }
 }
 
-inThisBuild(
-  List(
-    organization := "org.typelevel",
-    scalaVersion := Scala213,
-    licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
-    homepage := Some(url("https://github.com/typelevel/paiges")),
-    pomExtra := (
-      <developers>
-        <developer>
-          <id>johnynek</id>
-          <name>Oscar Boykin</name>
-          <url>http://github.com/johnynek/</url>
-        </developer>
-        <developer>
-          <id>coltfred</id>
-          <name>Colt Frederickson</name>
-          <url>http://github.com/coltfred/</url>
-        </developer>
-        <developer>
-          <id>non</id>
-          <name>Erik Osheim</name>
-          <url>http://github.com/non/</url>
-        </developer>
-      </developers>
-      <scm>
-        <url>https://github.com/typelevel/paiges</url>
-        <connection>scm:git:git://github.com/typelevel/paiges.git</connection>
-      </scm>
-    ),
-    coverageMinimum := 60,
-    coverageFailOnMinimum := false
-  )
-)
-
-noPublish
-
-// Aggregate for JVM projects, for example run `jvm/test` to run only JVM tests.
-lazy val jvm = project
-  .in(file(".jvm"))
-  .settings(noPublish)
-  .aggregate(coreJVM, catsJVM)
-
-lazy val js = project
-  .in(file(".js"))
-  .settings(noPublish)
-  .aggregate(coreJS, catsJS)
-
-lazy val native = project
-  .in(file(".native"))
-  .settings(noPublish)
-  .aggregate(coreNative, catsNative)
-
 lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .crossType(CrossType.Pure)
   .in(file("core"))
@@ -142,14 +58,12 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
     commonSettings,
     name := "paiges-core",
     moduleName := "paiges-core",
-    mimaPreviousArtifacts := {
-      if (scalaVersion.value.startsWith("3")) Set.empty
-      else previousArtifact(version.value, "core")
-    },
     libraryDependencies ++= Seq(
       "org.scalatestplus" %%% "scalacheck-1-15" % "3.2.10.0" % Test,
       "org.scalatest" %%% "scalatest-funsuite" % "3.2.11" % Test
-    )
+    ),
+    // TODO: 2.13 has warnings for using Stream, but scalacheck Shrink
+    tlFatalWarningsInCi := scalaVersion.value.startsWith("2.12.")
   )
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings)
@@ -172,11 +86,7 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform, NativePlatform)
       "org.typelevel" %%% "cats-core" % "2.7.0",
       "org.typelevel" %%% "cats-laws" % "2.7.0" % Test,
       "org.typelevel" %%% "discipline-scalatest" % "2.1.5" % Test
-    ),
-    mimaPreviousArtifacts := {
-      if (scalaVersion.value.startsWith("3")) Set.empty
-      else previousArtifact(version.value, "cats")
-    }
+    )
   )
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings)
@@ -190,9 +100,8 @@ lazy val catsNative = cats.native
 lazy val benchmark = project
   .in(file("benchmark"))
   .dependsOn(coreJVM, catsJVM)
+  .enablePlugins(NoPublishPlugin)
   .settings(
-    noPublish,
-    crossScalaVersions := List(Scala212),
     name := "paiges-benchmark"
   )
   .enablePlugins(JmhPlugin)
@@ -200,56 +109,13 @@ lazy val benchmark = project
 lazy val docs = project
   .in(file("docs"))
   .dependsOn(coreJVM, catsJVM)
-  .enablePlugins(MdocPlugin)
+  .enablePlugins(TypelevelSitePlugin)
   .settings(
-    noPublish,
-    crossScalaVersions := List(Scala212),
     name := "paiges-docs",
-    mdocIn := baseDirectory.in(LocalRootProject).value / "docs" / "src" / "main" / "mdoc",
-    scalacOptions in mdoc := {
-      val testOptions = scalacOptions.in(test).value
-      val unwantedOptions = Set("-Xlint", "-Xfatal-warnings")
-      testOptions.filterNot(unwantedOptions)
-    }
+    mdocIn := (LocalRootProject / baseDirectory).value / "docs" / "src" / "main" / "mdoc"
   )
 
 lazy val commonSettings = Seq(
-  publishTo := {
-    if ((ThisBuild / isVersionStable).value)
-      Some("Releases".at("https://oss.sonatype.org/service/local/staging/deploy/maven2"))
-    else
-      None
-  },
-  // The validation steps that we run in CI.
-  TaskKey[Unit]("checkCI") := Def
-    .sequential(
-      test.in(Test),
-      doc.in(Compile),
-      mimaReportBinaryIssues
-    )
-    .value,
-  // scalac options are defined in commonSettings instead of inThisBuild
-  // because we customize the settings based on scalaVersion.
-  scalacOptions ++= Seq(
-    "-deprecation",
-    "-encoding",
-    "UTF-8",
-    "-feature",
-    "-language:existentials",
-    "-language:higherKinds",
-    "-language:implicitConversions",
-    "-language:experimental.macros",
-    "-unchecked",
-    "-Xlint",
-    "-Ywarn-dead-code",
-    "-Ywarn-numeric-widen",
-    "-Ywarn-value-discard"
-  ),
-  // HACK: without these lines, the console is basically unusable,
-  // since all imports are reported as being unused (and then become
-  // fatal errors).
-  scalacOptions in (Compile, console) ~= { _.filterNot("-Xlint" == _) },
-  scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value,
   scalacOptions ++= (
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, n)) if n <= 12 =>
@@ -267,52 +133,16 @@ lazy val commonSettings = Seq(
 )
 
 lazy val commonJvmSettings = Seq(
-  testOptions in Test += Tests.Argument(TestFrameworks.ScalaTest, "-oDF")
+  Test / testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-oDF")
 )
 
 lazy val commonJsSettings = Seq(
-  scalaJSStage in Global := FastOptStage,
-  parallelExecution := false,
-  jsEnv := new org.scalajs.jsenv.nodejs.NodeJSEnv(),
   coverageEnabled := false
 )
 
 lazy val commonNativeSettings = Seq(
-  crossScalaVersions := crossScalaVersions.value.filter(_.startsWith("2.")),
-  coverageEnabled := false
-)
-
-def previousArtifact(version: String, proj: String) = {
-  def mod(x: Int, y: Int, z: Int): ModuleID =
-    "org.typelevel" %% s"paiges-$proj" % s"$x.$y.$z"
-
-  // the "-dbuild..." part is for Scala community build friendliness
-  val regex = "([0-9]+)\\.([0-9]+)\\.([0-9]+)(-SNAPSHOT|-dbuild[a-z0-9]*|\\+.*)?".r
-  version match {
-    case regex(smajor, sminor, spatch, suffix) =>
-      val (major, minor, patch) = (smajor.toInt, sminor.toInt, spatch.toInt)
-
-      // unless we're in a 0.x release, we need to ensure that our
-      // minor version is compatible with previous minor versions.
-      //
-      // for example, 4.1.1 should be compatible with 4.1.0 and also
-      // with 4.0.0.
-      //
-      // ideally we'd want to ensure that 4.1.1 was compatible with
-      // the latest 4.0.x release (e.g. 4.0.13) but that would require
-      // parsing our full release history; currently the algorithm is
-      // only based on the current version.
-      val minors = if (major > 0) (0 until minor).toSet else Set.empty
-      val patches = (0 until patch).toSet
-      val current = if (suffix != null && suffix.startsWith("+")) Set(mod(major, minor, patch)) else Set.empty[ModuleID]
-      minors.map(mod(major, _, 0)) | patches.map(mod(major, minor, _)) | current
-    case _ =>
-      throw new RuntimeException(s"Could not parse Paiges version: $version")
-  }
-}
-
-lazy val noPublish = commonSettings ++ Seq(
-  skip in publish := true,
-  mimaPreviousArtifacts := Set.empty,
+  crossScalaVersions := (ThisBuild / crossScalaVersions).value.filter(_.startsWith("2.")),
+  // Remove when native is published for the default previous versions
+  tlVersionIntroduced := List("2.12", "2.13").map(_ -> "0.4.1").toMap,
   coverageEnabled := false
 )

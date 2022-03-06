@@ -1,3 +1,19 @@
+/*
+ * Copyright 2022 Typelevel
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.typelevel.paiges
 
 import org.scalacheck.Shrink.shrink
@@ -147,7 +163,7 @@ object Generators {
       n <- Gen.choose(1, max)
       start <- genDoc
       front <- Gen.listOfN(n, genDoc)
-    } yield front.foldLeft(start)(Doc.Concat)
+    } yield front.foldLeft(start)(Doc.Concat(_, _))
 
   def fill(max: Int): Gen[Doc] = {
     // we start at 1 because fill(d, Nil) == Empty
@@ -227,6 +243,7 @@ object Generators {
       if (xs.isEmpty) ys
       else if (ys.isEmpty) xs
       else xs.head #:: ys.head #:: interleave(xs.tail, ys.tail)
+
     def combine[A](a: A)(f: A => A)(implicit F: Shrink[A]): Stream[A] = {
       val sa = shrink(a)
       a #:: interleave(sa, sa.map(f))
@@ -237,7 +254,7 @@ object Generators {
     }
     Shrink {
       case FlatAlt(_, b)  => b #:: shrinkDoc.shrink(b)
-      case Union(a, b)    => combine2(a, b)(Union)
+      case Union(a, b)    => combine2(a, b)(Union(_, _))
       case Concat(a, b)   => combine2(a, b)(_ + _)
       case Text(s)        => shrink(s).map(text)
       case ZeroWidth(s)   => shrink(s).map(zeroWidth)

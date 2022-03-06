@@ -1,3 +1,19 @@
+/*
+ * Copyright 2022 Typelevel
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.typelevel.paiges
 
 import scala.annotation.tailrec
@@ -133,11 +149,11 @@ private[paiges] object Chunk {
     if (trim) new TrimChunkIterator(stream) else new ChunkIterator(stream)
   }
 
-  //$COVERAGE-OFF$
+  // $COVERAGE-OFF$
   // code of the form `final val x = ...` is inlined. we never
   // access this field at runtime, but it is still used.
   final private[this] val indentMax = 100
-  //$COVERAGE-ON$
+  // $COVERAGE-ON$
 
   private[this] def makeIndentStr(i: Int): String = "\n" + (" " * i)
 

@@ -7,7 +7,7 @@ Paiges is an implementation of
 
 The library is useful any time you find yourself generating text or
 source code where you'd like to control the length of lines (e.g.
-paragraph wrapping).
+paragraph wrapping). See the [documentation site](http://typelevel.org/paiges/) for some examples.
 
 The name *Paiges* is a reference to the [Paige compositor](https://en.wikipedia.org/wiki/Paige_Compositor)
 and the fact that it helps you layout pages.
@@ -105,7 +105,7 @@ c.render(60)
 // )
 ```
 
-For more examples, see the [tutorial](docs/src/main/mdoc/intro.md).
+For more examples, see the [tutorial](docs/src/main/mdoc/index.md).
 
 ## Benchmarks
 
