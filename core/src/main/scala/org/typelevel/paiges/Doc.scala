@@ -1,3 +1,19 @@
+/*
+ * Copyright 2022 Typelevel
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.typelevel.paiges
 
 import java.io.PrintWriter
@@ -234,7 +250,7 @@ sealed abstract class Doc extends Product with Serializable {
           // minor optimization to short circuit sooner
           s.isEmpty && loop(a, stack)
         case Concat(a, b) => loop(a, b :: stack)
-        case Nest(i, d)   => loop(d, stack)
+        case Nest(_, d)   => loop(d, stack)
         case Align(d)     => loop(d, stack)
         case Text(s)      =>
           // shouldn't be empty by construction, but defensive
@@ -318,13 +334,13 @@ sealed abstract class Doc extends Product with Serializable {
     def loop(pos: Int, lst: List[(Int, Doc)]): LazyList[String] =
       lst match {
         case Nil                      => LazyList.empty
-        case (i, Empty) :: z          => loop(pos, z)
+        case (_, Empty) :: z          => loop(pos, z)
         case (i, FlatAlt(a, _)) :: z  => loop(pos, (i, a) :: z)
         case (i, Concat(a, b)) :: z   => loop(pos, (i, a) :: (i, b) :: z)
         case (i, Nest(j, d)) :: z     => loop(pos, ((i + j), d) :: z)
-        case (i, Align(d)) :: z       => loop(pos, (pos, d) :: z)
-        case (i, Text(s)) :: z        => s #:: cheat(pos + s.length, z)
-        case (i, ZeroWidth(s)) :: z   => s #:: cheat(pos, z)
+        case (_, Align(d)) :: z       => loop(pos, (pos, d) :: z)
+        case (_, Text(s)) :: z        => s #:: cheat(pos + s.length, z)
+        case (_, ZeroWidth(s)) :: z   => s #:: cheat(pos, z)
         case (i, Line) :: z           => Chunk.lineToStr(i) #:: cheat(i, z)
         case (i, d @ LazyDoc(_)) :: z => loop(pos, (i, d.evaluated) :: z)
         case (i, Union(a, _)) :: z    =>
@@ -599,13 +615,13 @@ sealed abstract class Doc extends Product with Serializable {
     def loop(pos: Int, lst: List[(Int, Doc)], max: Int): Int =
       lst match {
         case Nil                           => math.max(max, pos)
-        case (i, Empty) :: z               => loop(pos, z, max)
+        case (_, Empty) :: z               => loop(pos, z, max)
         case (i, FlatAlt(default, _)) :: z => loop(pos, (i, default) :: z, max)
         case (i, Concat(a, b)) :: z        => loop(pos, (i, a) :: (i, b) :: z, max)
         case (i, Nest(j, d)) :: z          => loop(pos, ((i + j), d) :: z, max)
-        case (i, Align(d)) :: z            => loop(pos, (pos, d) :: z, max)
-        case (i, Text(s)) :: z             => loop(pos + s.length, z, max)
-        case (i, ZeroWidth(_)) :: z        => loop(pos, z, max)
+        case (_, Align(d)) :: z            => loop(pos, (pos, d) :: z, max)
+        case (_, Text(s)) :: z             => loop(pos + s.length, z, max)
+        case (_, ZeroWidth(_)) :: z        => loop(pos, z, max)
         case (i, Line) :: z                => loop(i, z, math.max(max, pos))
         case (i, d @ LazyDoc(_)) :: z      => loop(pos, (i, d.evaluated) :: z, max)
         case (i, Union(a, _)) :: z         =>
