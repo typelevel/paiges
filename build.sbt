@@ -46,7 +46,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
       "org.scalatest" %%% "scalatest-funsuite" % "3.2.11" % Test
     ),
     // TODO: 2.13 has warnings for using Stream, but scalacheck Shrink
-    Test / tlFatalWarningsInCi := false
+    tlFatalWarningsInCi := scalaVersion.value.startsWith("2.12.")
   )
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings)
