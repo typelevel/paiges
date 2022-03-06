@@ -105,7 +105,7 @@ c.render(60)
 // )
 ```
 
-For more examples, see the [tutorial](docs/src/main/mdoc/intro.md).
+For more examples, see the [tutorial](docs/src/main/mdoc/index.md).
 
 ## Benchmarks
 

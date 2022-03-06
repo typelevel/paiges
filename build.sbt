@@ -10,6 +10,22 @@ ThisBuild / crossScalaVersions := Seq(Scala213, Scala212, Scala3Version)
 ThisBuild / githubWorkflowBuildMatrixExclusions +=
   MatrixExclude(Map("project" -> "rootNative", "scala" -> Scala3Version))
 
+// Setup coverage
+ThisBuild / githubWorkflowAddedJobs +=
+  WorkflowJob(
+    id = "coverage",
+    name = "Generate coverage report",
+    scalas = List("2.13.8"),
+    steps = List(WorkflowStep.Checkout) ++ WorkflowStep.SetupJava(
+      githubWorkflowJavaVersions.value.toList
+    ) ++ githubWorkflowGeneratedCacheSteps.value ++ List(
+      WorkflowStep.Sbt(List("coverage", "rootJVM/test", "coverageAggregate")),
+      WorkflowStep.Run(List("bash <(curl -s https://codecov.io/bash)"))
+    )
+  )
+
+ThisBuild / tlCiReleaseBranches := Seq("master")
+
 lazy val root = tlCrossRootProject.aggregate(core, cats)
 
 ThisBuild / developers := List(
@@ -93,8 +109,7 @@ lazy val benchmark = project
 lazy val docs = project
   .in(file("docs"))
   .dependsOn(coreJVM, catsJVM)
-  .enablePlugins(MdocPlugin)
-  .enablePlugins(NoPublishPlugin)
+  .enablePlugins(TypelevelSitePlugin)
   .settings(
     crossScalaVersions := List(Scala212),
     name := "paiges-docs",
