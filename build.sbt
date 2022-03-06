@@ -25,6 +25,7 @@ ThisBuild / githubWorkflowAddedJobs +=
   )
 
 ThisBuild / tlCiReleaseBranches := Seq("master")
+ThisBuild / tlSitePublishBranch := Some("master")
 
 lazy val root = tlCrossRootProject.aggregate(core, cats)
 
@@ -101,7 +102,6 @@ lazy val benchmark = project
   .dependsOn(coreJVM, catsJVM)
   .enablePlugins(NoPublishPlugin)
   .settings(
-    crossScalaVersions := List(Scala212),
     name := "paiges-benchmark"
   )
   .enablePlugins(JmhPlugin)
@@ -111,7 +111,6 @@ lazy val docs = project
   .dependsOn(coreJVM, catsJVM)
   .enablePlugins(TypelevelSitePlugin)
   .settings(
-    crossScalaVersions := List(Scala212),
     name := "paiges-docs",
     mdocIn := (LocalRootProject / baseDirectory).value / "docs" / "src" / "main" / "mdoc"
   )

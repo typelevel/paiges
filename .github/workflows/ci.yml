@@ -338,7 +338,7 @@ jobs:
         run: sbt '++${{ matrix.scala }}' docs/tlSite
 
       - name: Publish site
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
         uses: peaceiris/actions-gh-pages@v3.8.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
