@@ -96,15 +96,15 @@ jobs:
         run: sbt 'project ${{ matrix.project }}' '++${{ matrix.scala }}' doc
 
       - name: Make target directories
-        if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')
+        if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master')
         run: mkdir -p target cats/native/target .js/target core/.native/target docs/target core/.js/target core/.jvm/target .jvm/target .native/target cats/js/target cats/jvm/target benchmark/target project/target
 
       - name: Compress target directories
-        if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')
+        if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master')
         run: tar cf targets.tar target cats/native/target .js/target core/.native/target docs/target core/.js/target core/.jvm/target .jvm/target .native/target cats/js/target cats/jvm/target benchmark/target project/target
 
       - name: Upload target directories
-        if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')
+        if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master')
         uses: actions/upload-artifact@v2
         with:
           name: target-${{ matrix.os }}-${{ matrix.java }}-${{ matrix.scala }}-${{ matrix.project }}
@@ -113,7 +113,7 @@ jobs:
   publish:
     name: Publish Artifacts
     needs: [build]
-    if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')
+    if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master')
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -247,3 +247,100 @@ jobs:
 
       - name: Publish
         run: sbt '++${{ matrix.scala }}' tlRelease
+
+  coverage:
+    name: Generate coverage report
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.8]
+        java: [temurin@11]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout current branch (fast)
+        uses: actions/checkout@v2
+
+      - name: Download Java (temurin@8)
+        id: download-java-temurin-8
+        if: matrix.java == 'temurin@8'
+        uses: typelevel/download-java@v1
+        with:
+          distribution: temurin
+          java-version: 8
+
+      - name: Setup Java (temurin@8)
+        if: matrix.java == 'temurin@8'
+        uses: actions/setup-java@v2
+        with:
+          distribution: jdkfile
+          java-version: 8
+          jdkFile: ${{ steps.download-java-temurin-8.outputs.jdkFile }}
+
+      - name: Cache sbt
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.sbt
+            ~/.ivy2/cache
+            ~/.coursier/cache/v1
+            ~/.cache/coursier/v1
+            ~/AppData/Local/Coursier/Cache/v1
+            ~/Library/Caches/Coursier/v1
+          key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
+
+      - run: sbt '++${{ matrix.scala }}' coverage rootJVM/test coverageAggregate
+
+      - run: 'bash <(curl -s https://codecov.io/bash)'
+
+  site:
+    name: Generate Site
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.8]
+        java: [temurin@8]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout current branch (full)
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Download Java (temurin@8)
+        id: download-java-temurin-8
+        if: matrix.java == 'temurin@8'
+        uses: typelevel/download-java@v1
+        with:
+          distribution: temurin
+          java-version: 8
+
+      - name: Setup Java (temurin@8)
+        if: matrix.java == 'temurin@8'
+        uses: actions/setup-java@v2
+        with:
+          distribution: jdkfile
+          java-version: 8
+          jdkFile: ${{ steps.download-java-temurin-8.outputs.jdkFile }}
+
+      - name: Cache sbt
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.sbt
+            ~/.ivy2/cache
+            ~/.coursier/cache/v1
+            ~/.cache/coursier/v1
+            ~/AppData/Local/Coursier/Cache/v1
+            ~/Library/Caches/Coursier/v1
+          key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
+
+      - name: Generate site
+        run: sbt '++${{ matrix.scala }}' docs/tlSite
+
+      - name: Publish site
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v3.8.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs/target/docs/site
+          keep_files: true
