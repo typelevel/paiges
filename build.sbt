@@ -41,11 +41,11 @@ def scalaVersionSpecificFolders(srcName: String, srcBaseDir: java.io.File, scala
     List(CrossType.Pure, CrossType.Full)
       .flatMap(_.sharedSrcDir(srcBaseDir, srcName).toList.map(f => file(f.getPath + suffix)))
   CrossVersion.partialVersion(scalaVersion) match {
-    case Some((2, y)) if y <= 12 =>
+    case Some(2, y) if y <= 12 =>
       extraDirs("-2.12-")
-    case Some((2, y)) if y >= 13 =>
+    case Some(2, y) if y >= 13 =>
       extraDirs("-2.13+")
-    case Some((3, _)) =>
+    case Some(3, _) =>
       extraDirs("-2.13+")
     case _ => Nil
   }
@@ -118,7 +118,7 @@ lazy val docs = project
 lazy val commonSettings = Seq(
   scalacOptions ++= (
     CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, n)) if n <= 12 =>
+      case Some(2, n) if n <= 12 =>
         Seq(
           "-Xfatal-warnings",
           "-Yno-adapted-args",

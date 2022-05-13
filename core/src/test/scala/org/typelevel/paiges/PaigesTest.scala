@@ -136,7 +136,7 @@ class PaigesTest extends AnyFunSuite {
 
   test("nested test") {
     assert(
-      (text("yo") + (text("yo\nho\nho").nested(2))).render(100) ==
+      (text("yo") + text("yo\nho\nho").nested(2)).render(100) ==
         """yoyo
   ho
   ho"""
@@ -254,7 +254,7 @@ the spaces""")
   test("test json array example") {
     val items = (0 to 20).map(Doc.str(_))
     val parts = Doc.fill(Doc.comma + Doc.line, items)
-    val ary = "[" +: ((parts :+ "]").aligned)
+    val ary = "[" +: (parts :+ "]").aligned
     assert(ary.renderWideStream.mkString == (0 to 20).mkString("[", ", ", "]"))
     val expect = """[0, 1, 2, 3, 4, 5,
                    | 6, 7, 8, 9, 10, 11,

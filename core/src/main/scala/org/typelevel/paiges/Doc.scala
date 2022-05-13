@@ -333,17 +333,17 @@ sealed abstract class Doc extends Product with Serializable {
     @tailrec
     def loop(pos: Int, lst: List[(Int, Doc)]): LazyList[String] =
       lst match {
-        case Nil                      => LazyList.empty
-        case (_, Empty) :: z          => loop(pos, z)
-        case (i, FlatAlt(a, _)) :: z  => loop(pos, (i, a) :: z)
-        case (i, Concat(a, b)) :: z   => loop(pos, (i, a) :: (i, b) :: z)
-        case (i, Nest(j, d)) :: z     => loop(pos, ((i + j), d) :: z)
-        case (_, Align(d)) :: z       => loop(pos, (pos, d) :: z)
-        case (_, Text(s)) :: z        => s #:: cheat(pos + s.length, z)
-        case (_, ZeroWidth(s)) :: z   => s #:: cheat(pos, z)
-        case (i, Line) :: z           => Chunk.lineToStr(i) #:: cheat(i, z)
-        case (i, d @ LazyDoc(_)) :: z => loop(pos, (i, d.evaluated) :: z)
-        case (i, Union(a, _)) :: z    =>
+        case Nil                    => LazyList.empty
+        case _, Empty :: z          => loop(pos, z)
+        case i, FlatAlt(a, _) :: z  => loop(pos, (i, a) :: z)
+        case i, Concat(a, b) :: z   => loop(pos, (i, a) :: (i, b) :: z)
+        case i, Nest(j, d) :: z     => loop(pos, ((i + j), d) :: z)
+        case _, Align(d) :: z       => loop(pos, (pos, d) :: z)
+        case _, Text(s) :: z        => s #:: cheat(pos + s.length, z)
+        case _, ZeroWidth(s) :: z   => s #:: cheat(pos, z)
+        case i, Line :: z           => Chunk.lineToStr(i) #:: cheat(i, z)
+        case i, d @ LazyDoc(_) :: z => loop(pos, (i, d.evaluated) :: z)
+        case i, Union(a, _) :: z    =>
           /*
            * if we are infinitely wide, a always fits
            */
@@ -614,17 +614,17 @@ sealed abstract class Doc extends Product with Serializable {
     @tailrec
     def loop(pos: Int, lst: List[(Int, Doc)], max: Int): Int =
       lst match {
-        case Nil                           => math.max(max, pos)
-        case (_, Empty) :: z               => loop(pos, z, max)
-        case (i, FlatAlt(default, _)) :: z => loop(pos, (i, default) :: z, max)
-        case (i, Concat(a, b)) :: z        => loop(pos, (i, a) :: (i, b) :: z, max)
-        case (i, Nest(j, d)) :: z          => loop(pos, ((i + j), d) :: z, max)
-        case (_, Align(d)) :: z            => loop(pos, (pos, d) :: z, max)
-        case (_, Text(s)) :: z             => loop(pos + s.length, z, max)
-        case (_, ZeroWidth(_)) :: z        => loop(pos, z, max)
-        case (i, Line) :: z                => loop(i, z, math.max(max, pos))
-        case (i, d @ LazyDoc(_)) :: z      => loop(pos, (i, d.evaluated) :: z, max)
-        case (i, Union(a, _)) :: z         =>
+        case Nil                         => math.max(max, pos)
+        case _, Empty :: z               => loop(pos, z, max)
+        case i, FlatAlt(default, _) :: z => loop(pos, (i, default) :: z, max)
+        case i, Concat(a, b) :: z        => loop(pos, (i, a) :: (i, b) :: z, max)
+        case i, Nest(j, d) :: z          => loop(pos, ((i + j), d) :: z, max)
+        case _, Align(d) :: z            => loop(pos, (pos, d) :: z, max)
+        case _, Text(s) :: z             => loop(pos + s.length, z, max)
+        case _, ZeroWidth(_) :: z        => loop(pos, z, max)
+        case i, Line :: z                => loop(i, z, math.max(max, pos))
+        case i, d @ LazyDoc(_) :: z      => loop(pos, (i, d.evaluated) :: z, max)
+        case i, Union(a, _) :: z         =>
           // we always go left, take the widest branch
           loop(pos, (i, a) :: z, max)
       }
@@ -851,7 +851,7 @@ object Doc {
    * Build a document from a single character.
    */
   def char(c: Char): Doc =
-    if ((' ' <= c) && (c <= '~')) charTable(c.toInt - 32)
+    if (' ' <= c && c <= '~') charTable(c.toInt - 32)
     else if (c == '\n') line
     else Text(new String(Array(c)))
 
@@ -884,7 +884,7 @@ object Doc {
     if (str == "") Empty
     else if (str.length == 1) {
       val c = str.charAt(0)
-      if ((' ' <= c) && (c <= '~')) charTable(c.toInt - 32)
+      if (' ' <= c && c <= '~') charTable(c.toInt - 32)
       else if (c == '\n') line
       else Text(str)
     } else if (str.indexOf('\n') < 0) Text(str)

@@ -54,13 +54,13 @@ object Json {
   case class JArray(toVector: Vector[Json]) extends Json {
     def toDoc = {
       val parts = Doc.intercalate(Doc.comma, toVector.map(j => (Doc.line + j.toDoc).grouped))
-      "[" +: ((parts :+ " ]").nested(2))
+      "[" +: (parts :+ " ]").nested(2)
     }
   }
   case class JObject(toMap: Map[String, Json]) extends Json {
     def toDoc = {
       val kvs = toMap.map { case (s, j) =>
-        JString(s).toDoc + text(":") + ((Doc.lineOrSpace + j.toDoc).nested(2))
+        JString(s).toDoc + text(":") + (Doc.lineOrSpace + j.toDoc).nested(2)
       }
       val parts = Doc.fill(Doc.comma, kvs)
       parts.bracketBy(text("{"), text("}"))

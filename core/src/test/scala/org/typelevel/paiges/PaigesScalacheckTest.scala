@@ -57,7 +57,7 @@ class PaigesScalacheckTest extends OurFunSuite {
   }
 
   test("concat is associative") {
-    forAll((a: Doc, b: Doc, c: Doc) => assertEq(((a + b) + c), (a + (b + c))))
+    forAll((a: Doc, b: Doc, c: Doc) => assertEq((a + b + c), (a + (b + c))))
   }
 
   test("line is associative") {
@@ -78,7 +78,7 @@ class PaigesScalacheckTest extends OurFunSuite {
   test("writeTo works") {
     import java.io._
     forAll { (doc: Doc, w: Int) =>
-      val baos = new ByteArrayOutputStream()
+      val baos = new ByteArrayOutputStream
       val pw = new PrintWriter(baos)
       doc.writeTo(w, pw)
       pw.close()
@@ -91,7 +91,7 @@ class PaigesScalacheckTest extends OurFunSuite {
   test("writeToTrim works") {
     import java.io._
     forAll { (doc: Doc, w: Int) =>
-      val baos = new ByteArrayOutputStream()
+      val baos = new ByteArrayOutputStream
       val pw = new PrintWriter(baos)
       doc.writeToTrim(w, pw)
       pw.close()
@@ -337,10 +337,10 @@ class PaigesScalacheckTest extends OurFunSuite {
     val smallTree = Gen.choose(0, 3).flatMap(genTree(_, withFill = true))
     val smallInt = Gen.choose(0, 3)
 
-    forAll(smallTree, smallInt, smallInt)((d: Doc, a: Int, b: Int) => assertEq(((d * a) * b), (d * (a * b))))
+    forAll(smallTree, smallInt, smallInt)((d: Doc, a: Int, b: Int) => assertEq((d * a * b), (d * (a * b))))
   }
   test("text(s) * n == s * n for identifiers") {
-    forAll(Gen.identifier, Gen.choose(0, 20))((s, n) => assert((Doc.text(s) * n).render(0) == (s * n)))
+    forAll(Gen.identifier, Gen.choose(0, 20))((s, n) => assert((Doc.text(s) * n).render(0) == s * n))
   }
 
   test("render(w) == renderStream(w).mkString") {
@@ -350,7 +350,7 @@ class PaigesScalacheckTest extends OurFunSuite {
   test("renderWide == render(maxWidth)") {
     forAll { (d: Doc) =>
       val max = d.maxWidth
-      assertDoc(d)(d => (d.renderWideStream.mkString == d.render(max)))
+      assertDoc(d)(d => d.renderWideStream.mkString == d.render(max))
     }
   }
 
@@ -486,22 +486,22 @@ class PaigesScalacheckTest extends OurFunSuite {
   }
 
   test("styles are associative under ++") {
-    forAll((a: Style, b: Style, c: Style) => assert(((a ++ b) ++ c) == (a ++ (b ++ c))))
+    forAll((a: Style, b: Style, c: Style) => assert(a ++ b ++ c == a ++ (b ++ c)))
   }
 
   test("styles have an Empty identity under ++") {
     forAll { (a: Style) =>
-      assert((a ++ Style.Empty) == a)
-      assert((Style.Empty ++ a) == a)
+      assert(a ++ Style.Empty == a)
+      assert(Style.Empty ++ a == a)
     }
   }
 
   test("rhs wins for style fg") {
-    forAll(genFg, genFg)((a, b) => assert((a ++ b) == b))
+    forAll(genFg, genFg)((a, b) => assert(a ++ b == b))
   }
 
   test("rhs wins for style bg") {
-    forAll(genBg, genBg)((a, b) => assert((a ++ b) == b))
+    forAll(genBg, genBg)((a, b) => assert(a ++ b == b))
   }
 
   test("unzero is idempotent") {
