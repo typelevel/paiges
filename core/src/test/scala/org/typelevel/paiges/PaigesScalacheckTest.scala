@@ -57,7 +57,7 @@ class PaigesScalacheckTest extends OurFunSuite {
   }
 
   test("concat is associative") {
-    forAll((a: Doc, b: Doc, c: Doc) => assertEq(((a + b) + c), (a + (b + c))))
+    forAll((a: Doc, b: Doc, c: Doc) => assertEq((a + b) + c, a + (b + c)))
   }
 
   test("line is associative") {
@@ -103,8 +103,8 @@ class PaigesScalacheckTest extends OurFunSuite {
 
   test("empty does not change things") {
     forAll { (a: Doc) =>
-      assertEq((a + Doc.empty), a)
-      assertEq((Doc.empty + a), a)
+      assertEq(a + Doc.empty, a)
+      assertEq(Doc.empty + a, a)
     }
   }
 
@@ -324,7 +324,7 @@ class PaigesScalacheckTest extends OurFunSuite {
     def simple(n: Int, d: Doc, acc: Doc): Doc =
       if (n <= 0) acc else simple(n - 1, d, acc + d)
 
-    forAll(smallTree, smallInt)((d: Doc, small: Int) => assertEq(simple(small, d, Doc.empty), (d * small)))
+    forAll(smallTree, smallInt)((d: Doc, small: Int) => assertEq(simple(small, d, Doc.empty), d * small))
   }
   test("(d * a) * b == d * (a * b)") {
 
@@ -337,7 +337,7 @@ class PaigesScalacheckTest extends OurFunSuite {
     val smallTree = Gen.choose(0, 3).flatMap(genTree(_, withFill = true))
     val smallInt = Gen.choose(0, 3)
 
-    forAll(smallTree, smallInt, smallInt)((d: Doc, a: Int, b: Int) => assertEq(((d * a) * b), (d * (a * b))))
+    forAll(smallTree, smallInt, smallInt)((d: Doc, a: Int, b: Int) => assertEq((d * a) * b, d * (a * b)))
   }
   test("text(s) * n == s * n for identifiers") {
     forAll(Gen.identifier, Gen.choose(0, 20))((s, n) => assert((Doc.text(s) * n).render(0) == (s * n)))
@@ -350,7 +350,7 @@ class PaigesScalacheckTest extends OurFunSuite {
   test("renderWide == render(maxWidth)") {
     forAll { (d: Doc) =>
       val max = d.maxWidth
-      assertDoc(d)(d => (d.renderWideStream.mkString == d.render(max)))
+      assertDoc(d)(d => d.renderWideStream.mkString == d.render(max))
     }
   }
 
@@ -362,7 +362,7 @@ class PaigesScalacheckTest extends OurFunSuite {
     }
 
     // here is a hard case:
-    assertEq((Doc.char('a') + Doc.char('\n')), Doc.text("a\n"))
+    assertEq(Doc.char('a') + Doc.char('\n'), Doc.text("a\n"))
   }
 
   test("fill matches spec") {
