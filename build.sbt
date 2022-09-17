@@ -1,4 +1,4 @@
-val Scala212 = "2.12.16"
+val Scala212 = "2.12.17"
 val Scala213 = "2.13.8"
 val Scala3Version = "3.1.0"
 
@@ -83,8 +83,8 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform, NativePlatform)
     name := "paiges-cats",
     moduleName := "paiges-cats",
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core" % "2.7.0",
-      "org.typelevel" %%% "cats-laws" % "2.7.0" % Test,
+      "org.typelevel" %%% "cats-core" % "2.8.0",
+      "org.typelevel" %%% "cats-laws" % "2.8.0" % Test,
       "org.typelevel" %%% "discipline-scalatest" % "2.1.5" % Test
     )
   )
