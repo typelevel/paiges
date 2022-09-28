@@ -1,5 +1,5 @@
 val Scala212 = "2.12.17"
-val Scala213 = "2.13.8"
+val Scala213 = "2.13.9"
 val Scala3Version = "3.1.0"
 
 ThisBuild / tlBaseVersion := "0.4"
@@ -15,7 +15,7 @@ ThisBuild / githubWorkflowAddedJobs +=
   WorkflowJob(
     id = "coverage",
     name = "Generate coverage report",
-    scalas = List("2.13.8"),
+    scalas = List("2.13.9"),
     steps = List(WorkflowStep.Checkout) ++ WorkflowStep.SetupJava(
       githubWorkflowJavaVersions.value.toList
     ) ++ githubWorkflowGeneratedCacheSteps.value ++ List(
@@ -60,7 +60,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
     moduleName := "paiges-core",
     libraryDependencies ++= Seq(
       "org.scalatestplus" %%% "scalacheck-1-15" % "3.2.11.0" % Test,
-      "org.scalatest" %%% "scalatest-funsuite" % "3.2.12" % Test
+      "org.scalatest" %%% "scalatest-funsuite" % "3.2.13" % Test
     ),
     // TODO: 2.13 has warnings for using Stream, but scalacheck Shrink
     tlFatalWarningsInCi := scalaVersion.value.startsWith("2.12.")
@@ -85,7 +85,7 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform, NativePlatform)
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core" % "2.8.0",
       "org.typelevel" %%% "cats-laws" % "2.8.0" % Test,
-      "org.typelevel" %%% "discipline-scalatest" % "2.1.5" % Test
+      "org.typelevel" %%% "discipline-scalatest" % "2.2.0" % Test
     )
   )
   .disablePlugins(JmhPlugin)
