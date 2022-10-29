@@ -46,7 +46,15 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
       "org.scalatest" %%% "scalatest-funsuite" % "3.2.14" % Test
     ),
     // TODO: 2.13 has warnings for using Stream, but scalacheck Shrink
-    tlFatalWarningsInCi := scalaVersion.value.startsWith("2.12.")
+    tlFatalWarningsInCi := scalaVersion.value.startsWith("2.12."),
+    mimaBinaryIssueFilters ++= {
+      if (tlIsScala3.value) {
+        import com.typesafe.tools.mima.core._
+        Seq(
+          ProblemFilters.exclude[IncompatibleMethTypeProblem]("org.typelevel.paiges.Chunk*")
+        )
+      } else Nil
+    }
   )
   .disablePlugins(JmhPlugin)
   .jsSettings(commonJsSettings)
