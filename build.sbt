@@ -1,5 +1,5 @@
 val Scala212 = "2.12.17"
-val Scala213 = "2.13.9"
+val Scala213 = "2.13.10"
 val Scala3Version = "3.2.0"
 
 ThisBuild / tlBaseVersion := "0.4"
@@ -13,7 +13,7 @@ ThisBuild / githubWorkflowAddedJobs +=
   WorkflowJob(
     id = "coverage",
     name = "Generate coverage report",
-    scalas = List("2.13.9"),
+    scalas = List("2.13.10"),
     steps = List(WorkflowStep.Checkout) ++ WorkflowStep.SetupJava(
       githubWorkflowJavaVersions.value.toList
     ) ++ githubWorkflowGeneratedCacheSteps.value ++ List(
@@ -74,8 +74,8 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform, NativePlatform)
     name := "paiges-cats",
     moduleName := "paiges-cats",
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core" % "2.8.0",
-      "org.typelevel" %%% "cats-laws" % "2.8.0" % Test,
+      "org.typelevel" %%% "cats-core" % "2.9.0",
+      "org.typelevel" %%% "cats-laws" % "2.9.0" % Test,
       "org.typelevel" %%% "discipline-scalatest" % "2.2.0" % Test
     )
   )
