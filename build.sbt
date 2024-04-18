@@ -1,4 +1,4 @@
-val Scala212 = "2.12.18"
+val Scala212 = "2.12.19"
 val Scala213 = "2.13.12"
 val Scala3Version = "3.3.0"
 
@@ -43,7 +43,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
     moduleName := "paiges-core",
     libraryDependencies ++= Seq(
       "org.scalatestplus" %%% "scalacheck-1-16" % "3.2.14.0" % Test,
-      "org.scalatest" %%% "scalatest-funsuite" % "3.2.17" % Test
+      "org.scalatest" %%% "scalatest-funsuite" % "3.2.18" % Test
     ),
     // TODO: 2.13 has warnings for using Stream, but scalacheck Shrink
     tlFatalWarningsInCi := scalaVersion.value.startsWith("2.12."),
