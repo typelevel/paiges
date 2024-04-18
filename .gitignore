@@ -21,5 +21,11 @@ docs/_site
 *.sublime-project
 *.sublime-workspace
 
+# VSCode
+/.vscode/
+
+# Metals
+/.bsp/
+
 # emacs
 TAGS
