@@ -1,5 +1,5 @@
 val Scala212 = "2.12.19"
-val Scala213 = "2.13.12"
+val Scala213 = "2.13.14"
 val Scala3Version = "3.3.0"
 
 ThisBuild / tlBaseVersion := "0.4"
@@ -13,7 +13,7 @@ ThisBuild / githubWorkflowAddedJobs +=
   WorkflowJob(
     id = "coverage",
     name = "Generate coverage report",
-    scalas = List("2.13.12"),
+    scalas = List("2.13.14"),
     steps = List(WorkflowStep.Checkout) ++ WorkflowStep.SetupJava(
       githubWorkflowJavaVersions.value.toList
     ) ++ githubWorkflowGeneratedCacheSteps.value ++ List(
