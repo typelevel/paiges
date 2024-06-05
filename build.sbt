@@ -131,6 +131,6 @@ lazy val commonJsSettings = Seq(
 
 lazy val commonNativeSettings = Seq(
   // Remove when native is published for the default previous versions
-  tlVersionIntroduced := List("2.12", "2.13").map(_ -> "0.4.1").toMap + ("3" -> "0.4.3"),
+  tlVersionIntroduced := List("2.12", "2.13", "3").map(_ -> "0.5.0").toMap,
   coverageEnabled := false
 )
