@@ -42,7 +42,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
     name := "paiges-core",
     moduleName := "paiges-core",
     libraryDependencies ++= Seq(
-      "org.scalatestplus" %%% "scalacheck-1-16" % "3.2.14.0" % Test,
+      "org.scalatestplus" %%% "scalacheck-1-18" % "3.2.18.0" % Test,
       "org.scalatest" %%% "scalatest-funsuite" % "3.2.18" % Test
     ),
     // TODO: 2.13 has warnings for using Stream, but scalacheck Shrink
@@ -74,9 +74,9 @@ lazy val cats = crossProject(JSPlatform, JVMPlatform, NativePlatform)
     name := "paiges-cats",
     moduleName := "paiges-cats",
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core" % "2.10.0",
-      "org.typelevel" %%% "cats-laws" % "2.10.0" % Test,
-      "org.typelevel" %%% "discipline-scalatest" % "2.2.0" % Test
+      "org.typelevel" %%% "cats-core" % "2.12.0",
+      "org.typelevel" %%% "cats-laws" % "2.12.0" % Test,
+      "org.typelevel" %%% "discipline-scalatest" % "2.3.0" % Test
     )
   )
   .disablePlugins(JmhPlugin)
@@ -131,6 +131,6 @@ lazy val commonJsSettings = Seq(
 
 lazy val commonNativeSettings = Seq(
   // Remove when native is published for the default previous versions
-  tlVersionIntroduced := List("2.12", "2.13").map(_ -> "0.4.1").toMap + ("3" -> "0.4.3"),
+  tlVersionIntroduced := List("2.12", "2.13", "3").map(_ -> "0.5.0").toMap,
   coverageEnabled := false
 )
