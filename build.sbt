@@ -1,9 +1,10 @@
 val Scala212 = "2.12.19"
-val Scala213 = "2.13.12"
-val Scala3Version = "3.3.0"
+val Scala213 = "2.13.14"
+val Scala3Version = "3.3.3"
 
 ThisBuild / tlBaseVersion := "0.4"
 
+ThisBuild / startYear := Some(2017)
 ThisBuild / scalaVersion := Scala213
 ThisBuild / tlVersionIntroduced := Map("3" -> "0.4.2")
 ThisBuild / crossScalaVersions := Seq(Scala213, Scala212, Scala3Version)
@@ -46,12 +47,13 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
       "org.scalatest" %%% "scalatest-funsuite" % "3.2.18" % Test
     ),
     // TODO: 2.13 has warnings for using Stream, but scalacheck Shrink
-    tlFatalWarningsInCi := scalaVersion.value.startsWith("2.12."),
+    tlFatalWarnings := scalaVersion.value.startsWith("2.12."),
     mimaBinaryIssueFilters ++= {
       if (tlIsScala3.value) {
         import com.typesafe.tools.mima.core._
         Seq(
-          ProblemFilters.exclude[IncompatibleMethTypeProblem]("org.typelevel.paiges.Chunk*")
+          ProblemFilters.exclude[IncompatibleMethTypeProblem]("org.typelevel.paiges.Chunk*"),
+          ProblemFilters.exclude[DirectMissingMethodProblem]("org.typelevel.paiges.Chunk#ChunkStream#3#Empty.this")
         )
       } else Nil
     }
