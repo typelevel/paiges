@@ -12,7 +12,7 @@ paragraph wrapping). See the [documentation site](http://typelevel.org/paiges/) 
 The name *Paiges* is a reference to the [Paige compositor](https://en.wikipedia.org/wiki/Paige_Compositor)
 and the fact that it helps you layout pages.
 
-[![Build Status](https://api.travis-ci.org/typelevel/paiges.svg)](https://travis-ci.org/typelevel/paiges)
+![CI](https://github.com/typelevel/paiges/actions/workflows/ci.yml/badge.svg)
 [![codecov.io](http://codecov.io/github/typelevel/paiges/coverage.svg?branch=master)](http://codecov.io/github/typelevel/paiges?branch=master)
 [![Latest version](https://index.scala-lang.org/typelevel/paiges/paiges-core/latest.svg?color=orange)](https://index.scala-lang.org/typelevel/paiges/paiges-core)
 
