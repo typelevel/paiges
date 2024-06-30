@@ -43,7 +43,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
     name := "paiges-core",
     moduleName := "paiges-core",
     libraryDependencies ++= Seq(
-      "org.scalatestplus" %%% "scalacheck-1-18" % "3.2.18.0" % Test,
+      "org.scalatestplus" %%% "scalacheck-1-18" % "3.2.19.0" % Test,
       "org.scalatest" %%% "scalatest-funsuite" % "3.2.19" % Test
     ),
     // TODO: 2.13 has warnings for using Stream, but scalacheck Shrink
