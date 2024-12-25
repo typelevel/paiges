@@ -573,7 +573,7 @@ class PaigesScalacheckTest extends OurFunSuite {
       assert(r1 == r2)
 
       def maxLineLen(str: String): Int =
-        str.split("\n").map(_.length).maxOption.getOrElse(0)
+        str.split("\n").foldLeft(0)((acc, line) => math.max(acc, line.length))
 
       // hard lines can't be combined
       assert(maxLineLen(r1) >= maxLineLen(r3))
@@ -588,6 +588,12 @@ class PaigesScalacheckTest extends OurFunSuite {
       val hlStr = Doc.textWithLine(str, Doc.hardLine).flatten.renderWideStream.mkString
 
       assert(hasLine == (tStr != hlStr))
+    }
+  }
+
+  test("Doc.textWithLine(\"\\n\", d) eq d") {
+    forAll { (doc: Doc) =>
+      assert(Doc.textWithLine("\n", doc) eq doc)
     }
   }
 }
