@@ -558,4 +558,36 @@ class PaigesScalacheckTest extends OurFunSuite {
   test("Doc.defer(x).representation(true) = x.representation(true)") {
     forAll((x: Doc) => assertEq(Doc.defer(x).representation(true), x.representation(true)))
   }
+
+  test("textWithLine with hardLine has lines <= textWithLine") {
+    forAll { (str: String, i0: Int) =>
+      // make a number between 0 and 199
+      val width = (i0 & 0x7fffffff) % 200
+      val str0 = Doc.text(str).flatten
+      val str1 = Doc.textWithLine(str, Doc.line).flatten
+      val str2 = Doc.textWithLine(str, Doc.hardLine).flatten
+
+      val r1 = str0.render(width)
+      val r2 = str1.render(width)
+      val r3 = str2.render(width)
+      assert(r1 == r2)
+
+      def maxLineLen(str: String): Int =
+        str.split("\n").map(_.length).maxOption.getOrElse(0)
+
+      // hard lines can't be combined
+      assert(maxLineLen(r1) >= maxLineLen(r3))
+    }
+  }
+
+  test("textWithLine is different from text when there is a line and we render wide") {
+    forAll { (str: String) =>
+      val hasLine = str.exists(_ == '\n')
+
+      val tStr = Doc.text(str).flatten.renderWideStream.mkString
+      val hlStr = Doc.textWithLine(str, Doc.hardLine).flatten.renderWideStream.mkString
+      
+      assert(hasLine == (tStr != hlStr))
+    }
+  }
 }
