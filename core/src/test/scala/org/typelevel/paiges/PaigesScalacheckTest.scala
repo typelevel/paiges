@@ -586,7 +586,7 @@ class PaigesScalacheckTest extends OurFunSuite {
 
       val tStr = Doc.text(str).flatten.renderWideStream.mkString
       val hlStr = Doc.textWithLine(str, Doc.hardLine).flatten.renderWideStream.mkString
-      
+
       assert(hasLine == (tStr != hlStr))
     }
   }
