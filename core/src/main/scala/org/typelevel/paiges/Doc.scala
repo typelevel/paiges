@@ -863,11 +863,11 @@ object Doc {
   /**
    * Convert a string to text.
    *
-   * This method translates newlines into an appropriate document
-   * representation. The result may be much more complex than a single
-   * `Text(_)` node.
+   * This method translates newlines into the given
+   * Doc, which should represent a new line and may be
+   * Doc.line, Doc.hardLine, Doc.lineOrSpace
    */
-  def text(str: String): Doc = {
+  def textWithLine(str: String, line: Doc): Doc = {
     def tx(i: Int, j: Int): Doc =
       if (i == j) Empty else Text(str.substring(i, j))
 
@@ -881,15 +881,24 @@ object Doc {
           case _    => parse(i - 1, limit, doc)
         }
 
-    if (str == "") Empty
-    else if (str.length == 1) {
+    val len = str.length
+
+    if (len == 0) Empty
+    else if (len == 1) {
       val c = str.charAt(0)
       if ((' ' <= c) && (c <= '~')) charTable(c.toInt - 32)
       else if (c == '\n') line
       else Text(str)
     } else if (str.indexOf('\n') < 0) Text(str)
-    else parse(str.length - 1, str.length, Empty)
+    else parse(len - 1, len, Empty)
   }
+
+  /**
+   * Convert a string to text.
+   *
+   * This method translates newlines into Doc.line (which can be flattened).
+   */
+  def text(str: String): Doc = textWithLine(str, line)
 
   /**
    * Convert an arbitrary value to a Doc, using `toString`.
