@@ -57,23 +57,24 @@ object Generators {
 
   val genFg: Gen[Style] = {
     import Style.Ansi.Fg._
-    val ansi = Gen.oneOf(Black,
-                         Red,
-                         Green,
-                         Yellow,
-                         Blue,
-                         Magenta,
-                         Cyan,
-                         White,
-                         Default,
-                         BrightBlack,
-                         BrightRed,
-                         BrightGreen,
-                         BrightYellow,
-                         BrightBlue,
-                         BrightMagenta,
-                         BrightCyan,
-                         BrightWhite
+    val ansi = Gen.oneOf(
+      Black,
+      Red,
+      Green,
+      Yellow,
+      Blue,
+      Magenta,
+      Cyan,
+      White,
+      Default,
+      BrightBlack,
+      BrightRed,
+      BrightGreen,
+      BrightYellow,
+      BrightBlue,
+      BrightMagenta,
+      BrightCyan,
+      BrightWhite
     )
     val gc = Gen.choose(-1, 6)
     val xterm = Gen.oneOf(
@@ -86,23 +87,24 @@ object Generators {
 
   val genBg: Gen[Style] = {
     import Style.Ansi.Bg._
-    Gen.oneOf(Black,
-              Red,
-              Green,
-              Yellow,
-              Blue,
-              Magenta,
-              Cyan,
-              White,
-              Default,
-              BrightBlack,
-              BrightRed,
-              BrightGreen,
-              BrightYellow,
-              BrightBlue,
-              BrightMagenta,
-              BrightCyan,
-              BrightWhite
+    Gen.oneOf(
+      Black,
+      Red,
+      Green,
+      Yellow,
+      Blue,
+      Magenta,
+      Cyan,
+      White,
+      Default,
+      BrightBlack,
+      BrightRed,
+      BrightGreen,
+      BrightYellow,
+      BrightBlue,
+      BrightMagenta,
+      BrightCyan,
+      BrightWhite
     )
   }
 
