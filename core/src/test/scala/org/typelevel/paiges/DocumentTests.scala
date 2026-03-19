@@ -86,4 +86,9 @@ class DocumentTest extends AnyFunSuite {
     assert(("a".doc + "b".doc).render(80) == "ab")
     assert(1.doc.space("is").space(true.doc).render(80) == "1 is true")
   }
+
+  test("Style.Empty") {
+    assert(text("foo").style(Style.Empty).render(80).nonEmpty)
+  }
+
 }
