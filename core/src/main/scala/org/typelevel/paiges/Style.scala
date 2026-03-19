@@ -43,6 +43,8 @@ sealed abstract class Style extends Serializable { lhs =>
 
 object Style {
 
+  private val Reset: String = genCodes("0" :: Nil)
+
   /**
    * Represents neutral styling.
    *
@@ -59,8 +61,6 @@ object Style {
       if (fg.isEmpty && bg.isEmpty && sg.isEmpty) Reset
       else genCodes(fg.toList ::: bg.toList ::: sg.toList)
   }
-
-  private val Reset: String = genCodes("0" :: Nil)
 
   /**
    * These escapes should be valid (although possibly not rendered) on
