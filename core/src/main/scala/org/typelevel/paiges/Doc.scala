@@ -243,7 +243,7 @@ sealed abstract class Doc extends Product with Serializable {
             case d1 :: tail => loop(d1, tail)
             case Nil        => true
           }
-        case FlatAlt(a, b) => loop(a, b :: stack)
+        case FlatAlt(a, b)   => loop(a, b :: stack)
         case Concat(_, Line) =>
           false // minor optimization to short circuit sooner
         case Concat(a, Text(s)) =>
@@ -1012,7 +1012,7 @@ object Doc {
       }
 
     ds.toList match {
-      case Nil => empty
+      case Nil     => empty
       case x :: ys =>
         val (xf, xb) = x.flattenBoolean
         // if we don't change, the original doc is the same as flatten
