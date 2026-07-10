@@ -53,7 +53,7 @@ object PaigesTest {
     @tailrec
     def loop(stack: List[Doc]): Boolean =
       stack match {
-        case Nil => false
+        case Nil       => false
         case h :: tail =>
           h match {
             case Line                           => true
@@ -89,7 +89,7 @@ object PaigesTest {
   def slowRenderTrim(d: Doc, width: Int): String = {
     val parts = d.render(width).split("\n", -1).toList
     parts match {
-      case Nil => sys.error("unreachable")
+      case Nil   => sys.error("unreachable")
       case other =>
         other
           .map(str => str.reverse.dropWhile(_ == ' ').reverse)
@@ -103,7 +103,7 @@ object PaigesTest {
       case Empty | Text(_) | ZeroWidth(_) | Line => true
       case FlatAlt(a, _)                         => twoRightAssociated(a)
       case Concat(Concat(Concat(_, _), _), _)    => false
-      case Concat(a, b) =>
+      case Concat(a, b)                          =>
         twoRightAssociated(a) && twoRightAssociated(b)
       case Union(a, _)    => twoRightAssociated(a)
       case f @ LazyDoc(_) => twoRightAssociated(f.evaluated)
@@ -116,8 +116,8 @@ object PaigesTest {
   def fillSpec(sep: Doc, ds: List[Doc]): Doc = {
     import Doc._
     ds match {
-      case Nil      => empty
-      case x :: Nil => x.grouped
+      case Nil          => empty
+      case x :: Nil     => x.grouped
       case x :: y :: zs =>
         Union(x.flatten + (sep.flatten + defer(fillSpec(sep, y.flatten :: zs))),
               x + (sep + defer(fillSpec(sep, y :: zs)))
