@@ -386,7 +386,7 @@ class PaigesScalacheckTest extends OurFunSuite {
     def law(d: Doc): Boolean =
       d match {
         case Empty | Text(_) | ZeroWidth(_) | Line => true
-        case FlatAlt(a, b) =>
+        case FlatAlt(a, b)                         =>
           a.maxWidth <= b.maxWidth
         case Concat(a, b) =>
           law(a) && law(b)
@@ -405,7 +405,7 @@ class PaigesScalacheckTest extends OurFunSuite {
     def law(d: Doc): Boolean =
       d match {
         case Empty | Text(_) | ZeroWidth(_) | Line => true
-        case FlatAlt(a, b) =>
+        case FlatAlt(a, b)                         =>
           a !== b
         case Concat(a, b) =>
           law(a) && law(b)
@@ -425,7 +425,7 @@ class PaigesScalacheckTest extends OurFunSuite {
       d match {
         case Empty | Text(_) | ZeroWidth(_) | Line => true
         case FlatAlt(a, b)                         => !isLeft && law(a, isLeft) && law(b, isLeft)
-        case Concat(a, b) =>
+        case Concat(a, b)                          =>
           law(a, isLeft) && law(b, isLeft)
         case Union(a, b) =>
           // we only care about the first parent of a FlatAlt node;
