@@ -66,7 +66,7 @@ private[paiges] object Chunk {
       def hasNext: Boolean = current != ChunkStream.Empty || lineCombiner.nonEmpty
       def next(): String =
         current match {
-          case ChunkStream.Empty => lineCombiner.finalLine()
+          case ChunkStream.Empty      => lineCombiner.finalLine()
           case item: ChunkStream.Item =>
             current = item.step
             lineCombiner.addItem(item).getOrElse(next())
@@ -105,7 +105,7 @@ private[paiges] object Chunk {
     def fits(pos: Int, d: ChunkStream): Boolean =
       (nonNegW >= pos) && {
         d match {
-          case ChunkStream.Empty => true
+          case ChunkStream.Empty      => true
           case item: ChunkStream.Item =>
             item.isLine || fits(item.position, item.step)
         }
